@@ -17,7 +17,6 @@ import pandas as pd
 from scipy.interpolate import NearestNDInterpolator
 from astroquery.mast import Catalogs
 from astroquery.mast.tesscut import Tesscut
-from astropy.io import fits
 from astropy.coordinates import SkyCoord, Distance
 from astropy import units as u
 import lightkurve as lk
@@ -31,7 +30,8 @@ from chronos.utils import (
     get_toi,
     get_target_coord,
     get_target_coord_3d,
-    query_gaia_params_of_all_tois,
+    get_absolute_gmag,
+    get_absolute_color_index,
     get_mamajek_table,
 )
 
@@ -100,7 +100,9 @@ class Target:
         self.dec = dec_deg
         # self.distance = None
         if np.any([self.toiid, self.ticid]):
-            self.toi_params = get_toi(toi=self.toiid, tic=self.ticid, verbose=False)
+            self.toi_params = get_toi(
+                toi=self.toiid, tic=self.ticid, verbose=False
+            )
         if (self.ticid is None) and (self.toiid is not None):
             self.ticid = int(self.toi_params["TIC ID"].values[0])
         self.target_coord = get_target_coord(
@@ -128,7 +130,9 @@ class Target:
         df = self.ccd_info
         if self.sector:
             sector = self.sector
-            sector_idx = df["sector"][df["sector"].isin([self.sector])].index.tolist()
+            sector_idx = df["sector"][
+                df["sector"].isin([self.sector])
+            ].index.tolist()
             if len(sector_idx) == 0:
                 raise ValueError(f"Available sector(s): {all_sectors}")
             cam = str(df.iloc[sector_idx]["camera"].values[0])
@@ -140,7 +144,7 @@ class Target:
             ccd = str(df.iloc[sector_idx]["ccd"])
         return sector, cam, ccd
 
-    def estimate_Av(self, map='sfd'):
+    def estimate_Av(self, map="sfd"):
         """
         compute the extinction Av from color index E(B-V)
         estimated from dustmaps via Av=reddening*E(B-V)
@@ -153,23 +157,25 @@ class Target:
         try:
             import dustmaps
         except ImportError:
-            print('pip install dustmaps')
+            print("pip install dustmaps")
 
-        if map=='sfd':
+        if map == "sfd":
             from dustmaps import sfd
-            #sfd.fetch()
+
+            # sfd.fetch()
             dust_map = sfd.SFDQuery()
             constant = 2.742
-        elif map=='planck':
+        elif map == "planck":
             from dustmaps import planck
-            #planck.fetch()
+
+            # planck.fetch()
             dust_map = planck.PlanckQuery()
             constant = 3.1
         else:
-            raise ValueError(f'Available maps: (sfd,planck)')
+            raise ValueError(f"Available maps: (sfd,planck)")
 
         ebv = dust_map(self.target_coord)
-        Av = constant*ebv
+        Av = constant * ebv
         return Av
 
     def query_gaia_dr2_catalog(self, radius=None, return_nearest_xmatch=False):
@@ -213,25 +219,33 @@ class Target:
             self.target_coord, radius=radius, catalog="Gaia", version=2
         ).to_pandas()
         # check if results from DR2 (epoch 2015.5)
-        assert np.all(tab["ref_epoch"].isin([2015.5])), "Epoch not 2015 (version<2?)"
+        assert np.all(
+            tab["ref_epoch"].isin([2015.5])
+        ), "Epoch not 2015 (version<2?)"
         assert len(tab) > 0, f"use radius>{radius}"
 
         if np.any(tab["parallax"] < 0):
             # use positive parallaxes only
             # tab = tab[tab["parallax"]> 0] #this drops NaN too
-            tab = tab[(tab['parallax'] >= 0) | (tab['parallax'].isnull())]
+            tab = tab[(tab["parallax"] >= 0) | (tab["parallax"].isnull())]
         """
         check parallax error here and apply corresponding distance calculation: see Note 1
         """
 
         if self.gaiaid is not None:
             errmsg = "Catalog does not contain target gaia id."
-            assert np.any(tab["source_id"].astype(int).isin([self.gaiaid])), errmsg
+            assert np.any(
+                tab["source_id"].astype(int).isin([self.gaiaid])
+            ), errmsg
 
         # add gaia distance to target_coord
         # FIXME: https://docs.astropy.org/en/stable/coordinates/transforming.html
         gcoords = SkyCoord(
-            ra=tab["ra"], dec=tab["dec"], unit="deg", frame="icrs", obstime="J2015.5"
+            ra=tab["ra"],
+            dec=tab["dec"],
+            unit="deg",
+            frame="icrs",
+            obstime="J2015.5",
         )
         # precess coordinate from Gaia DR2 epoch to J2000
         gcoords = gcoords.transform_to("icrs")
@@ -243,10 +257,12 @@ class Target:
             idx = self.target_coord.separation(gcoords).argmin()
         star = tab.loc[idx]
         # get distance from parallax
-        target_dist = Distance(parallax=star['parallax']*u.mas)
+        target_dist = Distance(parallax=star["parallax"] * u.mas)
         # redefine skycoord with coord and distance
         target_coord = SkyCoord(
-            ra=self.target_coord.ra, dec=self.target_coord.dec, distance=target_dist
+            ra=self.target_coord.ra,
+            dec=self.target_coord.dec,
+            distance=target_dist,
         )
         self.target_coord = target_coord
 
@@ -264,10 +280,20 @@ class Target:
 
     def get_nearby_gaia_sources(self, radius=10):
         d = self.gaia_params.copy()
-        assert len(d)>0, "run query_gaia_dr2_catalog(radius)"
-        d['distance']=d['distance'].apply(lambda x: x*u.arcmin.to(u.arcsec))
-        d['delta_Gmag']=d['phot_g_mean_mag']-d.iloc[0]['phot_g_mean_mag']
-        d[['source_id','distance','parallax','phot_g_mean_mag','delta_Gmag']]
+        assert len(d) > 0, "run query_gaia_dr2_catalog(radius)"
+        d["distance"] = d["distance"].apply(
+            lambda x: x * u.arcmin.to(u.arcsec)
+        )
+        d["delta_Gmag"] = d["phot_g_mean_mag"] - d.iloc[0]["phot_g_mean_mag"]
+        d[
+            [
+                "source_id",
+                "distance",
+                "parallax",
+                "phot_g_mean_mag",
+                "delta_Gmag",
+            ]
+        ]
         return d
 
     def query_tic_catalog(self, radius=None, return_nearest_xmatch=False):
@@ -335,14 +361,20 @@ class Target:
                     str(cluster_name).lower() != "nan"
                 ), "Cluster name in catalog is nan"
                 self.nearest_cluster_name = cluster_name
-                self.nearest_cluster_members = df.loc[df.Cluster == cluster_name]
+                self.nearest_cluster_members = df.loc[
+                    df.Cluster == cluster_name
+                ]
 
                 if self.verbose and np.any(idx):
-                    print(f"Target is in {self.nearest_cluster_name} ({catalog_name})!")
+                    print(
+                        f"Target is in {self.nearest_cluster_name} ({catalog_name})!"
+                    )
                 return df.loc[idx]
             else:
                 errmsg = "Supply id via Target(gaiaDR2id=id)"
-                errmsg += "or `query_gaia_dr2_catalog(return_nearest_xmatch=True)`"
+                errmsg += (
+                    "or `query_gaia_dr2_catalog(return_nearest_xmatch=True)`"
+                )
                 raise ValueError(errmsg)
         else:
             # return closest member
@@ -364,13 +396,21 @@ class Target:
             cluster_name = nearest_star.Cluster
             self.nearest_cluster_name = cluster_name
             if df is None:
-                df = Cluster(cluster_name, verbose=False).query_cluster_members()
+                df = Cluster(
+                    cluster_name, verbose=False
+                ).query_cluster_members()
             # make sure only one cluster
             idx = df.Cluster == cluster_name
             self.nearest_cluster_members = df.loc[idx]
         return nearest_star
 
-    def get_spec_type(self, columns='Teff B-V J-H H-Ks'.split(), nsamples=int(1e4), return_samples=False, clobber=False):
+    def get_spec_type(
+        self,
+        columns="Teff B-V J-H H-Ks".split(),
+        nsamples=int(1e4),
+        return_samples=False,
+        clobber=False,
+    ):
         """
         Interpolate spectral type from Mamajek table from
         http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
@@ -393,47 +433,74 @@ class Target:
         It may be good to check which color index yields most accurate result
         """
         df = get_mamajek_table(clobber=clobber, verbose=self.verbose)
-        points = df[columns].values
         if self.gaia_params is None:
-            self.gaia_params = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+            self.gaia_params = self.query_gaia_dr2_catalog(
+                return_nearest_xmatch=True
+            )
         if self.tic_params is None:
-            self.tic_params = self.query_tic_catalog(return_nearest_xmatch=True)
+            self.tic_params = self.query_tic_catalog(
+                return_nearest_xmatch=True
+            )
 
-        #effective temperature
-        col = 'teff'
-        teff = self.gaia_params[f'{col}_val']
-        siglo = self.gaia_params[f'{col}_val']-self.gaia_params[f'{col}_percentile_lower']
-        sighi = self.gaia_params[f'{col}_percentile_upper']-self.gaia_params[f'{col}_val']
-        uteff = np.sqrt(sighi**2+siglo**2)
-        s_teff = teff + np.random.randn(nsamples) * uteff #Monte Carlo samples
+        # effective temperature
+        col = "teff"
+        teff = self.gaia_params[f"{col}_val"]
+        siglo = (
+            self.gaia_params[f"{col}_val"]
+            - self.gaia_params[f"{col}_percentile_lower"]
+        )
+        sighi = (
+            self.gaia_params[f"{col}_percentile_upper"]
+            - self.gaia_params[f"{col}_val"]
+        )
+        uteff = np.sqrt(sighi ** 2 + siglo ** 2)
+        s_teff = (
+            teff + np.random.randn(nsamples) * uteff
+        )  # Monte Carlo samples
 
-        #B-V color index
-        bv_color = self.tic_params['Bmag']-self.tic_params['Vmag']
-        ubv_color = self.tic_params['e_Bmag']+self.tic_params['e_Vmag'] #uncertainties add
-        s_bv_color = bv_color + np.random.randn(nsamples) * ubv_color #Monte Carlo samples
+        # B-V color index
+        bv_color = self.tic_params["Bmag"] - self.tic_params["Vmag"]
+        ubv_color = (
+            self.tic_params["e_Bmag"] + self.tic_params["e_Vmag"]
+        )  # uncertainties add
+        s_bv_color = (
+            bv_color + np.random.randn(nsamples) * ubv_color
+        )  # Monte Carlo samples
 
-        #J-H color index
-        jh_color = self.tic_params['Jmag']-self.tic_params['Hmag']
-        ujh_color = self.tic_params['e_Jmag']+self.tic_params['e_Hmag'] #uncertainties add
-        s_jh_color = jh_color + np.random.randn(nsamples) * ujh_color #Monte Carlo samples
+        # J-H color index
+        jh_color = self.tic_params["Jmag"] - self.tic_params["Hmag"]
+        ujh_color = (
+            self.tic_params["e_Jmag"] + self.tic_params["e_Hmag"]
+        )  # uncertainties add
+        s_jh_color = (
+            jh_color + np.random.randn(nsamples) * ujh_color
+        )  # Monte Carlo samples
 
-        #H-K color index
-        hk_color = self.tic_params['Hmag']-self.tic_params['Kmag']
-        uhk_color = self.tic_params['e_Hmag']+self.tic_params['e_Kmag'] #uncertainties add
-        s_hk_color = hk_color + np.random.randn(nsamples) * uhk_color #Monte Carlo samples
+        # H-K color index
+        hk_color = self.tic_params["Hmag"] - self.tic_params["Kmag"]
+        uhk_color = (
+            self.tic_params["e_Hmag"] + self.tic_params["e_Kmag"]
+        )  # uncertainties add
+        s_hk_color = (
+            hk_color + np.random.randn(nsamples) * uhk_color
+        )  # Monte Carlo samples
 
-        #Interpolate
-        interp = NearestNDInterpolator(df[columns].values, df['#SpT'].values, rescale=False)
+        # Interpolate
+        interp = NearestNDInterpolator(
+            df[columns].values, df["#SpT"].values, rescale=False
+        )
         samples = interp(s_teff, s_bv_color, s_jh_color, s_hk_color)
-        #encode category
-        spt_cats = pd.Series(samples, dtype="category")#.cat.codes
+        # encode category
+        spt_cats = pd.Series(samples, dtype="category")  # .cat.codes
         spt = spt_cats.mode().values[0]
         if return_samples:
             return spt, samples
         else:
             return spt
 
-    def make_custom_lc(self, sector=None, cutout_size=(50, 50), mask_threshold=3, pca_nterms=5):
+    def make_custom_ffi_lc(
+        self, sector=None, cutout_size=(50, 50), mask_threshold=3, pca_nterms=5
+    ):
         """
         create a custom lightcurve based on this tutorial:
         https://docs.lightkurve.org/tutorials/04-how-to-remove-tess-scattered-light-using-regressioncorrector.html
@@ -454,24 +521,36 @@ class Target:
         if sector is None:
             all_sectors = self.get_all_sectors()
             sector = all_sectors[0]
-            print(f'Available sectors: {all_sectors}')
-            print(f'sector {sector} is used.\n')
-        if (self.tesscut_tpf is None) & (self.tesscut_tpf.sector!=sector):
-            tpf = lk.search_tesscut(self.target_coord, sector=sector).download(cutout_size=cutout_size)
-            self.tesscut_tpf = tpf
+            print(f"Available sectors: {all_sectors}")
+            print(f"sector {sector} is used.\n")
+        if self.tesscut_tpf is not None:
+            if self.tesscut_tpf.sector == sector:
+                tpf = self.tesscut_tpf
         else:
-            tpf = self.tesscut_tpf
-        #remove zeros
-        zero_mask = (tpf.flux_err == 0).all(axis=(1,2))
-        if zero_mask.sum()>0:
+            tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
+                cutout_size=cutout_size
+            )
+            self.tesscut_tpf = tpf
+
+        # remove zeros
+        zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
+        if zero_mask.sum() > 0:
             tpf = tpf[~zero_mask]
         # Make an aperture mask and a raw light curve
         aper = tpf.create_threshold_mask(threshold=mask_threshold)
-        raw_lc, outlier_mask = tpf.to_lightcurve(aperture_mask=aper).remove_outliers(return_mask=True)
+        raw_lc, outlier_mask = tpf.to_lightcurve(
+            aperture_mask=aper
+        ).remove_outliers(return_mask=True)
         lc = raw_lc.normalize()
 
         # Make a design matrix and pass it to a linear regression corrector
-        dm = lk.DesignMatrix(tpf.flux[:, ~aper][~outlier_mask], name='regressors').pca(nterms=pca_nterms).append_constant()
+        dm = (
+            lk.DesignMatrix(
+                tpf.flux[:, ~aper][~outlier_mask], name="regressors"
+            )
+            .pca(nterms=pca_nterms)
+            .append_constant()
+        )
         rc = lk.RegressionCorrector(lc)
         corrected_lc = rc.correct(dm)
 
@@ -479,8 +558,11 @@ class Target:
         corrected_lc = lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
         return corrected_lc
 
+
 class ClusterCatalog:
-    def __init__(self, catalog_name="Bouma2019", verbose=True, data_loc=DATA_PATH):
+    def __init__(
+        self, catalog_name="Bouma2019", verbose=True, data_loc=DATA_PATH
+    ):
         """Initialize the catalog
 
         Attributes
@@ -533,14 +615,18 @@ class ClusterCatalog:
                 return df
         elif self.catalog_name == "Dias2014":
             if return_members:
-                raise ValueError("No individual cluster members in Dias catalog")
+                raise ValueError(
+                    "No individual cluster members in Dias catalog"
+                )
             else:
                 df = self.get_clusters_Dias2002_2015()
                 self.all_clusters = df
                 return df
         elif self.catalog_name == "Bossini2019":
             if return_members:
-                raise ValueError("No individual cluster members in Bossini age catalog")
+                raise ValueError(
+                    "No individual cluster members in Bossini age catalog"
+                )
             else:
                 df = self.get_clusters_Bossini2019()
                 self.all_clusters = df
@@ -572,14 +658,16 @@ class ClusterCatalog:
         Bouma et al. 2019:
         https://ui.adsabs.harvard.edu/abs/2019arXiv191001133B/abstract
         """
-        fp = join(self.data_loc, "TablesBouma2019/OC_MG_FINAL_v0.3_publishable.csv")
+        fp = join(
+            self.data_loc, "TablesBouma2019/OC_MG_FINAL_v0.3_publishable.csv"
+        )
         df = pd.read_csv(fp, header=0, sep=";")
         df = df.rename(
             columns={"cluster": "clusters", "unique_cluster_name": "Cluster"}
         )
         if np.any(df["parallax"] > 0):
             # df = df[df["parallax"] > 0] #this drops NaNs too
-            df = df[(df['parallax'] >= 0) | (df['parallax'].isnull())]
+            df = df[(df["parallax"] >= 0) | (df["parallax"].isnull())]
             if self.verbose:
                 print(f"Some parallaxes are negative in {self.catalog_name}!")
                 print("These are removed for the meantime.")
@@ -598,8 +686,10 @@ class ClusterCatalog:
         )
         # compute absolute G magnitude
         df["distance"] = icrs.distance
-        df["bp_rp"] = df["phot_bp_mean_mag"] - df["phot_rp_mean_mag"]
-        df["abs_gmag"] = df["phot_g_mean_mag"] - 5.0 * (np.log10(df["distance"])) - 1
+        # compute absolute Gmag
+        # df["abs_gmag"] = get_absolute_gmag(df["phot_g_mean_mag"], df["distance"], df["a_g_val"])
+        # compute intrinsic color index
+        # df["bp_rp0"] = get_absolute_color_index(df["a_g_val"], df["phot_bp_mean_mag"], df["phot_rp_mean_mag"])
         # df['abs_gmag'].unit = u.mag
         return df
 
@@ -623,7 +713,10 @@ class ClusterCatalog:
         """Cantat-Gaudin et al. 2018:
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/618/A93
         """
-        fp = join(self.data_loc, "TablesCantatGaudin2018/Table1_1229_open_clusters.tsv")
+        fp = join(
+            self.data_loc,
+            "TablesCantatGaudin2018/Table1_1229_open_clusters.tsv",
+        )
         df = pd.read_csv(fp, delimiter="\t", comment="#")
         # remove spaces
         df.Cluster = df.Cluster.apply(lambda x: x.strip())
@@ -665,7 +758,9 @@ class ClusterCatalog:
         """Babusiaux, Gaia Collaboration et al. 2018, Table 2:
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/616/A10
         """
-        fp = join(self.data_loc, "TablesGaiaDR2HRDpaper/Table2_32 open clusters.csv")
+        fp = join(
+            self.data_loc, "TablesGaiaDR2HRDpaper/Table2_32 open clusters.csv"
+        )
         df = pd.read_csv(fp, delimiter=",", comment="#")
         df["distance"] = Distance(distmod=df["DM"]).pc
         df["Cluster"] = df.Cluster.apply(lambda x: x.replace(" ", "_"))
@@ -826,7 +921,10 @@ class ClusterCatalog:
         """Dias et al. 2004-2015; compiled until 2016:
         https://ui.adsabs.harvard.edu/abs/2014yCat....102022D/abstract
         """
-        fp = join(self.data_loc, "TablesDias2014/2167_open_clusters_and_candidates.tsv")
+        fp = join(
+            self.data_loc,
+            "TablesDias2014/2167_open_clusters_and_candidates.tsv",
+        )
         df = pd.read_csv(fp, delimiter="\t", comment="#")
         coords = SkyCoord(
             ra=df["RAJ2000"].values,
@@ -869,7 +967,9 @@ class ClusterCatalog:
         df["distance"] = Distance(distmod=df["Dist"]).pc
         # add underscore in cluster name (Bouma19 convention)
         regex = re.compile("([a-zA-Z]+)([0-9]+)")  # str and number separator
-        df["Cluster"] = df.Cluster.apply(lambda x: "_".join(regex.match(x).groups()))
+        df["Cluster"] = df.Cluster.apply(
+            lambda x: "_".join(regex.match(x).groups())
+        )
         # df[["Cluster", "log10_age", "distance"]].sort_values(by="log10_age")
         # rename columns
         df = df.rename(
@@ -914,9 +1014,15 @@ class ClusterCatalog:
 
 class Cluster(ClusterCatalog):
     def __init__(
-        self, cluster_name, catalog_name="Bouma2019", data_loc=DATA_PATH, verbose=True
+        self,
+        cluster_name,
+        catalog_name="Bouma2019",
+        data_loc=DATA_PATH,
+        verbose=True,
     ):
-        super().__init__(catalog_name=catalog_name, data_loc=data_loc, verbose=verbose)
+        super().__init__(
+            catalog_name=catalog_name, data_loc=data_loc, verbose=verbose
+        )
         self.all_members = self.query_catalog(return_members=True)
         self.cluster_name = cluster_name
         self.cluster_members = None
@@ -924,7 +1030,9 @@ class Cluster(ClusterCatalog):
         self.verbose = verbose
         # self.cluster_summary = None
         errmsg = f"{self.cluster_name} is not found in {self.catalog_name}"
-        assert np.any(self.all_members.Cluster.isin([self.cluster_name])), errmsg
+        assert np.any(
+            self.all_members.Cluster.isin([self.cluster_name])
+        ), errmsg
 
     def query_cluster_members(self):
         idx = self.all_members.Cluster.isin([self.cluster_name])
@@ -986,7 +1094,9 @@ class Cluster(ClusterCatalog):
                 )
             for gaiaid in tqdm(gaiaids):
                 try:
-                    errmsg = f"multiple cluster names found: {df.Cluster.unique()}"
+                    errmsg = (
+                        f"multiple cluster names found: {df.Cluster.unique()}"
+                    )
                     assert np.all(df.Cluster.isin([self.cluster_name])), errmsg
                     # query gaia to populate target parameters including its distance
                     t = Target(gaiaDR2id=gaiaid, verbose=self.verbose)

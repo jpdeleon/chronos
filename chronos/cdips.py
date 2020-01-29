@@ -27,6 +27,7 @@ __all__ = ["CDIPS", "get_cdips_inventory", "get_url_in_cdips_inventory"]
 CDIPS_SECTORS = [6, 7, 8, 9, 10, 11]
 CDIPS_APER_PIX = [1, 1.5, 2.25]
 
+
 class CDIPS(Target):
     """
     The primary header contains information about the target star, including the
@@ -92,7 +93,11 @@ class CDIPS(Target):
         self.lctype = lctype
         self.lctypes = ["flux", "mag", "tfa", "pca"]
         self.aper_idx = str(aper_idx)
-        assert self.aper_idx in ["1", "2", "3"], "CDIPS has only 3 aperture indices"
+        assert self.aper_idx in [
+            "1",
+            "2",
+            "3",
+        ], "CDIPS has only 3 aperture indices"
         self.header0 = None  # target header
         self.catalog_ref = None  # references
         self.catalog_gaiaids = None  # gaia id(s) in catalog_ref
@@ -105,7 +110,7 @@ class CDIPS(Target):
             time=time,
             flux=flux,
             flux_err=err,
-            #FIXME: using bjd throws error when using lc.to_periodogram()
+            # FIXME: using bjd throws error when using lc.to_periodogram()
             time_format="bjd",  # TIMEUNIT in fits header
             time_scale="tdb",  # TIMESYS in fits header
             centroid_col=None,

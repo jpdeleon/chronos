@@ -14,9 +14,9 @@ import os
 # Import from module
 import numpy as np
 import pandas as pd
-import lightkurve as lk
 from astropy import units as u
-from astropy.io import ascii
+
+# from astropy.io import ascii
 from astropy.coordinates import SkyCoord, Distance, Galactocentric
 from astroquery.gaia import Gaia
 from tqdm import tqdm
@@ -36,31 +36,56 @@ __all__ = [
     "get_transformed_coord",
     "query_gaia_params_of_all_tois",
     "get_mamajek_table",
+    "get_distance",
+    "get_extinction_ratio",
+    "get_absolute_color_index",
 ]
+
+# Ax/Av
+extinction_ratios = {
+    "U": 1.531,
+    "B": 1.324,
+    "V": 1.0,
+    "R": 0.748,
+    "I": 0.482,
+    "J": 0.282,
+    "H": 0.175,
+    "K": 0.112,
+    "G": 0.85926,
+    "Bp": 1.06794,
+    "Rp": 0.65199,
+}
+
 
 def get_mamajek_table(clobber=False, verbose=True, data_loc=DATA_PATH):
     fp = join(data_loc, f"mamajek_table.csv")
     if not exists(fp) or clobber:
-        url = 'http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt'
-        #cols="SpT Teff logT BCv Mv logL B-V Bt-Vt G-V U-B V-Rc V-Ic V-Ks J-H H-Ks Ks-W1 W1-W2 W1-W3 W1-W4 Msun logAge b-y M_J M_Ks Mbol i-z z-Y R_Rsun".split(' ')
-        df = pd.read_csv(url, skiprows=21, skipfooter=524, delim_whitespace=True, engine='python')
+        url = "http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt"
+        # cols="SpT Teff logT BCv Mv logL B-V Bt-Vt G-V U-B V-Rc V-Ic V-Ks J-H H-Ks Ks-W1 W1-W2 W1-W3 W1-W4 Msun logAge b-y M_J M_Ks Mbol i-z z-Y R_Rsun".split(' ')
+        df = pd.read_csv(
+            url,
+            skiprows=21,
+            skipfooter=524,
+            delim_whitespace=True,
+            engine="python",
+        )
         # tab = ascii.read(url, guess=None, data_start=0, data_end=124)
         # df = tab.to_pandas()
-        #replace ... with NaN
-        df = df.replace(['...','....','.....'], np.nan)
-        #replace header
-        #df.columns = cols
-        #drop last duplicate column
+        # replace ... with NaN
+        df = df.replace(["...", "....", "....."], np.nan)
+        # replace header
+        # df.columns = cols
+        # drop last duplicate column
         df = df.drop(df.columns[-1], axis=1)
         # df['#SpT_num'] = range(df.shape[0])
         # df['#SpT'] = df['#SpT'].astype('category')
 
-        #remove the : type in M_J column
-        df['M_J'] = df['M_J'].apply(lambda x: str(x).split(':')[0])
-        #convert columns to float
+        # remove the : type in M_J column
+        df["M_J"] = df["M_J"].apply(lambda x: str(x).split(":")[0])
+        # convert columns to float
         for col in df.columns:
-            if col=='#SpT':
-                df[col] = df[col].astype('category')
+            if col == "#SpT":
+                df[col] = df[col].astype("category")
             else:
                 df[col] = df[col].astype(float)
             # if col=='SpT':
@@ -68,18 +93,71 @@ def get_mamajek_table(clobber=False, verbose=True, data_loc=DATA_PATH):
             # else:
             #     df[col] = df[col].astype(float)
         df.to_csv(fp, index=False)
-        print(f'Saved: {fp}')
+        print(f"Saved: {fp}")
     else:
         df = pd.read_csv(fp)
         if verbose:
-            print(f'Loaded: {fp}')
+            print(f"Loaded: {fp}")
     return df
 
-def get_distance(m, M, Av):
+
+def get_absolute_gmag(gmag, distance, a_g):
+    """
+    gmag : float
+        apparent G band magnitude
+    distance : float
+        distance in pc
+    a_g : float
+        extinction in the G-band
+    """
+    Gmag = gmag - 5.0 * np.log10(distance) + 5.0 - a_g
+    return Gmag
+
+
+def get_extinction_ratio(A_g, color="bp_rp"):
+    """
+    Compute extinction ratio A_Bp/A_Rp or excess E(BP-RP)
+    using coefficients from Malhan, Ibata & Martin (2018a)
+    and extinction in G-band A_g
+
+    Compare the result to 'e_bp_min_rp_val' column in gaia table
+    which is the estimate of redenning E[BP-RP] from Apsis-Priam.
+    """
+    # ratio of A_X/A_V
+    if color == "bp_rp":
+        # E(Bp-Rp)
+        Ag_Av = extinction_ratios["G"]
+        Ab_Av = extinction_ratios["Bp"]
+        Ar_Av = extinction_ratios["Rp"]
+        Ab_Ar = (A_g / Ag_Av) * (Ab_Av - Ar_Av)  # ratio
+    else:
+        raise NotImplementedError
+    return Ab_Ar
+
+
+def get_absolute_color_index(A_g, bmag, rmag):
+    """
+    Deredden the Gaia Bp-Rp color using Bp-Rp extinction ratio (==Bp-Rp excess)
+
+    E(Bp-Rp) = A_Bp/A_Rp = (Bp-Rp)_obs - (Bp-Rp)_abs
+    --> (Bp-Rp)_abs = (Bp-Rp)_obs - E(Bp-Rp)
+
+    Note that 'bmag-rmag' is same as bp_rp column in gaia table
+    """
+    # A_Bp/A_Rp = E(BP-RP)
+    ABp_ARp_ratio = get_extinction_ratio(A_g)
+    bp_rp = bmag - rmag  # color index
+    # (Bp-Rp)_abs = (Bp-Rp)_obs - E(Bp-Rp)
+    Bp_Rp = bp_rp - ABp_ARp_ratio
+    return Bp_Rp
+
+
+def get_distance(m, M, Av=0):
     """
     calculate distance [in pc] from extinction-corrected magnitude
-    using the equation: 10**(0.2*(m-M+5-Av))
+    using the equation: 10**((m-M+5-Av)/5)
 
+    Note: m-M=5*log10(d/10)+Av
     see http://astronomy.swin.edu.au/cosmos/I/Interstellar+Reddening
 
     Parameters
@@ -88,8 +166,21 @@ def get_distance(m, M, Av):
     M : absolute magnitude
     Av : extinction (in V band)
     """
-    distance = 10**(0.2*(m-M+5-Av))
+    distance = 10 ** (0.2 * (m - M + 5 - Av))
     return distance
+
+
+def estimate_temperature(bmag, vmag):
+    """
+    calculate blackbody temperature using the Ballesteros formula; Eq. 14 in
+    https://arxiv.org/pdf/1201.1809.pdf
+    """
+    teff = 4600 * (
+        (1 / (0.92 * (bmag - vmag) + 1.7))
+        + (1 / (0.92 * (bmag - vmag) + 0.62))
+    )
+    return teff
+
 
 def get_tois(
     clobber=True,
@@ -114,9 +205,7 @@ def get_tois(
     d : pandas.DataFrame
         TOI table as dataframe
     """
-    dl_link = (
-        "https://exofop.ipac.caltech.edu/tess/download_toi.php?sort=toi&output=csv"
-    )
+    dl_link = "https://exofop.ipac.caltech.edu/tess/download_toi.php?sort=toi&output=csv"
     fp = join(outdir, "TOIs.csv")
     if not exists(outdir):
         os.makedirs(outdir)
@@ -141,7 +230,9 @@ def get_tois(
             ]
             keys = []
             for key in planet_keys:
-                idx = ~np.array(d["Comments"].str.contains(key).tolist(), dtype=bool)
+                idx = ~np.array(
+                    d["Comments"].str.contains(key).tolist(), dtype=bool
+                )
                 d = d[idx]
                 if idx.sum() > 0:
                     keys.append(key)
@@ -259,7 +350,7 @@ def get_target_coord_3d(target_coord, verbose=False):
     idx = target_coord.separation(gcoords).argmin()
     star = g.loc[idx]
     # get distance from parallax
-    target_dist = Distance(parallax=star["parallax"] * u.mas)
+    target_dist = Distance(parallax=star["parallax"].values * u.mas)
     # redefine skycoord with coord and distance
     target_coord = SkyCoord(
         ra=target_coord.ra, dec=target_coord.dec, distance=target_dist
@@ -308,7 +399,6 @@ def get_transformed_coord(df, frame="galactocentric", verbose=True):
             print("For proper treatment, see:")
             print("https://arxiv.org/pdf/1804.09366.pdf\n")
 
-
     icrs = SkyCoord(
         ra=df["ra"].values * u.deg,
         dec=df["dec"].values * u.deg,
@@ -344,25 +434,9 @@ def get_transformed_coord(df, frame="galactocentric", verbose=True):
     return df
 
 
-def compare_pdc_sap(toiid):
-    toi = get_toi(toi=toiid, verbose=False)
-    period = toi["Period (days)"].values[0]
-    t0 = toi["Epoch (BJD)"].values[0]
-    tic = toi["TIC ID"].values[0]
-
-    lcf = lk.search_lightcurvefile(f"TIC {tic}", mission="TESS").download()
-    if lcf is not None:
-        sap = lcf.SAP_FLUX.normalize()
-        pdcsap = lcf.PDCSAP_FLUX.normalize()
-
-        ax = sap.bin(11).fold(period=period, t0=t0).scatter(label="SAP")
-        ax = pdcsap.bin(11).fold(period=period, t0=t0).scatter(ax=ax, label="PDCSAP")
-        # ax.set_xlim(-0.1,0.1)
-        ax.set_title(f"TOI {toiid}")
-    return lcf, ax
-
-
-def query_gaia_params_of_all_tois(fp=None, verbose=True, clobber=False, update=True):
+def query_gaia_params_of_all_tois(
+    fp=None, verbose=True, clobber=False, update=True
+):
     """
     """
     if fp is None:
@@ -398,7 +472,9 @@ def query_gaia_params_of_all_tois(fp=None, verbose=True, clobber=False, update=T
                 try:
                     t = search.Target(toiid=toi, verbose=verbose)
                     # query gaia dr2 catalog to get gaia id
-                    df_gaia = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+                    df_gaia = t.query_gaia_dr2_catalog(
+                        return_nearest_xmatch=True
+                    )
                     # update
                     toi_gaia_params.update({toi: df_gaia})
                 except Exception as e:
