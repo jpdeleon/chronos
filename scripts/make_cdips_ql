@@ -1,0 +1,96 @@
+#!/usr/bin/env python
+"""
+Find the nearest cluster to target and optionally show cluster membership plots
+"""
+from os.path import join, exists
+from os import makedirs
+from argparse import ArgumentParser
+
+import numpy as np
+import matplotlib.pyplot as pl
+from chronos import CDIPS
+from wotan import flatten
+from transitleastsquares import transitleastsquares
+
+fontsize = 18
+
+if __name__ == "__main__":
+    ap = ArgumentParser()
+    ap.add_argument("gaiaid", type=int, help="target Gaia DR2 id")
+    ap.add_argument("-c", "--clobber", action="store_true", default=False)
+    ap.add_argument(
+        "-s", "--savefig", action="store_true", default=False, help="save figures"
+    )
+    ap.add_argument("--sector", type=int, default=None, help="TESS sector")
+    ap.add_argument("-o", "--outdir", type=str, default=".", help="output directory")
+    ap.add_argument("-p", "--show-plot", action="store_true", default=False)
+    args = ap.parse_args()
+    fp = join(args.outdir, f"gaia{args.gaiaid}_cdips_ql.png")
+    if not exists(fp) or args.clobber:
+        if not exists(args.outdir):
+            makedirs(args.outdir)
+
+        cdips = CDIPS(
+            gaiaDR2id=args.gaiaid,
+            sector=args.sector,
+            lctype="flux",
+            aper_idx=3,
+            verbose=False,
+        )
+        lc = cdips.lc.remove_outliers()
+
+        flat_lc, trend_lc = flatten(
+            lc.time,  # Array of time values
+            lc.flux,  # Array of flux values
+            method="gp",
+            kernel="periodic_auto",  # GP kernel choice
+            kernel_size=10,  # GP kernel length
+            break_tolerance=0.5,  # Split into segments at breaks longer than that
+            return_trend=True,  # Return trend and flattened light curve
+        )
+
+        tls = transitleastsquares(lc.time, flat_lc)
+        res = tls.power()
+        missing = res["empty_transit_count"] / res["transit_count"]
+
+        # if (res["SDE"] > 20) and (missing < 0.5):
+        fig, ax = pl.subplots(4, 1, figsize=(15, 12), constrained_layout=True)
+
+        n = 0
+        ax[n].plot(lc.time, lc.flux, ".")
+        ax[n].plot(lc.time, trend_lc, "-")
+        ax[n].set_xlabel("Time", fontsize=fontsize)
+        ax[n].set_ylabel("Flux", fontsize=fontsize)
+        n = 1
+        ax[n].plot(res["periods"], res["power"])
+        ax[n].axvline(res["period"], 0, 1, c="k")
+        ax[n].set_xlabel("Periods", fontsize=fontsize)
+        ax[n].set_ylabel("Power", fontsize=fontsize)
+        n = 2
+        ax[n].plot(lc.time, flat_lc, ".")
+        ax[n].set_xlabel("Time", fontsize=fontsize)
+        ax[n].set_ylabel("Flux", fontsize=fontsize)
+        ax[n].axhline(res["depth_mean"][0], 0, 1, ls="--")
+        for t in res["transit_times"]:
+            ax[n].axvline(t, 0, 1, ls="--")
+            idx = lc.time == t
+            ax[n].plot(lc.time[idx], flat_lc[idx], "ro")
+        n = 3
+        ax[n].plot(res["folded_phase"], res["folded_y"], ".")
+        ax[n].plot(res["folded_phase"], res["model_folded_model"], lw=3)
+        ax[n].set_xlim(0.45, 0.55)
+        ax[n].set_xlabel("Phase", fontsize=fontsize)
+        ax[n].set_ylabel("Flux", fontsize=fontsize)
+        # ax[n].set_xlim(-res['duration']/2,res['duration']/2)
+
+        fig.suptitle(f"Gaia DR2 {args.gaiaid}", fontsize=fontsize)
+        if args.savefig:
+            fig.savefig(fp)
+            fp2 = f"{args.gaiaid}_tls.txt"
+            np.savetxt(res, fp2)
+            print(f"Saved:\n{fp}\n{fp2}")
+
+        if args.show_plot:
+            pl.show()
+        # else:
+        #     print(f"SDE={res['SDE']} and missing={missing}")

@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+"""
+Bouma19 catalog does not have radial_velocity.
+This script queries gaia DR2 catalog for each cluster members.
+"""
+from argparse import ArgumentParser
+
+from chronos.search import Cluster
+from chronos import DATA_PATH
+
+if __name__ == "__main__":
+    ap = ArgumentParser()
+    ap.add_argument("name", type=str, help="cluster name")
+    ap.add_argument("-v", "--verbose", action="store_true", default=False)
+    ap.add_argument(
+        "-c",
+        "--clobber",
+        action="store_true",
+        default=False,
+        help="download again gaia DR2 parameters for each cluster member",
+    )
+    ap.add_argument(
+        "-g",
+        "--gmag-cut",
+        type=float,
+        default=None,
+        help="apply Gmag cut; query for stars brighter than gmag-cut",
+    )
+    ap.add_argument(
+        "-r", "--radius", type=float, default=3, help="query radius in arcsec"
+    )
+    args = ap.parse_args()
+
+    c = Cluster(cluster_name=args.name, verbose=args.verbose)
+    df_mem = c.query_cluster_members()
+    df_mem_gaia_params = c.query_cluster_members_gaia_params(
+        df=df_mem, radius=args.radius, gmag_cut=args.gmag_cut, clobber=args.clobber
+    )
+    if args.verbose is False:
+        print(f"{c.cluster_name}_members.hdf5 loaded from {DATA_PATH}")
+    print(df_mem_gaia_params.shape)

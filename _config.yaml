@@ -1,0 +1,21 @@
+
+title: chronos
+description: package for working with CDIPS data
+baseurl: "/chronos" # the subpath of your site
+url: "https://jpdeleon.github.io" # the base hostname & protocol for your site
+
+permalink: pretty
+
+#show_downloads: true
+#google_analytics:
+remote_theme: pmarsceill/just-the-docs
+
+# Set a path/url to a logo that will be displayed instead of the title
+#logo: "/assets/X.png"
+
+# Aux links for the upper right navigation
+aux_links:
+  "chronos on GitHub":
+    - "//github.com/jpdeleon/chronos"
+    
+#See template at: https://github.com/pmarsceill/just-the-docs/blob/8bd2da55fe198935aa707de048ddb444418b3feb/_config.yml

@@ -1,0 +1,7 @@
+data/*hdf5 filter=lfs diff=lfs merge=lfs -text
+data/TablesGaiaDR2HRDpaper/ filter=lfs diff=lfs merge=lfs -text
+data/TablesDias2014/ filter=lfs diff=lfs merge=lfs -text
+data/TablesKarchenko2013/ filter=lfs diff=lfs merge=lfs -text
+data/TablesCantatGaudin2018/ filter=lfs diff=lfs merge=lfs -text
+data/TablesBouma2019/*.csv filter=lfs diff=lfs merge=lfs -text
+data/TablesBossini2019/ filter=lfs diff=lfs merge=lfs -text

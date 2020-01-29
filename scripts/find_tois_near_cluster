@@ -1,0 +1,176 @@
+#!/usr/bin/env python
+"""
+Find the nearest cluster to all tois
+"""
+from os.path import join
+from argparse import ArgumentParser
+
+import numpy as np
+from tqdm import tqdm
+import pandas as pd
+import astropy.units as u
+from astropy.coordinates import SkyCoord, Distance
+import matplotlib.pyplot as pl
+
+from chronos import ClusterCatalog
+from chronos.utils import get_tois, get_toi_coord_3d, get_target_coord_3d
+
+postol, pmtol = 5, 5
+
+
+def get_tois_near_cluster(
+    tois=None,
+    distance=None,
+    unit=u.pc,
+    clobber=False,
+    verbose=False,
+    remove_known_planets=False,
+):
+    """get TOI near cluster
+    """
+    if tois is None:
+        tois = get_tois(
+            clobber=clobber, verbose=verbose, remove_known_planets=remove_known_planets
+        )
+
+    toi_list = {}
+    for toi in tqdm(tois["TOI"].values):
+        target_coord = get_toi_coord_3d(toi)
+        if distance is not None:
+            cluster, sep = get_cluster_near_target(
+                target_coord, distance=distance, unit=unit
+            )
+            if len(np.concatenate([cluster, sep])) > 1:
+                toi_list[toi] = (cluster, sep)
+        else:
+            cluster, sep = get_cluster_near_target(target_coord)
+            if len(cluster) > 0:
+                toi_list[toi] = (cluster, sep.pc)
+        if verbose:
+            print(toi, cluster, sep)
+    df = pd.DataFrame(toi_list).T
+    df.columns = ["cluster", "distance"]
+    return df
+
+
+def get_cluster_near_target(
+    target_coord,
+    distance=None,
+    unit=u.pc,
+    sep_3d=True,
+    catalog="CantatGaudin2018",
+    verbose=False,
+):
+    """get nearest cluster to target within specified distance"""
+    if target_coord.distance.value == 1.0:
+        target_coord = get_target_coord_3d(target_coord, verbose=verbose)
+
+    if catalog == "CantatGaudin2018":
+        df = ClusterCatalog(catalog_name="CantatGaudin2018").query_catalog()
+    elif catalog == "Bouma2019":
+        df = ClusterCatalog(catalog_name="Bouma2019").query_catalog()
+
+    catalog_sep = compute_separation_from_clusters(target_coord, sep_3d=sep_3d)
+    if distance is not None:
+        idx = catalog_sep < distance * unit
+        cluster = df.Cluster.loc[idx].values
+    else:
+        idx = catalog_sep.argmin()
+        cluster = df.Cluster.iloc[idx]
+    sep = catalog_sep[idx]
+    # if verbose:
+    #     print('Nearest cluster to target: {} (d={:.2f})'.format(cluster[0], sep[0]))
+    return (cluster, sep)
+
+
+def compute_separation_from_clusters(target_coord, sep_3d=True, verbose=False):
+    """compute 3d separation between target and all known clusters"""
+    if target_coord.distance.value == 1.0:
+        target_coord = get_target_coord_3d(target_coord, verbose=verbose)
+
+    df = ClusterCatalog(catalog_name="CantatGaudin2018").query_catalog()
+    catalog = SkyCoord(
+        ra=df["RA"].values * u.deg,
+        dec=df["Dec"].values * u.deg,
+        distance=Distance(parallax=df["plx"].values * u.mas),
+        #                      pm_ra_cosdec=df0['pmRA'].values*u.mas/u.yr,
+        #                      pm_dec=df0['pmDE'].values*u.mas/u.yr
+    )
+
+    if sep_3d:
+        return catalog.separation_3d(target_coord)
+    else:
+        raise NotImplementedError
+
+
+if __name__ == "__main__":
+    ap = ArgumentParser()
+    ap.add_argument(
+        "--no-match-id",
+        help="do not match Gaia DR2 id",
+        action="store_false",
+        default=True,
+    )
+    ap.add_argument("--pmtol", help="proper motion difference tolerance", default=10)
+    ap.add_argument("--postol", help="position difference tolerance", default=10)
+    ap.add_argument("-v", "--verbose", action="store_true", default=True)
+    ap.add_argument("-c", "--clobber", action="store_true", default=True)
+    args = ap.parse_args()
+
+    tois = get_tois(clobber=False, verbose=False)
+
+    toi_near_cluster = get_tois_near_cluster().reset_index()
+    toi_near_cluster.columns = "TOI Cluster separation".split()
+    toi_cols = ["TOI", "PM RA (mas/yr)", "PM Dec (mas/yr)"]
+    toi_near_cluster = toi_near_cluster.merge(tois[toi_cols], on="TOI")
+
+    cc = ClusterCatalog(catalog_name="Bouma2019")
+    df0 = cc.query_catalog(verbose=False)
+
+    print(
+        "TOI\tCluster\t3d-separation\tdRA\tdDec\tdPlx\tdPMra\tdPMdec",
+        sep=" " * 4,
+        end="\n",
+    )
+    for toi, cname in toi_near_cluster.sort_values("separation")[
+        ["TOI", "Cluster"]
+    ].values:
+        try:
+            # cluster pm
+            ccols = ["Cluster", "ra", "dec", "parallax", "pmra", "pmdec"]
+            c, cra, cdec, cplx, cpmra, cpmdec = df0.loc[
+                df0.Cluster == cname, ccols
+            ].values[0]
+            # toi position
+            tra, tdec, tdist = tois.loc[
+                tois["TOI"] == toi, ["RA", "Dec", "Stellar Distance (pc)"]
+            ].values[0]
+            coord = SkyCoord(ra=tra, dec=tdec, unit=(u.hourangle, u.deg))
+            tra, tdec = coord.ra.deg, coord.dec.deg
+            # toi parallax
+            tplx = Distance(tdist * u.pc).parallax
+            # toi proper motion
+            t = toi_near_cluster.loc[toi_near_cluster.TOI == toi]
+
+            tcols = ["PM RA (mas/yr)", "PM Dec (mas/yr)"]
+            tpmra, tpmdec = t[tcols].values[0]
+            sep = t.separation.values[0]
+
+            dplx = tplx.mas - cplx
+            dra = tra - cra
+            ddec = tdec - cdec
+            dpmra = tpmra - cpmra
+            dpmdec = tpmdec - cpmdec
+            if (
+                (abs(dra) < postol)
+                & (abs(ddec) < postol)
+                & (abs(dpmra) < pmtol)
+                & (abs(dpmdec) < pmtol)
+            ):
+                print(
+                    "{} {}: sep={:.2f}\t{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}\t{:.3f}".format(
+                        toi, c, sep, dra, dplx, ddec, dpmra, dpmdec
+                    )
+                )
+        except Exception as e:
+            print(e)
