@@ -41,10 +41,12 @@ __all__ = [
 
 def plot_lomb_scargle(time, flux, flux_err, period, figsize=(8, 8)):
     """
+    Adapted from https://docs.astropy.org/en/stable/timeseries/lombscargle.html#the-lomb-scargle-model
+    Add also a waterfall diagram to show brightness evolution, as in Fig. 7 of David+2019a
     """
     frequency, power = LombScargle(time, flux, flux_err).autopower(
-        minimum_frequency=0.05,
-        # maximum_frequency=2.0
+        minimum_frequency=0.05,  # 20 days
+        # maximum_frequency=2.0 #0.5 day
     )
     best_frequency = frequency[np.argmax(power)]
     t_fit = np.linspace(0, 1)
@@ -277,6 +279,9 @@ def plot_xyz_uvw(
 
     U,V,W can be converted to Local Standard of Rest (LSR) by subtracting V = 238 km/s,
     the adopted rotation velocity at the position of the Sun from Marchetti et al. (2018).
+
+    See also https://arxiv.org/pdf/1707.00697.pdf which estimates Sun's
+    (U,V,W) = (9.03, 255.26, 7.001)
     """
     assert len(df) > 0, "df is empty"
     fig, axs = pl.subplots(2, 3, figsize=figsize, constrained_layout=True)
@@ -444,9 +449,9 @@ def plot_cmd(
             ax.legend(loc="best")
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
     ax.scatter(df["bp_rp0"], df["abs_gmag"], marker=".")
-    ax.set_xlabel(r"$G_{BP} - G_{RP}$", fontsize=16)
+    ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
     ax.invert_yaxis()
-    ax.set_ylabel(r"M$_{\mathrm{G}}$", fontsize=16)
+    ax.set_ylabel(r"$G$ [mag]", fontsize=16)
 
     text = len(df[["bp_rp0", "abs_gmag"]].dropna())
     ax.text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax.transAxes)

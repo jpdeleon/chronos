@@ -30,7 +30,6 @@ from chronos.utils import (
     get_toi,
     get_target_coord,
     get_target_coord_3d,
-    get_absolute_gmag,
     get_absolute_color_index,
     get_mamajek_table,
 )
@@ -62,6 +61,7 @@ class Target:
         dec_deg=None,
         search_radius=3 * u.arcsec,
         verbose=True,
+        clobber=False,
     ):
         self.toiid = toiid  # e.g. 837
         self.ticid = ticid  # e.g. 364107753
@@ -82,6 +82,7 @@ class Target:
         self.nearest_cluster_member = None
         self.nearest_cluster_members = None
         self.nearest_cluster_name = None
+        self.clobber = clobber
         self.verbose = verbose
 
         if name:
@@ -101,7 +102,10 @@ class Target:
         # self.distance = None
         if np.any([self.toiid, self.ticid]):
             self.toi_params = get_toi(
-                toi=self.toiid, tic=self.ticid, verbose=False
+                toi=self.toiid,
+                tic=self.ticid,
+                clobber=self.clobber,
+                verbose=False,
             )
         if (self.ticid is None) and (self.toiid is not None):
             self.ticid = int(self.toi_params["TIC ID"].values[0])

@@ -6,6 +6,7 @@ helper functions
 
 # Import standard library
 import logging
+from glob import glob
 
 # Import from standard package
 from os.path import join, exists
@@ -37,7 +38,7 @@ __all__ = [
     "query_gaia_params_of_all_tois",
     "get_mamajek_table",
     "get_distance",
-    "get_extinction_ratio",
+    "get_excess_from_extiction",
     "get_absolute_color_index",
 ]
 
@@ -114,9 +115,9 @@ def get_absolute_gmag(gmag, distance, a_g):
     return Gmag
 
 
-def get_extinction_ratio(A_g, color="bp_rp"):
+def get_excess_from_extiction(A_g, color="bp_rp"):
     """
-    Compute extinction ratio A_Bp/A_Rp or excess E(BP-RP)
+    Compute excess from difference in extinctions E(Bp-Rp) = A_Bp-A_Rp
     using coefficients from Malhan, Ibata & Martin (2018a)
     and extinction in G-band A_g
 
@@ -125,39 +126,39 @@ def get_extinction_ratio(A_g, color="bp_rp"):
     """
     # ratio of A_X/A_V
     if color == "bp_rp":
-        # E(Bp-Rp)
+        # E(Bp-Rp) = A_Bp-A_Rp
         Ag_Av = extinction_ratios["G"]
         Ab_Av = extinction_ratios["Bp"]
         Ar_Av = extinction_ratios["Rp"]
-        Ab_Ar = (A_g / Ag_Av) * (Ab_Av - Ar_Av)  # ratio
+        Ab_minus_Ar = (A_g / Ag_Av) * (Ab_Av - Ar_Av)  # difference
     else:
         raise NotImplementedError
-    return Ab_Ar
+    return Ab_minus_Ar
 
 
 def get_absolute_color_index(A_g, bmag, rmag):
     """
     Deredden the Gaia Bp-Rp color using Bp-Rp extinction ratio (==Bp-Rp excess)
 
-    E(Bp-Rp) = A_Bp/A_Rp = (Bp-Rp)_obs - (Bp-Rp)_abs
+    E(Bp-Rp) = A_Bp - A_Rp = (Bp-Rp)_obs - (Bp-Rp)_abs
     --> (Bp-Rp)_abs = (Bp-Rp)_obs - E(Bp-Rp)
 
     Note that 'bmag-rmag' is same as bp_rp column in gaia table
+    See also http://www.astro.ncu.edu.tw/~wchen/Courses/ISM/11.Extinction.pdf
     """
-    # A_Bp/A_Rp = E(BP-RP)
-    ABp_ARp_ratio = get_extinction_ratio(A_g)
+    # E(Bp-Rp) = A_Bp-A_Rp = (Bp-Rp)_obs - E(Bp-Rp)
+    Ab_minus_Ar = get_excess_from_extiction(A_g)
     bp_rp = bmag - rmag  # color index
-    # (Bp-Rp)_abs = (Bp-Rp)_obs - E(Bp-Rp)
-    Bp_Rp = bp_rp - ABp_ARp_ratio
+    Bp_Rp = bp_rp - Ab_minus_Ar
     return Bp_Rp
 
 
 def get_distance(m, M, Av=0):
     """
     calculate distance [in pc] from extinction-corrected magnitude
-    using the equation: 10**((m-M+5-Av)/5)
+    using the equation: d=10**((m-M+5-Av)/5)
 
-    Note: m-M=5*log10(d/10)+Av
+    Note: m-M=5*log10(d)-5+Av
     see http://astronomy.swin.edu.au/cosmos/I/Interstellar+Reddening
 
     Parameters
@@ -442,7 +443,7 @@ def query_gaia_params_of_all_tois(
     if fp is None:
         fp = join(DATA_PATH, "toi_gaia_params.hdf5")
 
-    tois = get_tois(verbose=verbose)
+    tois = get_tois(verbose=verbose, clobber=clobber)
     toiids = np.unique(tois.TOI.astype(float))
     if not exists(fp) or clobber:
         # download all from gaia catalog
@@ -498,3 +499,104 @@ def query_gaia_params_of_all_tois(
 
     df.index.name = "TOI"
     return df
+
+
+# def get_K2_targetlist(campaign, verbose=True):
+#     """
+#     campaign: K2 campaign number [0-18]
+#     """
+#     if verbose:
+#         print("Retrieving K2 campaign {} target list...\n".format(campaign))
+#
+#     outdir = "../data/K2targetlist/"
+#
+#     file_list = sorted(glob(os.path.join(outdir, "*csv")))
+#
+#     if len(file_list) == 0:
+#         link = (
+#             "https://keplerscience.arc.nasa.gov/data/campaigns/c"
+#             + str(campaign)
+#             + "/K2Campaign"
+#             + str(campaign)
+#             + "targets.csv"
+#         )
+#         d = pd.read_csv(link)
+#         d = clean_df(d)
+#         if not os.path.exists(outdir):
+#             os.makedirs(outdir)
+#         name = link.split("/"[-1])
+#         outpath = os.path.join(outdir, name)
+#         targets.to_csv(outpath)
+#     else:
+#         fp = os.path.join(outdir, "K2Campaign" + str(campaign) + "targets.csv")
+#
+#         dtypes = {
+#             "EPIC": int,
+#             "RA": float,
+#             "Dec": float,
+#             "Kp": float,
+#             "InvestigationIDs": str,
+#         }
+#         d = pd.read_csv(fp, delimiter=",", skipinitialspace=True, dtype=dtypes)
+#         targets = clean_df(d)
+#
+#     # targets = targets.replace(r'^\s+$', np.nan, regex=True)
+#     return targets
+#
+#
+# def get_DR2_cluster_members(clustername, verbose=True):
+#     """
+#     cluster (row, column)
+#     Hyades (515, 7)
+#     IC2391 (327, 7)
+#     IC2602 (494, 7)
+#     Blanco1 (489, 7)
+#     ComaBer (153, 7)
+#     NGC2451 (404, 7)
+#     Pleiades (1332, 7)
+#     Praesepe (946, 7)
+#     alphaPer (743, 7)
+#     "all": get all cluster member
+#     Table source: https://www.cosmos.esa.int/web/gaia/dr2-papers
+#     """
+#     cluster = clustername.strip().lower()
+#     link = "../data/TablesGaiaDR2HRDpaper/TableA1a.csv"
+#     cluster_members = pd.read_csv(link, delimiter=",")
+#     # remove redundant spaces in column
+#     cols = ["".join(col.split()) for col in cluster_members.columns]
+#     cluster_members.columns = cols
+#
+#     clusters = {}
+#     for c, df in cluster_members.groupby(by="Cluster"):
+#         c = c.strip().lower()
+#         cols = ["".join(col.split()) for col in df.columns]
+#         clusters[c] = df
+#
+#     if cluster == "all":
+#         if verbose:
+#             print(
+#                 "Retrieving {} known DR2 cluster members...\n".format(cluster)
+#             )
+#         # print(c,df.shape)
+#         return clusters
+#     else:
+#         if verbose:
+#             print("Retrieving {} cluster members...\n".format(cluster))
+#         return clusters[cluster]
+#
+#
+# def get_ra_dec_mag(epicnum, verbose=False):
+#     if verbose:
+#         print("\nquerying RA and DEC...\n")
+#     epic = client.k2_star(int(epicnum))
+#     ra = float(epic.k2_ra)
+#     dec = float(epic.k2_dec)
+#     mag = float(epic.kp)
+#     return ra, dec, mag
+#
+#
+# def get_cluster_centroid(clustername):
+#     cluster = get_DR2_cluster_members(clustername)
+#     ra = np.nanmedian(cluster["ra"])
+#     dec = np.nanmedian(cluster["dec"])
+#     return ra, dec

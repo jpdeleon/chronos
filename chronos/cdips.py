@@ -110,8 +110,8 @@ class CDIPS(Target):
             time=time,
             flux=flux,
             flux_err=err,
-            # FIXME: using bjd throws error when using lc.to_periodogram()
-            time_format="bjd",  # TIMEUNIT in fits header
+            # FIXME: only day works when using lc.to_periodogram()
+            time_format="jd",  # TIMEUNIT is bjd in fits header
             time_scale="tdb",  # TIMESYS in fits header
             centroid_col=None,
             centroid_row=None,
