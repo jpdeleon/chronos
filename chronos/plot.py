@@ -14,6 +14,7 @@ import lightkurve as lk
 from astropy.coordinates import Angle, SkyCoord, Distance
 import astropy.units as u
 from astropy.timeseries import LombScargle
+from mpl_toolkits.mplot3d import Axes3D
 
 # Import from package
 from chronos.search import ClusterCatalog
@@ -36,28 +37,120 @@ __all__ = [
     "plot_tls",
     "plot_hrd_spectral_types",
     "plot_pdc_sap_comparison",
+    "plot_lomb_scargle",
+    "plot_possible_NEBs",
 ]
 
 
-def plot_lomb_scargle(time, flux, flux_err, period, figsize=(8, 8)):
+# def plot_lomb_scargle(time, flux, flux_err, period, figsize=(8, 8)):
+#     """
+#     Adapted from https://docs.astropy.org/en/stable/timeseries/lombscargle.html#the-lomb-scargle-model
+#     Add also a waterfall diagram to show brightness evolution, as in Fig. 7 of David+2019a
+#     """
+#     frequency, power = LombScargle(time, flux, flux_err).autopower(
+#         minimum_frequency=0.05,  # 20 days
+#         # maximum_frequency=2.0 #0.5 day
+#     )
+#     best_frequency = frequency[np.argmax(power)]
+#     t_fit = np.linspace(0, 1)
+#     ls = LombScargle(time, flux, flux_err)
+#     y_fit = ls.model(t_fit, best_frequency)
+#
+#     fig, ax = pl.subplots(2, 1, figsize=figsize)
+#     ax[0].plot(1.0 / frequency, power)
+#
+#     ax[1].plot(time / period % 1 - 0.5, flux, ".")
+#     ax[1].plot(t_fit - 0.5, y_fit)
+#     return fig
+
+
+def plot_possible_NEBs(gaia_params, depth, gaiaid=None, kmax=1.0, ax=None):
     """
-    Adapted from https://docs.astropy.org/en/stable/timeseries/lombscargle.html#the-lomb-scargle-model
-    Add also a waterfall diagram to show brightness evolution, as in Fig. 7 of David+2019a
     """
-    frequency, power = LombScargle(time, flux, flux_err).autopower(
-        minimum_frequency=0.05,  # 20 days
-        # maximum_frequency=2.0 #0.5 day
+    if ax is None:
+        fig, ax = pl.subplots(1, 1, figsize=(5, 5))
+
+    if gaiaid is None:
+        # nearest match (first entry row=0) is assumed as the target
+        gaiaid = gaia_params.iloc[0]["source_id"]
+    idx = gaia_params.source_id.isin([gaiaid])
+    target_gmag = gaia_params.loc[idx, "phot_g_mean_mag"].values[0]
+
+    good, bad, dmags = [], [], []
+    for id, mag in gaia_params[["source_id", "phot_g_mean_mag"]].values:
+        if int(id) != gaiaid:
+            dmag = mag - target_gmag
+            gamma = 1 + 10 ** (0.4 * dmag)
+            ax.plot(dmag, kmax / gamma, "b.")
+            dmags.append(dmag)
+            if depth > kmax / gamma:
+                # observed depth is too deep to have originated from the secondary star
+                good.append(id)
+            else:
+                # uncertain signal source
+                bad.append(id)
+    ax.axhline(depth, 0, 1, c="k", ls="--")
+    dmags = np.linspace(min(dmags), max(dmags), 100)
+    gammas = 1 + 10 ** (0.4 * dmags)
+
+    nbad = len(bad)
+    ax.plot(dmags, kmax / gammas, "r-", label=f"potential NEBs={nbad}")
+    ax.set_yscale("log")
+    ax.set_xlabel(r"$\Delta$Gmag")
+    ax.set_ylabel("Eclipse depth")
+    ax.legend()
+    return ax
+
+
+def plot_lomb_scargle(
+    t,
+    f,
+    min_per=0.5,
+    max_per=30,
+    xlims=None,
+    ylims=None,
+    figsize=(10, 5),
+    title=None,
+):
+    fig, ax = pl.subplots(1, 2, figsize=figsize, constrained_layout=True)
+    ls = LombScargle(t, f)
+    frequencies, powers = ls.autopower(
+        minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
     )
-    best_frequency = frequency[np.argmax(power)]
-    t_fit = np.linspace(0, 1)
-    ls = LombScargle(time, flux, flux_err)
-    y_fit = ls.model(t_fit, best_frequency)
+    best_freq = frequencies[np.argmax(powers)]
+    best_period = 1.0 / best_freq
+    periods = 1.0 / frequencies
+    n = 0
+    ax[n].plot(periods, powers, "k-")
+    ax[n].axvline(
+        best_period, 0, 1, ls="--", c="r", label=f"P_ls={best_period:.2f}"
+    )
+    ax[n].legend()
+    ax[n].set_xscale("log")
+    ax[n].set_xlabel("Period [days]")
+    ax[n].set_ylabel("Lomb-Scargle Power")
 
-    fig, ax = pl.subplots(2, 1, figsize=figsize)
-    ax[0].plot(1.0 / frequency, power)
+    # model
+    n = 1
+    offset = 0.5
+    t_fit = np.linspace(0, 1, 100) - offset
+    y_fit = ls.model(t_fit * best_period - best_period / 2, best_freq)
+    ax[n].plot(t_fit * best_period, y_fit, "r-", lw=3, label="model", zorder=3)
+    # fold data
+    phase = ((t / best_period) % 1) - offset
 
-    ax[1].plot(time / period % 1 - 0.5, flux, ".")
-    ax[1].plot(t_fit - 0.5, y_fit)
+    a = ax[n].scatter(phase * best_period, f, c=t, cmap=pl.get_cmap("Blues"))
+    pl.colorbar(a, ax=ax[n], label=f"Time [BTJD]")
+    ax[n].legend()
+    if xlims is None:
+        ax[n].set_xlim(-best_period / 2, best_period / 2)
+    else:
+        ax[n].set_xlim(*xlims)
+    if ylims is not None:
+        ax[n].set_ylim(*ylims)
+    ax[n].set_ylabel("Normalized Flux")
+    ax[n].set_xlabel("Phase [days]")
+    fig.suptitle(title)
     return fig
 
 

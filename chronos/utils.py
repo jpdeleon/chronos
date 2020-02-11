@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-helper functions
+general helper functions
 """
 
 # Import standard library
@@ -16,17 +16,20 @@ import os
 import numpy as np
 import pandas as pd
 from astropy import units as u
+from astropy import constants as c
 
 # from astropy.io import ascii
 from astropy.coordinates import SkyCoord, Distance, Galactocentric
 from astroquery.gaia import Gaia
 from tqdm import tqdm
 import deepdish as dd
+import k2plr
 
 # Import from package
 from chronos import search
 from chronos.config import DATA_PATH
 
+client = k2plr.API()
 log = logging.getLogger(__name__)
 
 __all__ = [
@@ -169,18 +172,6 @@ def get_distance(m, M, Av=0):
     """
     distance = 10 ** (0.2 * (m - M + 5 - Av))
     return distance
-
-
-def estimate_temperature(bmag, vmag):
-    """
-    calculate blackbody temperature using the Ballesteros formula; Eq. 14 in
-    https://arxiv.org/pdf/1201.1809.pdf
-    """
-    teff = 4600 * (
-        (1 / (0.92 * (bmag - vmag) + 1.7))
-        + (1 / (0.92 * (bmag - vmag) + 0.62))
-    )
-    return teff
 
 
 def get_tois(
@@ -331,7 +322,11 @@ def get_target_coord(
         )
     # name resolver
     elif epic is not None:
-        target_coord = SkyCoord.from_name(f"EPIC {epic}")
+        star = client.k2_star(int(epic))
+        ra = float(star.k2_ra)
+        dec = float(star.k2_dec)
+        target_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
+        # target_coord = SkyCoord.from_name(f"EPIC {epic}")
     elif gaiaid is not None:
         target_coord = SkyCoord.from_name(f"Gaia DR2 {gaiaid}")
     elif name is not None:

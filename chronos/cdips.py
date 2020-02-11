@@ -13,10 +13,10 @@ import logging
 import numpy as np
 import pandas as pd
 import astropy.units as u
-
-# Import from package
 from lightkurve import TessLightCurve
 from astropy.io import fits
+
+# Import from package
 from chronos.config import DATA_PATH
 from chronos.search import Target
 
@@ -61,15 +61,15 @@ class CDIPS(Target):
         # limit=None,
     ):
         super().__init__(
-            name,
-            toiid,
-            ticid,
-            epicid,
-            gaiaDR2id,
-            ra_deg,
-            dec_deg,
-            search_radius,
-            verbose,
+            name=name,
+            toiid=toiid,
+            ticid=ticid,
+            epicid=epicid,
+            gaiaDR2id=gaiaDR2id,
+            ra_deg=ra_deg,
+            dec_deg=dec_deg,
+            search_radius=search_radius,
+            verbose=verbose,
         )
         """Initialize CDIPS
 
@@ -127,6 +127,7 @@ class CDIPS(Target):
             label=None,
             meta=None,
         )
+        self.lc.targetid = self.ticid
         self.cadence = self.header["XPOSURE"] * u.second  # .to(u.minute)
         self.time = self.lc.time
         self.flux = self.lc.flux

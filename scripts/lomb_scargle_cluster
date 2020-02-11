@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+r"""
+Estimate stellar rotation of a random cluster member
+
+Prot and color can then be constructed similar to Fig. 4 in Mann+2017:
+https://arxiv.org/pdf/1609.00726.pdf
+"""
+from os.path import join
+from argparse import ArgumentParser
+
+import numpy as np
+import matplotlib.pyplot as pl
+from tqdm import tqdm
+
+from chronos import DATA_PATH
+from chronos.search import Target, Cluster
+from chronos.plot import plot_lomb_scargle
+
+if __name__ == "__main__":
+    ap = ArgumentParser()
+    ap.add_argument(
+        "--gaiaid",
+        type=int,
+        help="gaia DR2 id (None draws randomly from default cluster)",
+        default=None,
+    )
+    ap.add_argument(
+        "--catalog", type=str, help="cluster name", default="CantatGaudin2018"
+    )
+    ap.add_argument(
+        "--cluster", type=str, help="cluster name", default="IC_2602"
+    )
+    ap.add_argument("-v", "--verbose", action="store_true", default=False)
+    # ap.add_argument("-c", "--clobber", action="store_true", default=False)
+    ap.add_argument(
+        "-p",
+        "--show-plot",
+        action="store_true",
+        default=False,
+        help="show cluster plots",
+    )
+    ap.add_argument(
+        "-s", "--save", action="store_true", default=False, help="save figures"
+    )
+    ap.add_argument(
+        "-o", "--outdir", type=str, default=DATA_PATH, help="output directory"
+    )
+    args = ap.parse_args()
+    c = Cluster(cluster_name=args.cluster, catalog_name=args.catalog)
+    cm = c.query_cluster_members()
+    # choose id at random
+    if args.gaiaid is None:
+        gaiaid = np.random.choice(cm.source_id)
+    else:
+        gaiaid = args.gaiaid
+
+    t = Target(gaiaDR2id=gaiaid)
+    tic = t.query_tic_catalog(return_nearest_xmatch=True)
+    sectors = t.get_all_sectors()
+
+    # query the first available sector
+    lc0 = t.make_custom_ffi_lc(sector=sectors[0]).normalize()
+
+    lcs = []
+    if len(sectors) > 1:
+        for sector in tqdm(sectors[1:]):
+            lc = t.make_custom_ffi_lc(sector=sector).normalize()
+            # join light curves in each sector
+            lc0 = lc0.append(lc)
+            lcs.append(lc)
+        label = "_nolegend_"
+    else:
+        label = sector
+    ax = lc0.scatter(label=label)
+    if len(sectors) > 1:
+        # plot lc of each sector with different color
+        for n, lc in enumerate(lcs):
+            a = lc.scatter(ax=ax, color=f"C{n}", label=sectors[n])
+            a.legend(title="sectors")
+    time, flux = lc0.time, lc0.flux
+    # plot lomb scargle periodogram
+    fig = plot_lomb_scargle(
+        time, flux, min_per=0.5, max_per=30, title=f"Gaia {gaiaid}"
+    )
+
+    if args.save:
+        fp1 = join(args.outdir, f"{gaiaid}_lc.png")
+        ax.figure.savefig(fp1)
+        fp2 = join(args.outdir, f"{gaiaid}_ls.png")
+        fig.savefig(fp2)
+        print(f"Saved: {fp1}\n{fp2}")
+
+        fp = f"{args.cluster}_ls.txt"
+        j, h, k = tic["Jmag"], tic["Hmag"], tic["Kmag"]
+        data = np.c_[t.gaiaid, j - h, h - k]
+        np.savetxt(fp, data, fmt="%f", mode="a")
+        print(f"Saved: {gaiaid} in ")
+
+    if args.show_plot:
+        pl.show()

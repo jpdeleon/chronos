@@ -71,6 +71,7 @@ class Target:
         self.search_radius = search_radius
         self.tic_params = None
         self.gaia_params = None
+        self.toi_params = None
         self.gmag = None
         self.tesscut_tpf = None
         # gaiaid match
@@ -148,10 +149,10 @@ class Target:
             ccd = str(df.iloc[sector_idx]["ccd"])
         return sector, cam, ccd
 
-    def estimate_Av(self, map="sfd"):
+    def estimate_Av(self, map="sfd", constant=3.1):
         """
         compute the extinction Av from color index E(B-V)
-        estimated from dustmaps via Av=reddening*E(B-V)
+        estimated from dustmaps via Av=constant*E(B-V)
 
         Parameters
         ----------
@@ -168,19 +169,23 @@ class Target:
 
             # sfd.fetch()
             dust_map = sfd.SFDQuery()
-            constant = 2.742
         elif map == "planck":
             from dustmaps import planck
 
             # planck.fetch()
             dust_map = planck.PlanckQuery()
-            constant = 3.1
         else:
             raise ValueError(f"Available maps: (sfd,planck)")
 
         ebv = dust_map(self.target_coord)
         Av = constant * ebv
         return Av
+
+    def query_toi(self, toi=None, **kwargs):
+        d = get_toi(toi=toi, **kwargs)
+        if d is not None:
+            self.toi_params = d
+        return d
 
     def query_gaia_dr2_catalog(self, radius=None, return_nearest_xmatch=False):
         """
@@ -222,6 +227,8 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="Gaia", version=2
         ).to_pandas()
+        tab["source_id"] = tab.source_id.astype(int)
+
         # check if results from DR2 (epoch 2015.5)
         assert np.all(
             tab["ref_epoch"].isin([2015.5])
@@ -235,12 +242,9 @@ class Target:
         """
         check parallax error here and apply corresponding distance calculation: see Note 1
         """
-
         if self.gaiaid is not None:
             errmsg = "Catalog does not contain target gaia id."
-            assert np.any(
-                tab["source_id"].astype(int).isin([self.gaiaid])
-            ), errmsg
+            assert np.any(tab["source_id"].isin([self.gaiaid])), errmsg
 
         # add gaia distance to target_coord
         # FIXME: https://docs.astropy.org/en/stable/coordinates/transforming.html
@@ -255,7 +259,7 @@ class Target:
         gcoords = gcoords.transform_to("icrs")
         if self.gaiaid is not None:
             # find by id match for gaiaDR2id input
-            idx = tab.source_id.astype(int).isin([self.gaiaid]).argmax()
+            idx = tab.source_id.isin([self.gaiaid]).argmax()
         else:
             # find by nearest distance (for toiid or ticid input)
             idx = self.target_coord.separation(gcoords).argmin()
@@ -282,23 +286,72 @@ class Target:
             self.gaia_params = tab
             return tab  # return dataframe of len 2 or more
 
-    def get_nearby_gaia_sources(self, radius=10):
+    def get_nearby_gaia_sources(self, radius=60.0, add_column=None):
+        """
+        get information about stars within 60 arcsec and
+        dilution factor from delta Gmag
+
+        Parameters
+        ----------
+        radius : float
+            query radius in arcsec
+        add_column : str
+            additional Gaia column name to show (e.g. radial_velocity)
+        """
+        if self.gaia_params is None:
+            _ = self.query_gaia_dr2_catalog(radius=60)
+        if len(self.gaia_params) == 1:
+            _ = self.query_gaia_dr2_catalog(radius=60)
         d = self.gaia_params.copy()
-        assert len(d) > 0, "run query_gaia_dr2_catalog(radius)"
+
+        if self.gaiaid is None:
+            # nearest match (first entry row=0) is assumed as the target
+            gaiaid = int(d.iloc[0]["source_id"])
+        else:
+            gaiaid = self.gaiaid
+        idx = d.source_id == gaiaid
+        target_gmag = d.loc[idx, "phot_g_mean_mag"].values[0]
         d["distance"] = d["distance"].apply(
             lambda x: x * u.arcmin.to(u.arcsec)
         )
-        d["delta_Gmag"] = d["phot_g_mean_mag"] - d.iloc[0]["phot_g_mean_mag"]
-        d[
-            [
-                "source_id",
-                "distance",
-                "parallax",
-                "phot_g_mean_mag",
-                "delta_Gmag",
-            ]
+        d["delta_Gmag"] = d["phot_g_mean_mag"] - target_gmag
+        # compute dilution factor
+        d["gamma"] = 1 + 10 ** (0.4 * d["delta_Gmag"])
+        columns = [
+            "source_id",
+            "distance",
+            "parallax",
+            "phot_g_mean_mag",
+            "delta_Gmag",
+            "gamma",
         ]
-        return d
+        if add_column is not None:
+            assert (isinstance(add_column, str)) & (add_column in d.columns)
+            columns.append(add_column)
+        return d[columns]
+
+    def get_possible_NEBs(self, depth, gaiaid=None, kmax=1.0):
+        """
+        depth is useful to rule out deep eclipses when kmax/gamma>depth
+
+        kmax : float [0,1]
+            maximum eclipse depth (default=1)
+        """
+        assert (kmax >= 0.0) & (kmax <= 1.0), "eclipse depth is between 0 & 1"
+
+        d = self.get_nearby_gaia_sources()
+
+        good, bad = [], []
+        for id, dmag, gamma in d[["source_id", "delta_Gmag", "gamma"]].values:
+            if int(id) != gaiaid:
+                if depth > kmax / gamma:
+                    # observed depth is too deep to have originated from the secondary star
+                    good.append(id)
+                else:
+                    # uncertain signal source
+                    bad.append(id)
+        uncleared = d.loc[d.source_id.isin(bad)]
+        return uncleared
 
     def query_tic_catalog(self, radius=None, return_nearest_xmatch=False):
         """
@@ -353,7 +406,7 @@ class Target:
         if match_id:
             # return member with gaiaid identical to target
             if self.gaiaid:
-                idx = df.source_id.astype(int).isin([self.gaiaid])
+                idx = df.source_id.isin([self.gaiaid])
                 if sum(idx) == 0:
                     errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog\n"
                     errmsg += f"Use match_id=False to get nearest cluster\n"
@@ -375,7 +428,7 @@ class Target:
                     )
                 return df.loc[idx]
             else:
-                errmsg = "Supply id via Target(gaiaDR2id=id)"
+                errmsg = "Supply id via Target(gaiaDR2id=id) "
                 errmsg += (
                     "or `query_gaia_dr2_catalog(return_nearest_xmatch=True)`"
                 )
@@ -511,6 +564,8 @@ class Target:
 
         Parameters
         ----------
+        sector : int or str
+            specific sector or all
         cutout_size : tuple
             tpf cutout size
         mask_threshold : float
@@ -530,6 +585,11 @@ class Target:
         if self.tesscut_tpf is not None:
             if self.tesscut_tpf.sector == sector:
                 tpf = self.tesscut_tpf
+            else:
+                tpf = lk.search_tesscut(
+                    self.target_coord, sector=sector
+                ).download(cutout_size=cutout_size)
+                self.tesscut_tpf = tpf
         else:
             tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
                 cutout_size=cutout_size
@@ -965,7 +1025,10 @@ class ClusterCatalog:
         """Bossini et al. 2019:
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A%2BA/623/A108
         """
-        fp = join(self.data_loc, "Bossini2019_269_open_clusters.tsv")
+        fp = join(
+            self.data_loc,
+            "TablesBossini2019/Bossini2019_269_open_clusters.tsv",
+        )
         df = pd.read_table(fp, delimiter="\t", skiprows=69, comment="#")
         # convert distance and age
         df["distance"] = Distance(distmod=df["Dist"]).pc
