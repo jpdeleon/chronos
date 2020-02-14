@@ -17,7 +17,7 @@ from astropy.timeseries import LombScargle
 from mpl_toolkits.mplot3d import Axes3D
 
 # Import from package
-from chronos.search import ClusterCatalog
+from chronos.cluster import ClusterCatalog
 from chronos.utils import (
     get_transformed_coord,
     get_toi,
@@ -39,6 +39,7 @@ __all__ = [
     "plot_pdc_sap_comparison",
     "plot_lomb_scargle",
     "plot_possible_NEBs",
+    "plot_interactive",
 ]
 
 

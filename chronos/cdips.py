@@ -18,7 +18,7 @@ from astropy.io import fits
 
 # Import from package
 from chronos.config import DATA_PATH
-from chronos.search import Target
+from chronos.target import Target
 
 log = logging.getLogger(__name__)
 

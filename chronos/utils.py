@@ -27,7 +27,7 @@ import deepdish as dd
 import k2plr
 
 # Import from package
-from chronos import search
+from chronos import target
 from chronos.config import DATA_PATH
 
 client = k2plr.API()
@@ -446,7 +446,7 @@ def query_gaia_params_of_all_tois(
         toi_gaia_params = {}
         for toi in tqdm(toiids):
             try:
-                t = search.Target(toiid=toi, verbose=verbose)
+                t = target.Target(toiid=toi, verbose=verbose)
                 # query gaia dr2 catalog to get gaia id
                 df_gaia = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
                 # t.target_coord.distance = Distance(parallax=df_gaia.parallax*u.mas)
@@ -465,7 +465,7 @@ def query_gaia_params_of_all_tois(
         for toi in tqdm(toiids):
             if toi > downloaded_tois[-1]:
                 try:
-                    t = search.Target(toiid=toi, verbose=verbose)
+                    t = target.Target(toiid=toi, verbose=verbose)
                     # query gaia dr2 catalog to get gaia id
                     df_gaia = t.query_gaia_dr2_catalog(
                         return_nearest_xmatch=True

@@ -4,7 +4,8 @@
 import warnings
 
 # Import from package
-from .search import *
+from .target import *
+from .cluster import *
 from .cdips import *
 from .k2 import *
 from .plot import *
