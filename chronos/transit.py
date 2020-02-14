@@ -332,11 +332,15 @@ def logg_from_mr(mp, rp):
     return np.log10(G * mp / (rp * rp) * 1e2)
 
 
-def rho_from_gr(logg, r):
+def rho_from_gr(logg, r, cgs=True):
+    kgmc = u.kg / u.m ** 3
     r = (r * u.R_sun).cgs
     g = 10 ** logg * u.cm / u.s ** 2
     rho = 3 * g / (r * c.G.cgs * 4 * np.pi)
-    return rho
+    if cgs:
+        return rho.value
+    else:
+        return rho.to(kgmc)
 
 
 # def logg_southworth(P_days, K_ms, aRp, ecc=0.0, inc_deg=90.0):
@@ -398,26 +402,28 @@ def rho_from_gr(logg, r):
 #     return np.array(ephem)
 #
 #
-# def rho_from_mr(m, r, unit="sun", cgs=True):
-#     gcc = u.g / u.cm ** 3
-#     kgmc = u.kg / u.m ** 3
-#     if unit == "sun":
-#         r = r * u.Rsun.to(u.m)
-#         m = m * u.Msun.to(u.kg)
-#     elif unit == "earth":
-#         r = r * u.Rearth.to(u.m)
-#         m = m * u.Mearth.to(u.kg)
-#     elif unit == "jup":
-#         r = r * u.Rjup.to(u.m)
-#         m = m * u.Mjup.to(u.kg)
-#     else:
-#         raise ValueError("unit=[sun,earth,jup]")
-#     volume = (4.0 / 3.0) * np.pi * r ** 3
-#     rho = m / volume
-#     if cgs:
-#         return rho * kgmc.to(gcc)
-#     else:
-#         return rho
+def rho_from_mr(m, r, unit="sun", cgs=True):
+    gcc = u.g / u.cm ** 3
+    kgmc = u.kg / u.m ** 3
+    if unit == "sun":
+        r = r * u.Rsun.to(u.m)
+        m = m * u.Msun.to(u.kg)
+    elif unit == "earth":
+        r = r * u.Rearth.to(u.m)
+        m = m * u.Mearth.to(u.kg)
+    elif unit == "jup":
+        r = r * u.Rjup.to(u.m)
+        m = m * u.Mjup.to(u.kg)
+    else:
+        raise ValueError("unit=[sun,earth,jup]")
+    volume = (4.0 / 3.0) * np.pi * r ** 3
+    rho = m / volume
+    if cgs:
+        return rho * kgmc.to(gcc)
+    else:
+        return rho
+
+
 #
 #
 # def ll_normal_es(o, m, e):

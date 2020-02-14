@@ -20,6 +20,7 @@ from astropy import constants as c
 
 # from astropy.io import ascii
 from astropy.coordinates import SkyCoord, Distance, Galactocentric
+from astroquery.mast import Catalogs
 from astroquery.gaia import Gaia
 from tqdm import tqdm
 import deepdish as dd
@@ -244,13 +245,11 @@ def get_tois(
     return d.sort_values("TOI")
 
 
-def get_toi(toi=None, tic=None, clobber=True, outdir=DATA_PATH, verbose=True):
+def get_toi(toi, clobber=True, outdir=DATA_PATH, verbose=True):
     """Query TOI from TOI list
 
     Parameters
     ----------
-    tic : int
-        TIC id
     toi : float
         TOI id
     clobber : bool
@@ -268,39 +267,31 @@ def get_toi(toi=None, tic=None, clobber=True, outdir=DATA_PATH, verbose=True):
 
     df = get_tois(clobber=clobber, verbose=verbose, outdir=outdir)
 
-    if (toi is None) and (tic is None):
-        raise ValueError("Provide toi or tic")
+    if isinstance(toi, int):
+        toi = float(str(toi) + ".01")
     else:
-        if toi is not None:
-            if isinstance(toi, int):
-                toi = float(str(toi) + ".01")
-            else:
-                planet = str(toi).split(".")[1]
-                assert len(planet) == 2, "use pattern: TOI.01"
-            idx = df["TOI"].isin([toi])
-        elif tic:
-            idx = df["TIC ID"].isin([tic])
-        q = df.loc[idx]
-        # return if empty, else continue
-        if len(q) == 0:
-            raise ValueError("TOI not found!")
+        planet = str(toi).split(".")[1]
+        assert len(planet) == 2, "use pattern: TOI.01"
+    idx = df["TOI"].isin([toi])
+    q = df.loc[idx]
+    assert len(q) > 0, "TOI not found!"
 
-        q.index = q["TOI"].values
-        if verbose:
-            print("Data from TOI Release:\n")
-            columns = [
-                "Period (days)",
-                "Epoch (BJD)",
-                "Duration (hours)",
-                "Depth (ppm)",
-                "Comments",
-            ]
-            print(f"{q[columns].T}\n")
+    q.index = q["TOI"].values
+    if verbose:
+        print("Data from TOI Release:\n")
+        columns = [
+            "Period (days)",
+            "Epoch (BJD)",
+            "Duration (hours)",
+            "Depth (ppm)",
+            "Comments",
+        ]
+        print(f"{q[columns].T}\n")
 
-        if q["TFOPWG Disposition"].isin(["FP"]).any():
-            print("\nTFOPWG disposition is a False Positive!\n")
+    if q["TFOPWG Disposition"].isin(["FP"]).any():
+        print("\nTFOPWG disposition is a False Positive!\n")
 
-        return q.sort_values(by="TOI", ascending=True)
+    return q.sort_values(by="TOI", ascending=True)
 
 
 def get_target_coord(
@@ -312,13 +303,21 @@ def get_target_coord(
     if np.all([ra, dec]):
         target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     # TIC
-    elif np.any([toi, tic]):
-        toi_params = get_toi(toi=toi, tic=tic, clobber=False, verbose=False)
+    elif toi:
+        toi_params = get_toi(toi=toi, clobber=False, verbose=False)
         target_coord = SkyCoord(
             ra=toi_params["RA"].values[0],
             dec=toi_params["Dec"].values[0],
             distance=toi_params["Stellar Distance (pc)"].values[0],
             unit=(u.hourangle, u.degree, u.pc),
+        )
+    elif tic:
+        df = Catalogs.query_criteria(catalog="Tic", ID=tic).to_pandas()
+        target_coord = SkyCoord(
+            ra=df.iloc[0]["ra"],
+            dec=df.iloc[0]["dec"],
+            distance=Distance(parallax=df.iloc[0]["plx"] * u.mas).pc,
+            unit=(u.degree, u.degree, u.pc),
         )
     # name resolver
     elif epic is not None:

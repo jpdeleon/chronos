@@ -154,7 +154,7 @@ def plot_lomb_scargle(
     return fig
 
 
-def plot_tls(results, **kwargs):
+def plot_tls(results, figsize=None):
     """
 
     Attributes
@@ -168,7 +168,7 @@ def plot_tls(results, **kwargs):
     -------
     fig : figure object
     """
-    fig, ax = pl.subplots(2, 1, **kwargs)
+    fig, ax = pl.subplots(2, 1, figsize=figsize)
 
     n = 0
     label = f"TLS={results.period:.3}"
@@ -197,6 +197,7 @@ def plot_tls(results, **kwargs):
     )
     ax[n].set_xlabel("Phase")
     ax[n].set_ylabel("Relative flux")
+    fig.tight_layout()
     return fig
 
 

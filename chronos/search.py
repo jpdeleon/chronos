@@ -28,6 +28,7 @@ import deepdish as dd
 from chronos.config import DATA_PATH
 from chronos.utils import (
     get_toi,
+    get_tois,
     get_target_coord,
     get_target_coord_3d,
     get_absolute_color_index,
@@ -74,6 +75,7 @@ class Target:
         self.toi_params = None
         self.gmag = None
         self.tesscut_tpf = None
+        self.corrector = None
         # gaiaid match
         # self.cluster_member = None
         # self.cluster_members = None
@@ -101,12 +103,16 @@ class Target:
         self.ra = ra_deg
         self.dec = dec_deg
         # self.distance = None
-        if np.any([self.toiid, self.ticid]):
+        if (self.ticid is not None) and (self.toiid is None):
+            tois = get_tois(clobber=True, verbose=False)
+            idx = tois["TIC ID"].isin([self.ticid])
+            if sum(idx) > 0:
+                self.toiid = tois.loc[idx, "TOI"].values[0]
+                if self.verbose:
+                    print(f"TIC {self.ticid} is TOI {int(self.toiid)}!")
+        if self.toiid is not None:
             self.toi_params = get_toi(
-                toi=self.toiid,
-                tic=self.ticid,
-                clobber=self.clobber,
-                verbose=False,
+                toi=self.toiid, clobber=self.clobber, verbose=False
             )
         if (self.ticid is None) and (self.toiid is not None):
             self.ticid = int(self.toi_params["TIC ID"].values[0])
@@ -556,7 +562,12 @@ class Target:
             return spt
 
     def make_custom_ffi_lc(
-        self, sector=None, cutout_size=(50, 50), mask_threshold=3, pca_nterms=5
+        self,
+        sector=None,
+        cutout_size=(50, 50),
+        mask_threshold=3,
+        pca_nterms=5,
+        with_offset=True,
     ):
         """
         create a custom lightcurve based on this tutorial:
@@ -602,25 +613,32 @@ class Target:
             tpf = tpf[~zero_mask]
         # Make an aperture mask and a raw light curve
         aper = tpf.create_threshold_mask(threshold=mask_threshold)
-        raw_lc, outlier_mask = tpf.to_lightcurve(
-            aperture_mask=aper
-        ).remove_outliers(return_mask=True)
-        lc = raw_lc.normalize()
+        raw_lc = tpf.to_lightcurve(aperture_mask=aper)
 
         # Make a design matrix and pass it to a linear regression corrector
+        regressors = tpf.flux[:, ~aper]
         dm = (
-            lk.DesignMatrix(
-                tpf.flux[:, ~aper][~outlier_mask], name="regressors"
-            )
+            lk.DesignMatrix(regressors, name="regressors")
             .pca(nterms=pca_nterms)
             .append_constant()
         )
-        rc = lk.RegressionCorrector(lc)
+        rc = lk.RegressionCorrector(raw_lc)
+        # if remove_outliers:
+        #     clean_lc, outlier_mask = tpf.to_lightcurve(
+        #         aperture_mask=aper
+        #     ).remove_outliers(return_mask=True)
+        #     regressors = tpf.flux[:, ~aper][~outlier_mask]
+        #     dm = lk.DesignMatrix(regressors, name="regressors").pca(nterms=pca_nterms).append_constant()
+        #     rc = lk.RegressionCorrector(clean_lc)
+        self.corrector = rc
         corrected_lc = rc.correct(dm)
 
         # Optional: Remove the scattered light, allowing for the large offset from scattered light
-        corrected_lc = lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
-        return corrected_lc
+        if with_offset:
+            corrected_lc = (
+                raw_lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
+            )
+        return corrected_lc.normalize()
 
 
 class ClusterCatalog:
