@@ -11,8 +11,12 @@ import itertools
 import numpy as np
 import matplotlib.pyplot as pl
 import lightkurve as lk
+from scipy.ndimage import zoom
 from astropy.coordinates import Angle, SkyCoord, Distance
+from astroquery.mast import Catalogs
+from astropy.wcs import WCS
 import astropy.units as u
+from astroplan.plots import plot_finder_image
 from astropy.timeseries import LombScargle
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -25,7 +29,10 @@ from chronos.utils import (
     get_mamajek_table,
     get_absolute_gmag,
     get_absolute_color_index,
+    parse_aperture_mask,
 )
+
+TESS_pix_scale = 21 * u.arcsec  # /pix
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +47,7 @@ __all__ = [
     "plot_lomb_scargle",
     "plot_possible_NEBs",
     "plot_interactive",
+    "plot_gaia_sources",
 ]
 
 
@@ -63,6 +71,150 @@ __all__ = [
 #     ax[1].plot(time / period % 1 - 0.5, flux, ".")
 #     ax[1].plot(t_fit - 0.5, y_fit)
 #     return fig
+
+
+def plot_gaia_sources(
+    tpf,
+    target_gaiaid,
+    gaia_sources=None,
+    fov_rad=None,
+    depth=0.0,
+    kmax=1.0,
+    sap_mask="pipeline",
+    survey="DSS2 Red",
+    verbose=True,
+    ax=None,
+    **kwargs,
+):
+    """Plot (superpose) Gaia sources on archival image
+
+    Parameters
+    ----------
+    target_coord : astropy.coordinates
+        target coordinate
+    gaia_sources : pd.DataFrame
+        gaia sources table
+    fov_rad : astropy.unit
+        FOV radius
+    survey : str
+        image survey; see from astroquery.skyview import SkyView;
+        SkyView.list_surveys()
+    verbose : bool
+        print texts
+    ax : axis
+        subplot axis
+    kwargs : dict
+        keyword arguments for aper_radius, percentile
+    Returns
+    -------
+    ax : axis
+        subplot axis
+    """
+    ny, nx = tpf.flux.shape[1:]
+    if fov_rad is None:
+        diag = np.sqrt(nx ** 2 + ny ** 2)
+        fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcmin)
+    target_coord = SkyCoord(ra=tpf.ra * u.deg, dec=tpf.dec * u.deg)
+    if gaia_sources is None:
+        gaia_sources = Catalogs.query_region(
+            target_coord, radius=fov_rad, catalog="Gaia", version=2
+        ).to_pandas()
+    # make aperture mask
+    mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **kwargs)
+    maskhdr = tpf.hdu[2].header
+    # make aperture mask outline
+    contour = np.zeros((ny, nx))
+    contour[np.where(mask)] = 1
+    contour = np.lib.pad(contour, 1, PadWithZeros)
+    highres = zoom(contour, 100, order=0, mode="nearest")
+    extent = np.array([-1, nx, -1, ny])
+
+    # if tpf.targetid is not None:
+    #     ticid = tpf.targetid
+
+    if verbose:
+        print(
+            f"Querying {survey} ({fov_rad:.2f} x {fov_rad:.2f}) archival image"
+        )
+    # get img hdu
+    nax, hdu = plot_finder_image(
+        target_coord, fov_radius=fov_rad, survey=survey, reticle=True
+    )
+    pl.close()
+
+    # -----------create figure---------------#
+    if ax is None:
+        fig = pl.figure(figsize=(6, 6))
+        # define scaling in projection
+        ax = fig.add_subplot(111, projection=WCS(hdu.header))
+    nax, hdu = plot_finder_image(
+        target_coord, ax=ax, fov_radius=fov_rad, survey=survey, reticle=False
+    )
+    imgwcs = WCS(hdu.header)
+    mx, my = hdu.data.shape
+    # plot mask
+    _ = ax.contour(
+        highres,
+        levels=[0.5],
+        extent=extent,
+        origin="lower",
+        colors="b",
+        transform=nax.get_transform(WCS(maskhdr)),
+    )
+    idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+    target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
+    # marker & size
+    marker, s = "o", 100
+    # NEBs = []
+    for r, d, mag, id in gaia_sources[
+        ["ra", "dec", "phot_g_mean_mag", "source_id"]
+    ].values:
+        pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
+        if int(id) != target_gaiaid:
+            dmag = mag - target_gmag
+            gamma = 1 + 10 ** (0.4 * dmag)
+            if depth > kmax / gamma:
+                # too deep to have originated from secondary star
+                edgecolor = "b"
+                alpha = 0.1
+            else:
+                # possible NEBs
+                # NEBs.append(id)
+                edgecolor = "r"
+                alpha = 1
+        else:
+            edgecolor = "y"
+            alpha = 1
+        nax.scatter(
+            pix[0],
+            pix[1],
+            marker=marker,
+            s=s,
+            edgecolor=edgecolor,
+            alpha=alpha,
+            facecolor="none",
+        )
+    # if verbose:
+    #     bad = gaia_sources.loc[gaia_sources.source_id.astype(int).isin(NEBs)]
+    #     bad["distance"] = bad["distance"].apply(
+    #         lambda x: x * u.arcmin.to(u.arcsec)
+    #     )
+    #     print(bad[["source_id", "distance", "parallax", "phot_g_mean_mag"]])
+    # set img limits
+    pl.setp(
+        nax,
+        xlim=(0, mx),
+        ylim=(0, my),
+        title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
+    )
+    return ax  # , NEBs
+
+
+def PadWithZeros(vector, pad_width, iaxis, kwargs):
+    """ """
+    vector[: pad_width[0]] = 0
+    vector[-pad_width[1] :] = 0
+    return vector
 
 
 def plot_possible_NEBs(gaia_params, depth, gaiaid=None, kmax=1.0, ax=None):

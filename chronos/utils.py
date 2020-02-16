@@ -44,6 +44,10 @@ __all__ = [
     "get_distance",
     "get_excess_from_extiction",
     "get_absolute_color_index",
+    "parse_aperture_mask",
+    "make_round_mask",
+    "make_square_mask",
+    "remove_bad_data",
 ]
 
 # Ax/Av
@@ -173,6 +177,285 @@ def get_distance(m, M, Av=0):
     """
     distance = 10 ** (0.2 * (m - M + 5 - Av))
     return distance
+
+
+def parse_aperture_mask(
+    tpf,
+    sap_mask="pipeline",
+    aper_radius=None,
+    percentile=None,
+    verbose=False,
+    threshold_sigma=None,
+):
+    """Parse and make aperture mask"""
+    if verbose:
+        if sap_mask == "round":
+            print(
+                "aperture photometry mask: {} (r={} pix)\n".format(
+                    sap_mask, aper_radius
+                )
+            )
+        elif sap_mask == "square":
+            print(
+                "aperture photometry mask: {0} ({1}x{1} pix)\n".format(
+                    sap_mask, aper_radius
+                )
+            )
+        elif sap_mask == "percentile":
+            print(
+                "aperture photometry mask: {} ({}%)\n".format(
+                    sap_mask, percentile
+                )
+            )
+        else:
+            print("aperture photometry mask: {}\n".format(sap_mask))
+
+    # stacked_img = np.median(tpf.flux,axis=0)
+    if sap_mask == "all":
+        mask = np.ones((tpf.shape[1], tpf.shape[2]), dtype=bool)
+    elif sap_mask == "round":
+        assert aper_radius is not None, "supply aper_radius"
+        mask = make_round_mask(tpf.flux[0], radius=aper_radius)
+    elif sap_mask == "square":
+        assert aper_radius is not None, "supply aper_radius/size"
+        mask = make_square_mask(tpf.flux[0], size=aper_radius, angle=None)
+    elif sap_mask == "threshold":
+        assert threshold_sigma is not None, "supply threshold_sigma"
+        mask = tpf.create_threshold_mask(threshold_sigma)
+    elif sap_mask == "percentile":
+        assert percentile is not None, "supply percentile"
+        median_img = np.nanmedian(tpf.flux, axis=0)
+        mask = median_img > np.nanpercentile(median_img, percentile)
+    else:
+        mask = tpf.pipeline_mask  # default
+    return mask
+
+
+def make_round_mask(img, radius, xy_center=None):
+    """Make round mask in units of pixels
+
+    Parameters
+    ----------
+    img : numpy ndarray
+        image
+    radius : int
+        aperture mask radius or size
+    xy_center : tuple
+        aperture mask center position
+
+    Returns
+    -------
+    mask : np.ma.masked_array
+        aperture mask
+    """
+    h, w = img.shape
+    if xy_center is None:  # use the middle of the image
+        y, x = np.unravel_index(np.argmax(img), img.shape)
+        xy_center = [x, y]
+        # check if near edge
+        if np.any([x >= h - 1, x >= w - 1, y >= h - 1, y >= w - 1]):
+            print("Brightest star is detected near the edges.")
+            print("Aperture mask is placed at the center instead.\n")
+            xy_center = [img.shape[0] // 2, img.shape[1] // 2]
+
+    Y, X = np.ogrid[:h, :w]
+    dist_from_center = np.sqrt(
+        (X - xy_center[0]) ** 2 + (Y - xy_center[1]) ** 2
+    )
+
+    mask = dist_from_center <= radius
+    return np.ma.masked_array(img, mask=mask).mask
+
+
+def make_square_mask(img, size, xy_center=None, angle=None):
+    """Make rectangular mask with optional rotation
+
+    Parameters
+    ----------
+    img : numpy ndarray
+        image
+    size : int
+        aperture mask size
+    xy_center : tuple
+        aperture mask center position
+    angle : int
+        rotation
+
+    Returns
+    -------
+    mask : np.ma.masked_array
+        aperture mask
+    """
+    h = w = size
+    if xy_center is None:  # use the middle of the image
+        y, x = np.unravel_index(np.argmax(img), img.shape)
+        xy_center = [x, y]
+        # check if near edge
+        if np.any([x >= h - 1, x >= w - 1, y >= h - 1, y >= w - 1]):
+            print(
+                "Brightest star detected is near the edges.\nAperture mask is placed at the center instead.\n"
+            )
+            x, y = img.shape[0] // 2, img.shape[1] // 2
+            xy_center = [x, y]
+    mask = np.zeros_like(img, dtype=bool)
+    mask[y - h : y + h + 1, x - w : x + w + 1] = True
+    # if angle:
+    #    #rotate mask
+    #    mask = rotate(mask, angle, axes=(1, 0), reshape=True, output=bool, order=0)
+    return mask
+
+
+def remove_bad_data(tpf, sector=None, verbose=True):
+    """Remove bad cadences identified in data releae notes
+
+    Parameters
+    ----------
+    tpf : lk.targetpixelfile
+
+    sector : int
+        TESS sector
+    verbose : bool
+        print texts
+    """
+    if sector is None:
+        sector = tpf.sector
+    if verbose:
+        print(
+            f"Applying data quality mask identified in Data Release Notes (sector {sector}):"
+        )
+    if sector == 1:
+        pointing_jitter_start = 1346
+        pointing_jitter_end = 1350
+        if verbose:
+            print(
+                "t<{}|t>{}\n".format(
+                    pointing_jitter_start, pointing_jitter_end
+                )
+            )
+        tpf = tpf[
+            (tpf.time < pointing_jitter_start)
+            | (tpf.time > pointing_jitter_end)
+        ]
+    if sector == 2:
+        if verbose:
+            print("None.\n")
+    if sector == 3:
+        science_data_start = 1385.89663
+        science_data_end = 1406.29247
+        if verbose:
+            print("t>{}|t<{}\n".format(science_data_start, science_data_end))
+        tpf = tpf[
+            (tpf.time > science_data_start) | (tpf.time < science_data_end)
+        ]
+    if sector == 4:
+        guidestar_tables_replaced = 1413.26468
+        instru_anomaly_start = 1418.53691
+        data_collection_resumed = 1421.21168
+        if verbose:
+            print(
+                "t>{}|t<{}|t>{}\n".format(
+                    guidestar_tables_replaced,
+                    instru_anomaly_start,
+                    data_collection_resumed,
+                )
+            )
+        tpf = tpf[
+            (tpf.time > guidestar_tables_replaced)
+            | (tpf.time < instru_anomaly_start)
+            | (tpf.time > data_collection_resumed)
+        ]
+    if sector == 5:
+        # use of Cam1 in attitude control was disabled for the
+        # last ~0.5 days of orbit due to o strong scattered light
+        cam1_guide_disabled = 1463.93945
+        if verbose:
+            print("t<{}\n".format(cam1_guide_disabled))
+        tpf = tpf[tpf.time < cam1_guide_disabled]
+    if sector == 6:
+        # ~3 days of orbit 19 were used to collect calibration
+        # data for measuring the PRF of cameras;
+        # reaction wheel speeds were reset with momentum dumps
+        # every 3.125 days
+        data_collection_start = 1468.26998
+        if verbose:
+            print("t>{}\n".format(data_collection_start))
+        tpf = tpf[tpf.time > data_collection_start]
+    if sector == 8:
+        # interruption in communications between instru and spacecraft occurred
+        cam1_guide_enabled = 1517.39566
+        orbit23_end = 1529.06510
+        cam1_guide_enabled2 = 1530.44705
+        instru_anomaly_start = 1531.74288
+        data_colletion_resumed = 1535.00264
+        if verbose:
+            print(
+                "t>{}|t<{}|t>{}|t<{}|t>{}\n".format(
+                    cam1_guide_enabled,
+                    orbit23_end,
+                    cam1_guide_enabled2,
+                    instru_anomaly_start,
+                    data_colletion_resumed,
+                )
+            )
+        tpf = tpf[
+            (tpf.time > cam1_guide_enabled)
+            | (tpf.time <= orbit23_end)
+            | (tpf.time > cam1_guide_enabled2)
+            | (tpf.time < instru_anomaly_start)
+            | (tpf.time > data_colletion_resumed)
+        ]
+    if sector == 9:
+        # use of Cam1 in attitude control was disabled at the
+        # start of both orbits due to strong scattered light
+        cam1_guide_enabled = 1543.75080
+        orbit25_end = 1555.54148
+        cam1_guide_enabled2 = 1543.75080
+        if verbose:
+            print(
+                "t>{}|t<{}|t>{}\n".format(
+                    cam1_guide_enabled, orbit25_end, cam1_guide_enabled2
+                )
+            )
+        tpf = tpf[
+            (tpf.time > cam1_guide_enabled)
+            | (tpf.time <= orbit25_end)
+            | (tpf.time > cam1_guide_enabled2)
+        ]
+    if sector == 10:
+        # use of Cam1 in attitude control was disabled at the
+        # start of both orbits due to strong scattered light
+        cam1_guide_enabled = 1570.87620
+        orbit27_end = 1581.78453
+        cam1_guide_enabled2 = 1584.72342
+        if verbose:
+            print(
+                "t>{}|t<{}|t>{}\n".format(
+                    cam1_guide_enabled, orbit27_end, cam1_guide_enabled2
+                )
+            )
+        tpf = tpf[
+            (tpf.time > cam1_guide_enabled)
+            | (tpf.time <= orbit27_end)
+            | (tpf.time > cam1_guide_enabled2)
+        ]
+    if sector == 11:
+        # use of Cam1 in attitude control was disabled at the
+        # start of both orbits due to strong scattered light
+        cam1_guide_enabled = 1599.94148
+        orbit29_end = 1609.69425
+        cam1_guide_enabled2 = 1614.19842
+        if verbose:
+            print(
+                "t>{}|t<{}|t>{}\n".format(
+                    cam1_guide_enabled, orbit29_end, cam1_guide_enabled2
+                )
+            )
+        tpf = tpf[
+            (tpf.time > cam1_guide_enabled)
+            | (tpf.time <= orbit29_end)
+            | (tpf.time > cam1_guide_enabled2)
+        ]
+    return tpf
 
 
 def get_tois(

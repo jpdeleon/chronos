@@ -126,7 +126,7 @@ class CDIPS(Target):
             dec=self.target_coord.dec.deg,
             label=None,
             meta=None,
-        )
+        ).normalize()
         self.lc.targetid = self.ticid
         self.cadence = self.header["XPOSURE"] * u.second  # .to(u.minute)
         self.time = self.lc.time

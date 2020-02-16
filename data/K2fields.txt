@@ -1,0 +1,23 @@
+Field	Start	Stop	Available	RA	Dec	Target list
+E	2014 Feb 04	2014 Feb 13	2014 Mar 25	23:54:36	-02:09:09	Two-wheel Concept Engineering Test
+0	2014 Mar 08	2014 May 27	2014 Sep 08	06:33:11	+21:35:16	Near Galactic Anti-center, M35, NGC 2158
+1	2014 May 30	2014 Aug 21	2014 Dec 23	11:35:46	+01:25:02	North Galactic Cap
+2	2014 Aug 23	2014 Nov 13	2015 Mar 16	16:24:30	-22:26:50	Near Gal Center, M4, M80, Upr Sco, ρ Oph
+3	2014 Nov 14	2015 Feb 03	2015 Jul 17	22:26:40	-11:05:48	South Galactic Cap, Neptune
+4	2015 Feb 07	2015 Apr 23	2015 Sep 04	03:56:18	+18:39:38	M45 (Pleiades), NGC1647, Hyades
+5	2015 Apr 27	2015 Jul 10	2015 Oct 31	08:40:38	+16:49:47	M44 (Beehive), M67
+6	2015 Jul 14	2015 Sep 30	2016 Feb 12	13:39:28	-11:17:43	North Galactic Cap
+7	2015 Oct 04	2015 Dec 26	2016 Apr 20	19:11:19	-23:21:36	Near Galactic Center, NGC 6717, Pluto
+8	2016 Jan 03	2016 Mar 23	2016 Jul 04	01:05:21	+05:15:44	Uranus, IC1613
+9	2016 Apr 21	2016 Jul 01	2016 Sep 30	18:01:25	-21:46:47	Gal Center, M21, M18, M25, M8, Earth, Mars
+10	2016 Jul 06	2016 Sep 20	2016 Dec 20	12:27:07	-04:01:38	North Galactic Cap
+11	2016 Sep 24	2016 Dec 08	2017 Jun 30	17:21:33	-23:58:33	Galactic Center, Saturn
+12	2016 Dec 15	2017 Mar 04	2017 Jul 31	23:26:38	-05:06:08	South Galactic Cap, Chiron, Mars
+13	2017 Mar 08	2017 May 27	2017 Aug 28	04:51:11	+20:47:11	Hyades, Taurus-Auriga
+14	2017 May 31	2017 Aug 19	2017 Nov 20	10:42:44	+06:51:06	North Galactic Cap, Wolf 359, WASP-104
+15	2017 Aug 23	2017 Nov 20	2018 Mar 14	15:34:28	-20:04:44	Upper Sco, GW Lib, HP Lib
+16	2017 Dec 07	2018 Feb 25	2018 May 30	08:54:50	+18:31:31	M44 (Beehive), M67, Earth.
+17	2018 Mar 01	2018 May 08	2018 Aug‑Nov	13:30:12	-07:43:16	Galaxies.
+18	2018 May 12	2018 Aug 02	2018 Nov‑Mar	08:40:39	+16:49:40	M44 (Beehive), M67.
+19	2018 Aug 06	2018 Oct 10	2019 Feb‑May	23:09:02	-04:12:10	Trappist-1, GJ 9827, Neptune.
+20	2018 Oct 15	2019 Jan 05	2019 May‑Aug	04:33:12	+22:45:42	Taurus-Auriga, Hyades

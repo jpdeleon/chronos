@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 from scipy.interpolate import NearestNDInterpolator
 from astroquery.mast import Catalogs
-from astroquery.mast.tesscut import Tesscut
 from astropy.coordinates import SkyCoord, Distance
+from astroquery.mast.tesscut import Tesscut
 from astropy import units as u
 import lightkurve as lk
 
@@ -46,6 +46,7 @@ class Target:
         ra_deg=None,
         dec_deg=None,
         search_radius=3 * u.arcsec,
+        sector=None,
         verbose=True,
         clobber=False,
     ):
@@ -59,8 +60,6 @@ class Target:
         self.gaia_params = None
         self.toi_params = None
         self.gmag = None
-        self.tesscut_tpf = None
-        self.corrector = None
         # gaiaid match
         # self.cluster_member = None
         # self.cluster_members = None
@@ -83,7 +82,7 @@ class Target:
             elif name[:4].lower() == "gaia":
                 if gaiaDR2id is None:
                     self.gaiaid = int(name.strip()[7:])
-        # self.sector = sector
+
         # self.mission = mission
         self.ra = ra_deg
         self.dec = dec_deg
@@ -119,15 +118,14 @@ class Target:
         all_sectors = [int(i) for i in df["sector"].values]
         return all_sectors
 
-    def get_sector_cam_ccd(self):
+    def get_sector_cam_ccd(self, sector=None):
         """get TESS sector, camera, and ccd numbers using Tesscut
         """
         all_sectors = self.get_all_sectors()
         df = self.ccd_info
-        if self.sector:
-            sector = self.sector
+        if sector:
             sector_idx = df["sector"][
-                df["sector"].isin([self.sector])
+                df["sector"].isin([sector])
             ].index.tolist()
             if len(sector_idx) == 0:
                 raise ValueError(f"Available sector(s): {all_sectors}")
@@ -276,6 +274,22 @@ class Target:
             #     print(d)
             self.gaia_params = tab
             return tab  # return dataframe of len 2 or more
+
+    # def plot_nearby_gaia_sources(self,separation=60):
+    #     """
+    #     separation : float [arcsec]
+    #     """
+    #     lc = LongCadence()
+    #     gaia_sources = l.query_gaia_dr2_catalog(radius=separation)
+    #     gaiaid = gaia_sources.iloc[0]['source_id']
+    #     sap_mask = 'round'
+    #     kwargs = {'aper_radius': 1, 'percentile': 80}
+    #
+    #     fig = cr.plot_gaia_sources(tpf, gaiaid, gaia_sources, fov_rad=separation*u.arcsec,
+    #              survey='DSS2 Red', sap_mask=sap_mask, verbose=True,
+    #              **kwargs
+    #             );
+    #     return fig
 
     def get_nearby_gaia_sources(self, radius=60.0, add_column=None):
         """
@@ -545,82 +559,3 @@ class Target:
             return spt, samples
         else:
             return spt
-
-    def make_custom_ffi_lc(
-        self,
-        sector=None,
-        cutout_size=(50, 50),
-        mask_threshold=3,
-        pca_nterms=5,
-        with_offset=True,
-    ):
-        """
-        create a custom lightcurve based on this tutorial:
-        https://docs.lightkurve.org/tutorials/04-how-to-remove-tess-scattered-light-using-regressioncorrector.html
-
-        Parameters
-        ----------
-        sector : int or str
-            specific sector or all
-        cutout_size : tuple
-            tpf cutout size
-        mask_threshold : float
-            threshold (sigma) to create aperture mask
-        pca_nterms : int
-            number of pca terms to use
-
-        Returns
-        -------
-        corrected_lc : lightkurve object
-        """
-        if sector is None:
-            all_sectors = self.get_all_sectors()
-            sector = all_sectors[0]
-            print(f"Available sectors: {all_sectors}")
-            print(f"sector {sector} is used.\n")
-        if self.tesscut_tpf is not None:
-            if self.tesscut_tpf.sector == sector:
-                tpf = self.tesscut_tpf
-            else:
-                tpf = lk.search_tesscut(
-                    self.target_coord, sector=sector
-                ).download(cutout_size=cutout_size)
-                self.tesscut_tpf = tpf
-        else:
-            tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
-                cutout_size=cutout_size
-            )
-            self.tesscut_tpf = tpf
-
-        # remove zeros
-        zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
-        if zero_mask.sum() > 0:
-            tpf = tpf[~zero_mask]
-        # Make an aperture mask and a raw light curve
-        aper = tpf.create_threshold_mask(threshold=mask_threshold)
-        raw_lc = tpf.to_lightcurve(aperture_mask=aper)
-
-        # Make a design matrix and pass it to a linear regression corrector
-        regressors = tpf.flux[:, ~aper]
-        dm = (
-            lk.DesignMatrix(regressors, name="regressors")
-            .pca(nterms=pca_nterms)
-            .append_constant()
-        )
-        rc = lk.RegressionCorrector(raw_lc)
-        # if remove_outliers:
-        #     clean_lc, outlier_mask = tpf.to_lightcurve(
-        #         aperture_mask=aper
-        #     ).remove_outliers(return_mask=True)
-        #     regressors = tpf.flux[:, ~aper][~outlier_mask]
-        #     dm = lk.DesignMatrix(regressors, name="regressors").pca(nterms=pca_nterms).append_constant()
-        #     rc = lk.RegressionCorrector(clean_lc)
-        self.corrector = rc
-        corrected_lc = rc.correct(dm)
-
-        # Optional: Remove the scattered light, allowing for the large offset from scattered light
-        if with_offset:
-            corrected_lc = (
-                raw_lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
-            )
-        return corrected_lc.normalize()
