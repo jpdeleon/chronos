@@ -110,6 +110,8 @@ def plot_gaia_sources(
     ax : axis
         subplot axis
     """
+    if gaia_sources is not None:
+        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:
         diag = np.sqrt(nx ** 2 + ny ** 2)
@@ -220,6 +222,7 @@ def PadWithZeros(vector, pad_width, iaxis, kwargs):
 def plot_possible_NEBs(gaia_params, depth, gaiaid=None, kmax=1.0, ax=None):
     """
     """
+    assert len(gaia_params) > 1, "gaia_params contains single entry"
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=(5, 5))
 
@@ -906,7 +909,7 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
                 bad.append(id)
     if ax is None:
         fig, ax = pl.subplots(1, 1)
-    ax.axhline(depth, 0, 1, c="k", ls="--")
+    ax.axhline(depth, 0, 1, c="k", ls="--", label="TESS depth")
     dmags = np.linspace(min(dmags), max(dmags), 100)
     gammas = 1 + 10 ** (0.4 * dmags)
     ax.plot(dmags, kmax / gammas, "r-")

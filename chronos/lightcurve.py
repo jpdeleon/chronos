@@ -30,6 +30,46 @@ log = logging.getLogger(__name__)
 __all__ = ["ShortCadence", "LongCadence"]
 
 
+# class LightCurve(object):
+#     """
+#     """
+#     def __init__(
+#         self,
+#         sector=None,
+#         name=None,
+#         toiid=None,
+#         ticid=None,
+#         epicid=None,
+#         gaiaDR2id=None,
+#         ra_deg=None,
+#         dec_deg=None,
+#         search_radius=3 * u.arcsec,
+#         apphot_method="sap",  # prf
+#         sap_mask="pipeline",
+#         quality_bitmask="default",
+#         verbose=True,
+#         # mission="TESS",
+#         # quarter=None,
+#         # month=None,
+#         # campaign=None,
+#         # limit=None,
+#     ):
+#         super(ShortCadence).__init__(
+#             sector=sector,
+#             name=name,
+#             toiid=toiid,
+#             ticid=ticid,
+#             epicid=epicid,
+#             gaiaDR2id=gaiaDR2id,
+#             ra_deg=ra_deg,
+#             dec_deg=dec_deg,
+#             search_radius=search_radius,
+#             verbose=verbose,
+#             clobber=True,
+#             )
+#     self.cadence = 'short'
+
+
 class LongCadence(Target):
     """
     """
@@ -93,6 +133,8 @@ class LongCadence(Target):
             if self.tpf_tesscut.sector == sector:
                 tpf = self.tpf_tesscut
             else:
+                if self.verbose:
+                    print(f"Searching targetpixelfile using Tesscut")
                 tpf = lk.search_tesscut(
                     self.target_coord, sector=sector
                 ).download(cutout_size=cutout_size)
@@ -158,10 +200,18 @@ class LongCadence(Target):
             threshold_sigma=threshold_sigma,
             verbose=self.verbose,
         )
-        raw_lc = self.tpf_tesscut.to_lightcurve(aperture_mask=aper_mask)
+        raw_lc = self.tpf_tesscut.to_lightcurve(
+            method="aperture", aperture_mask=aper_mask
+        )
+        idx = (
+            np.isnan(raw_lc.time)
+            | np.isnan(raw_lc.flux)
+            | np.isnan(raw_lc.flux_err)
+        )
+        raw_lc = raw_lc[~idx]
         self.lc_custom_raw = raw_lc
         # Make a design matrix and pass it to a linear regression corrector
-        regressors = self.tpf_tesscut.flux[:, ~aper_mask]
+        regressors = self.tpf_tesscut.flux[~idx][:, ~aper_mask]
         dm = (
             lk.DesignMatrix(regressors, name="regressors")
             .pca(nterms=pca_nterms)
@@ -260,30 +310,61 @@ class ShortCadence(LongCadence):
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
         )
-        if self.lcf is None:
-            if self.verbose:
-                print(f"Searching lightcurvefile using lightkurve")
-            if self.ticid:
-                q = lk.search_lightcurvefile(
-                    f"TIC {self.ticid}", sector=sector, mission=MISSION
-                )
+        self.all_sectors = self.get_all_sectors()
+        if self.lcf is not None:
+            if self.lcf.sector == sector:
+                lcf = self.lcf
             else:
-                q = lk.search_lightcurvefile(
-                    self.target_coord, sector=sector, mission=MISSION
+                query_str = (
+                    f"TIC {self.ticid}" if self.ticid else self.target_coord
                 )
-            if isinstance(sector, str) and sector == "all":
+                if self.verbose:
+                    print(
+                        f"Searching lightcurvefile for {query_str} (sector {sector})"
+                    )
+                q = lk.search_lightcurvefile(
+                    query_str, sector=sector, mission=MISSION
+                )
+                if (sector == "all") & (len(self.all_sectors) > 1):
+                    lcf = q.download_all(quality_bitmask=quality_bitmask)
+                else:
+                    lcf = q.download(quality_bitmask=quality_bitmask)
+                self.lcf = lcf
+        else:
+            query_str = (
+                f"TIC {self.ticid}" if self.ticid else self.target_coord
+            )
+            if self.verbose:
+                print(
+                    f"Searching lightcurvefile for {query_str} (sector {sector})"
+                )
+            q = lk.search_lightcurvefile(
+                query_str, sector=sector, mission=MISSION
+            )
+            if (sector == "all") & (len(self.all_sectors) > 1):
                 lcf = q.download_all(quality_bitmask=quality_bitmask)
             else:
                 lcf = q.download(quality_bitmask=quality_bitmask)
             self.lcf = lcf
-        else:
-            lcf = self.lcf
-        self.lc_sap = lcf.SAP_FLUX
-        self.lc_pdcsap = lcf.PDCSAP_FLUX
+        assert lcf is not None, "Empty result. Check long cadence."
+        sap = lcf.SAP_FLUX
+        pdcsap = lcf.PDCSAP_FLUX
+        if isinstance(lcf, lk.LightCurveFileCollection):
+            if len(lcf) > 1:
+                sap0 = sap[0].normalize()
+                sap = [sap0.append(l.normalize()) for l in sap[1:]][0]
+                pdcsap0 = pdcsap[0].normalize()
+                pdcsap = [pdcsap0.append(l.normalize()) for l in pdcsap[1:]][0]
+            else:
+                raise ValueError(
+                    f"Only sector {lcf[0].sector} (in {self.all_sectors}) is available"
+                )
+        self.lc_sap = sap
+        self.lc_pdcsap = pdcsap
         if lctype == "pdcsap":
-            return lcf.PDCSAP_FLUX.remove_nans().normalize()
+            return pdcsap.remove_nans().normalize()
         else:
-            return lcf.SAP_FLUX.remove_nans().normalize()
+            return sap.remove_nans().normalize()
 
     def get_tpf(
         self,
@@ -436,7 +517,8 @@ class ShortCadence(LongCadence):
         """
         sector = sector if sector else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
-        self.tpf, tpf_info = self.get_tpf(sector, return_df=True)
+        if self.tpf is None:
+            self.tpf, tpf_info = self.get_tpf(sector, return_df=True)
         # Make an aperture mask and a raw light curve
         aper_mask = parse_aperture_mask(
             self.tpf,
@@ -447,9 +529,18 @@ class ShortCadence(LongCadence):
             verbose=self.verbose,
         )
         raw_lc = self.tpf.to_lightcurve(aperture_mask=aper_mask)
+        idx = (
+            np.isnan(raw_lc.time)
+            | np.isnan(raw_lc.flux)
+            | np.isnan(raw_lc.flux_err)
+        )
+        raw_lc = raw_lc[~idx]
+        self.lc_custom_raw = raw_lc
+        # Make a design matrix and pass it to a linear regression corrector
+        regressors = self.tpf.flux[~idx][:, ~aper_mask]
         self.lc_custom_raw = raw_lc
         dm = (
-            lk.DesignMatrix(self.tpf.flux[:, ~aper_mask], name="pixels")
+            lk.DesignMatrix(regressors, name="pixels")
             .pca(pca_nterms)
             .append_constant()
         )
