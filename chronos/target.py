@@ -58,6 +58,7 @@ class Target:
         self.search_radius = search_radius
         self.tic_params = None
         self.gaia_params = None
+        self.gaia_sources = None
         self.toi_params = None
         self.gmag = None
         # gaiaid match
@@ -97,9 +98,9 @@ class Target:
         if self.toiid is not None:
             self.toi_params = get_toi(
                 toi=self.toiid, clobber=self.clobber, verbose=False
-            )
+            ).iloc[0]
         if (self.ticid is None) and (self.toiid is not None):
-            self.ticid = int(self.toi_params["TIC ID"].values[0])
+            self.ticid = int(self.toi_params["TIC ID"])
         self.target_coord = get_target_coord(
             ra=self.ra,
             dec=self.dec,
@@ -169,12 +170,6 @@ class Target:
         ebv = dust_map(self.target_coord)
         Av = constant * ebv
         return Av
-
-    def query_toi(self, toi=None, **kwargs):
-        d = get_toi(toi=toi, **kwargs)
-        if d is not None:
-            self.toi_params = d
-        return d
 
     def query_gaia_dr2_catalog(self, radius=None, return_nearest_xmatch=False):
         """
@@ -272,7 +267,7 @@ class Target:
             # if self.verbose:
             #     d = self.get_nearby_gaia_sources()
             #     print(d)
-            self.gaia_params = tab
+            self.gaia_sources = tab
             return tab  # return dataframe of len 2 or more
 
     # def plot_nearby_gaia_sources(self,separation=60):
@@ -303,11 +298,10 @@ class Target:
         add_column : str
             additional Gaia column name to show (e.g. radial_velocity)
         """
-        if self.gaia_params is None:
-            _ = self.query_gaia_dr2_catalog(radius=60)
-        if len(self.gaia_params) == 1:
-            _ = self.query_gaia_dr2_catalog(radius=60)
-        d = self.gaia_params.copy()
+        if self.gaia_sources is None:
+            d = self.query_gaia_dr2_catalog(radius=60)
+        else:
+            d = self.gaia_sources.copy()
 
         if self.gaiaid is None:
             # nearest match (first entry row=0) is assumed as the target
@@ -315,7 +309,7 @@ class Target:
         else:
             gaiaid = self.gaiaid
         idx = d.source_id == gaiaid
-        target_gmag = d.loc[idx, "phot_g_mean_mag"].values[0]
+        target_gmag = d.loc[idx, "phot_g_mean_mag"]
         d["distance"] = d["distance"].apply(
             lambda x: x * u.arcmin.to(u.arcsec)
         )
@@ -334,6 +328,28 @@ class Target:
             assert (isinstance(add_column, str)) & (add_column in d.columns)
             columns.append(add_column)
         return d[columns]
+
+    def compute_Tmax_from_depth(self, depth=None):
+        """
+        """
+        if self.toi_params is None:
+            toi_params = self.get_toi(clobber=False, verbose=False).iloc[0]
+        else:
+            toi_params = self.toi_params
+
+        depth = toi_params["Depth (ppm)"] * 1e-6
+        if self.tic_params is None:
+            tic_params = self.query_tic_catalog(return_nearest_xmatch=True)
+        else:
+            tic_params = self.tic_params
+        Tmag = tic_params["Tmag"]
+        dT = 2.5 * np.log10(depth)
+        Tmax = Tmag + dT
+        if self.verbose:
+            print(
+                f"Given depth={depth*100:.4f}%, Tmag={Tmax:.2f} is the max. mag of a resolved companion that can reproduce this transit"
+            )
+        return Tmax
 
     def get_possible_NEBs(self, depth, gaiaid=None, kmax=1.0):
         """
@@ -410,7 +426,7 @@ class Target:
 
         if match_id:
             # return member with gaiaid identical to target
-            if self.gaiaid:
+            if self.gaiaid is not None:
                 idx = df.source_id.isin([self.gaiaid])
                 if sum(idx) == 0:
                     errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog\n"

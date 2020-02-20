@@ -17,9 +17,15 @@ import numpy as np
 import pandas as pd
 from astropy import units as u
 from astropy import constants as c
+from astropy.io import ascii
 
 # from astropy.io import ascii
-from astropy.coordinates import SkyCoord, Distance, Galactocentric
+from astropy.coordinates import (
+    SkyCoord,
+    Distance,
+    Galactocentric,
+    match_coordinates_3d,
+)
 from astroquery.mast import Catalogs
 from astroquery.gaia import Gaia
 from tqdm import tqdm
@@ -64,6 +70,52 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def check_harps_RV(target_coord, dist=30, verbose=True):
+    """
+    Check if target has archival HARPS data from:
+    http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
+    """
+    url = "http://www.mpia.de/homes/trifonov/HARPS_RVBank_v1.csv"
+    table = pd.read_html(url, header=0)
+    # choose first table
+    df = table[0]
+    # coordinates
+    coords = SkyCoord(ra=df["RA"], dec=df["DEC"], unit=(u.hourangle, u.deg))
+    # check which falls within `dist`
+    idxs = target_coord.separation(coords) < dist
+    if idxs.sum() > 0:
+        # result may be multiple objects
+        res = df[idxs]
+
+        if verbose:
+            msg = "There are {} matches: {}".format(
+                len(res), res["Target"].values
+            )
+            print(msg)
+            #             logging.info(msg)
+            print("{}\n\n".format(df.loc[idxs, df.columns[7:14]].T))
+        return res
+
+    else:
+        # find the nearest HARPS object in the database to target
+        idx, sep2d, dist3d = match_coordinates_3d(
+            target_coord, coords, nthneighbor=1
+        )
+        nearest_obj = df.iloc[[idx]]["Target"].values[0]
+        ra, dec = df.iloc[[idx]][["RA_deg", "DEC_deg"]].values[0]
+        msg = "Nearest HARPS obj to target is\n{}: ra,dec=({:.4f},{:.4f})\n".format(
+            nearest_obj, ra, dec
+        )
+        print(msg)
+        #         logging.info(msg)
+        print(
+            'Try angular distance larger than d={:.4f}"\n'.format(
+                sep2d.arcsec[0]
+            )
+        )
+        return None
 
 
 def get_mamajek_table(clobber=False, verbose=True, data_loc=DATA_PATH):
@@ -464,6 +516,7 @@ def get_tois(
     verbose=False,
     remove_FP=True,
     remove_known_planets=False,
+    add_ffp=True,
 ):
     """Download TOI list from TESS Alert/TOI Release.
 
@@ -524,7 +577,19 @@ def get_tois(
         msg = f"Loaded: {fp}"
     if verbose:
         print(msg)
-
+    if add_ffp:
+        fp = join(outdir, "Giacalone2020/tab4.txt")
+        classified = ascii.read(fp).to_pandas()
+        fp = join(outdir, "Giacalone2020/tab5.txt")
+        unclassified = ascii.read(fp).to_pandas()
+        fpp = pd.concat(
+            [
+                classified[["TOI", "FPP-2m", "FPP-30m"]],
+                unclassified[["TOI", "FPP"]],
+            ],
+            sort=True,
+        )
+        d = pd.merge(d, fpp)
     return d.sort_values("TOI")
 
 
