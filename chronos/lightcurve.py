@@ -27,48 +27,7 @@ fitsoutdir = join("/home", user, "data/transit")
 
 log = logging.getLogger(__name__)
 
-__all__ = ["ShortCadence", "LongCadence"]
-
-
-# class LightCurve(object):
-#     """
-#     """
-#     def __init__(
-#         self,
-#         sector=None,
-#         name=None,
-#         toiid=None,
-#         ticid=None,
-#         epicid=None,
-#         gaiaDR2id=None,
-#         ra_deg=None,
-#         dec_deg=None,
-#         search_radius=3 * u.arcsec,
-#         apphot_method="sap",  # prf
-#         sap_mask="pipeline",
-#         quality_bitmask="default",
-#         verbose=True,
-#         # mission="TESS",
-#         # quarter=None,
-#         # month=None,
-#         # campaign=None,
-#         # limit=None,
-#     ):
-#         super(ShortCadence).__init__(
-#             sector=sector,
-#             name=name,
-#             toiid=toiid,
-#             ticid=ticid,
-#             epicid=epicid,
-#             gaiaDR2id=gaiaDR2id,
-#             ra_deg=ra_deg,
-#             dec_deg=dec_deg,
-#             search_radius=search_radius,
-#             verbose=verbose,
-#             clobber=True,
-#             )
-#     self.cadence = 'short'
-
+__all__ = ["ShortCadence", "LongCadence", "LightCurve"]
 
 class LongCadence(Target):
     """
@@ -269,6 +228,7 @@ class ShortCadence(LongCadence):
         sap_mask="pipeline",
         quality_bitmask="default",
         verbose=True,
+        clobber=True,
         # mission="TESS",
         # quarter=None,
         # month=None,
@@ -286,7 +246,7 @@ class ShortCadence(LongCadence):
             dec_deg=dec_deg,
             search_radius=search_radius,
             verbose=verbose,
-            clobber=True,
+            clobber=clobber,
             # sap_mask='threshold',
             # cutout_size = (50,50),
             # mission=mission
@@ -558,3 +518,59 @@ class ShortCadence(LongCadence):
         lc = corrected_lc.normalize()
         self.lc_custom = lc
         return lc
+
+# class LightCurve(ShortCadence, LongCadence):
+#     """
+#     """
+#     def __init__(
+#         self,
+#         cadence='short',
+#         sap_mask='pipeline',
+#         sector=None,
+#         name=None,
+#         toiid=None,
+#         ticid=None,
+#         epicid=None,
+#         gaiaDR2id=None,
+#         ra_deg=None,
+#         dec_deg=None,
+#         search_radius=3 * u.arcsec,
+#         apphot_method="sap",  # prf
+#         quality_bitmask="default",
+#         cutout_size=(50, 50),
+#         clobber=True,
+#         verbose=True
+#         ):
+#         if cadence=='short':
+#             super(ShortCadence, self).__init__(
+#                 sector=sector,
+#                 name=name,
+#                 toiid=toiid,
+#                 ticid=ticid,
+#                 epicid=epicid,
+#                 gaiaDR2id=gaiaDR2id,
+#                 ra_deg=ra_deg,
+#                 dec_deg=dec_deg,
+#                 search_radius=search_radius,
+#                 # quality_bitmask=quality_bitmask,
+#                 verbose=verbose,
+#                 clobber=clobber,
+#                 )
+#         else:
+#             super(LongCadence, self).__init__(
+#                 sector=sector,
+#                 name=name,
+#                 toiid=toiid,
+#                 ticid=ticid,
+#                 epicid=epicid,
+#                 gaiaDR2id=gaiaDR2id,
+#                 ra_deg=ra_deg,
+#                 dec_deg=dec_deg,
+#                 search_radius=search_radius,
+#                 # quality_bitmask=quality_bitmask,
+#                 sap_mask=sap_mask,
+#                 cutout_size=cutout_size,
+#                 clobber=clobber,
+#                 verbose=verbose
+#                 )
+#         self.cadence=cadence
