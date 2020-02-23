@@ -57,6 +57,7 @@ __all__ = [
     "remove_bad_data",
     "is_point_inside_mask",
     "compute_fluxes_within_mask",
+    "check_harps_RV"
 ]
 
 # Ax/Av
@@ -74,50 +75,48 @@ extinction_ratios = {
     "Rp": 0.65199,
 }
 
-
-def check_harps_RV(target_coord, dist=30, verbose=True):
+def check_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
     """
     Check if target has archival HARPS data from:
     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
     """
-    url = "http://www.mpia.de/homes/trifonov/HARPS_RVBank_v1.csv"
-    table = pd.read_html(url, header=0)
-    # choose first table
-    df = table[0]
+    fp = os.path.join(outdir, 'HARPS_RVBank_table.csv')
+    if os.path.exists(fp):
+        df = pd.read_csv(fp)
+        msg=f'Loaded: {fp}\n'
+    else:
+        if verbose:
+            print('This may take a while...')
+        #csvurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank_v1.csv"
+        #df = pd.read_csv(csvurl)
+        homeurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank.html"
+        df = pd.read_html(homeurl, header=0)[0]# choose first table
+        df.to_csv(fp, index=False)
+        msg=f'Saved: {fp}\n'
+    if verbose:
+        print(msg)
     # coordinates
-    coords = SkyCoord(ra=df["RA"], dec=df["DEC"], unit=(u.hourangle, u.deg))
-    # check which falls within `dist`
-    idxs = target_coord.separation(coords) < dist
+    coords = SkyCoord(ra=df["RA"], dec=df["DEC"], distance=df["Dist [pc]"], unit=(u.hourangle, u.deg, u.pc))
+    # check which falls within `separation`
+    idxs = target_coord.separation(coords) < separation*u.arcsec
     if idxs.sum() > 0:
         # result may be multiple objects
         res = df[idxs]
-
         if verbose:
-            msg = "There are {} matches: {}".format(
-                len(res), res["Target"].values
-            )
-            print(msg)
-            #             logging.info(msg)
-            print("{}\n\n".format(df.loc[idxs, df.columns[7:14]].T))
+            print(f"There are {len(res)} matches: {res['Target'].values}")
+            print(f"{df.loc[idxs, df.columns[7:14]].T}\n\n")
         return res
 
     else:
         # find the nearest HARPS object in the database to target
-        idx, sep2d, dist3d = match_coordinates_3d(
-            target_coord, coords, nthneighbor=1
-        )
-        nearest_obj = df.iloc[[idx]]["Target"].values[0]
-        ra, dec = df.iloc[[idx]][["RA_deg", "DEC_deg"]].values[0]
-        msg = "Nearest HARPS obj to target is\n{}: ra,dec=({:.4f},{:.4f})\n".format(
-            nearest_obj, ra, dec
-        )
-        print(msg)
-        #         logging.info(msg)
-        print(
-            'Try angular distance larger than d={:.4f}"\n'.format(
-                sep2d.arcsec[0]
-            )
-        )
+        # idx, sep2d, dist3d = match_coordinates_3d(
+        #     target_coord, coords, nthneighbor=1)
+        idx = target_coord.separation(coords).argmin()
+        sep2d = target_coord.separation(coords[idx])
+        nearest_obj = df.iloc[idx]["Target"]
+        ra, dec = df.iloc[idx][["RA", "DEC"]]
+        print(f"Nearest HARPS obj to target is\n{nearest_obj}: ra,dec=({ra},{dec})\n")
+        print(f'Try angular distance larger than d={sep2d.arcsec:.4f}"\n')
         return None
 
 
