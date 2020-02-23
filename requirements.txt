@@ -1,11 +1,11 @@
-astroquery
-lightkurve
-astropy
-pandas
+astroquery==0.4
+lightkurve==1.8.0
+astropy==4.0
+pandas==1.0.1
 tqdm
-astroplan
+astroplan==0.6
 transitleastsquares
 # wotan
-scikit-image
-git-lfs
-deepdish
+scikit-image==0.16.2
+gitpython
+deepdish==0.3.6

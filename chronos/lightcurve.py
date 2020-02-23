@@ -150,7 +150,7 @@ class LongCadence(Target):
         sector = sector if sector else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         cutout_size = cutout_size if cutout_size else self.cutout_size
-        self.tpf_tesscut = self.get_tpf_tesscut(sector)
+        self.tpf_tesscut = self.get_tpf_tesscut(sector=sector)
         # Make an aperture mask and a raw light curve
         aper_mask = parse_aperture_mask(
             self.tpf_tesscut,

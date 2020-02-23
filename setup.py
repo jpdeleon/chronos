@@ -8,11 +8,11 @@ import os
 import subprocess
 import sys
 
-try:
-    import git
-except ModuleNotFoundError:
-    subprocess.call([sys.executable, "-m", "pip", "install", "gitpython"])
-    import git
+# try:
+#     import git
+# except ModuleNotFoundError:
+#     subprocess.call([sys.executable, "-m", "pip", "install", "gitpython"])
+#     import git
 
 
 def install_requires():
@@ -30,20 +30,20 @@ def install_requires():
     return packages
 
 
-def pull_first():
-    """This script is in a git directory that can be pulled."""
-    cwd = os.getcwd()
-    gitdir = os.path.dirname(os.path.realpath(__file__))
-    os.chdir(gitdir)
-    g = git.cmd.Git(gitdir)
-    try:
-        g.execute(["git", "lfs", "pull"])
-    except git.exc.GitCommandError:
-        raise RuntimeError("Make sure git-lfs is installed!")
-    os.chdir(cwd)
-
-
-pull_first()
+# def pull_first():
+#     """This script is in a git directory that can be pulled."""
+#     cwd = os.getcwd()
+#     gitdir = os.path.dirname(os.path.realpath(__file__))
+#     os.chdir(gitdir)
+#     g = git.cmd.Git(gitdir)
+#     try:
+#         g.execute(["git", "lfs", "pull"])
+#     except git.exc.GitCommandError:
+#         raise RuntimeError("Make sure git-lfs is installed!")
+#     os.chdir(cwd)
+#
+#
+# pull_first()
 
 setup(
     name="chronos",
@@ -64,3 +64,5 @@ setup(
     zip_safe=False,
     install_requires=install_requires(),
 )
+
+print('Finally, git lfs pull')
