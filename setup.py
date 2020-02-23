@@ -1,3 +1,7 @@
+"""
+This installation requires git which pulls large files first before pip installation
+https://stackoverflow.com/a/58932741/1910174
+"""
 from setuptools import setup, find_packages
 
 import os
