@@ -13,12 +13,14 @@ import matplotlib.pyplot as pl
 import lightkurve as lk
 from scipy.ndimage import zoom
 from astropy.coordinates import Angle, SkyCoord, Distance
+from astropy.visualization import ZScaleInterval
 from astroquery.mast import Catalogs
 from astropy.wcs import WCS
 import astropy.units as u
 from astroplan.plots import plot_finder_image
 from astropy.timeseries import LombScargle
 from mpl_toolkits.mplot3d import Axes3D
+from skimage import measure
 
 # Import from package
 from chronos.cluster import ClusterCatalog
@@ -30,6 +32,8 @@ from chronos.utils import (
     get_absolute_gmag,
     get_absolute_color_index,
     parse_aperture_mask,
+    is_point_inside_mask,
+    compute_fluxes_within_mask,
 )
 
 TESS_pix_scale = 21 * u.arcsec  # /pix
@@ -47,33 +51,102 @@ __all__ = [
     "plot_lomb_scargle",
     "plot_possible_NEBs",
     "plot_interactive",
-    "plot_gaia_sources",
+    "plot_aperture_outline",
+    "plot_gaia_sources_on_survey",
+    "plot_gaia_sources_on_tpf",
 ]
 
 
-# def plot_lomb_scargle(time, flux, flux_err, period, figsize=(8, 8)):
-#     """
-#     Adapted from https://docs.astropy.org/en/stable/timeseries/lombscargle.html#the-lomb-scargle-model
-#     Add also a waterfall diagram to show brightness evolution, as in Fig. 7 of David+2019a
-#     """
-#     frequency, power = LombScargle(time, flux, flux_err).autopower(
-#         minimum_frequency=0.05,  # 20 days
-#         # maximum_frequency=2.0 #0.5 day
-#     )
-#     best_frequency = frequency[np.argmax(power)]
-#     t_fit = np.linspace(0, 1)
-#     ls = LombScargle(time, flux, flux_err)
-#     y_fit = ls.model(t_fit, best_frequency)
-#
-#     fig, ax = pl.subplots(2, 1, figsize=figsize)
-#     ax[0].plot(1.0 / frequency, power)
-#
-#     ax[1].plot(time / period % 1 - 0.5, flux, ".")
-#     ax[1].plot(t_fit - 0.5, y_fit)
-#     return fig
+def plot_gaia_sources_on_tpf(
+    tpf,
+    target_gaiaid,
+    gaia_sources=None,
+    sap_mask="pipeline",
+    depth=None,
+    kmax=1,
+    ax=None,
+    fov_rad=None,
+    figsize=None,
+    **mask_kwargs,
+):
+    """
+    sources within aperture are red or orange if depth>kmax/gamma; green if outside
+    """
+    assert target_gaiaid is not None
+    img = np.median(tpf.flux, axis=0)
+    # make aperture mask
+    mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
+    ax = plot_aperture_outline(img, mask=mask, imgwcs=tpf.wcs, figsize=figsize)
+    if fov_rad is None:
+        nx, ny = tpf.shape[:2]
+        diag = np.sqrt(nx ** 2 + ny ** 2)
+        fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcmin)
+
+    if gaia_sources is None:
+        target_coord = SkyCoord(
+            ra=tpf.header["RA_OBJ"], dec=tpf.header["DEC_OBJ"], unit="deg"
+        )
+        gaia_sources = Catalogs.query_region(
+            target_coord, radius=fov_rad, catalog="Gaia", version=2
+        ).to_pandas()
+
+    # find sources within mask
+    if depth is not None:
+        # target is assumed to be the first row
+        idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+        target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
+
+        # get sources inside mask
+        ra, dec = gaia_sources[["ra", "dec"]].values.T
+        pix_coords = tpf.wcs.all_world2pix(np.c_[ra, dec], 0)
+        contour_points = measure.find_contours(mask, level=0.1)[0]
+        isinside = [
+            is_point_inside_mask(contour_points, pix) for pix in pix_coords
+        ]
+        min_gmag = gaia_sources.loc[isinside, "phot_g_mean_mag"].min()
+        if (target_gmag - min_gmag) != 0:
+            print(
+                f"target Gmag={target_gmag:.2f} is not the brightest within aperture (Gmag={min_gmag:.2f  })"
+            )
+
+    for index, row in gaia_sources.iterrows():
+        ra, dec, gmag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
+        pix = tpf.wcs.all_world2pix(np.c_[ra, dec], 0)[0]
+        contour_points = measure.find_contours(mask, level=0.1)[0]
+
+        alpha, marker = 1.0, "o"
+        if is_point_inside_mask(contour_points, pix):
+            edgecolor = "C3"
+            if int(id) == int(target_gaiaid):
+                marker = "s"
+                edgecolor = "w"
+                # ax.plot(pix[1],pix[0], marker='x', ms=20, lw=10, c='w')
+            if depth is not None:
+                gamma = 1 + 10 ** (0.4 * (min_gmag - gmag))
+                if depth > kmax / gamma:
+                    edgecolor = "C1"
+        else:
+            # alpha=0.5
+            edgecolor = "C2"
+        ax.scatter(
+            pix[1],
+            pix[0],
+            marker=marker,
+            s=50,
+            edgecolor=edgecolor,
+            alpha=alpha,
+            facecolor="none",
+        )
+    # set img limits
+    # pl.setp(
+    #     ax,
+    #     xlim=(min(pix_coords[0]), max(pix_coords[0])),
+    #     ylim=(min(pix_coords[1]), max(pix_coords[1])),
+    # )
+    return ax
 
 
-def plot_gaia_sources(
+def plot_gaia_sources_on_survey(
     tpf,
     target_gaiaid,
     gaia_sources=None,
@@ -84,7 +157,8 @@ def plot_gaia_sources(
     survey="DSS2 Red",
     verbose=True,
     ax=None,
-    **kwargs,
+    figsize=None,
+    **mask_kwargs,
 ):
     """Plot (superpose) Gaia sources on archival image
 
@@ -110,6 +184,7 @@ def plot_gaia_sources(
     ax : axis
         subplot axis
     """
+    assert target_gaiaid is not None
     if gaia_sources is not None:
         assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     ny, nx = tpf.flux.shape[1:]
@@ -122,17 +197,14 @@ def plot_gaia_sources(
             target_coord, radius=fov_rad, catalog="Gaia", version=2
         ).to_pandas()
     # make aperture mask
-    mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **kwargs)
+    mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
     maskhdr = tpf.hdu[2].header
     # make aperture mask outline
     contour = np.zeros((ny, nx))
     contour[np.where(mask)] = 1
-    contour = np.lib.pad(contour, 1, PadWithZeros)
+    #     contour = np.lib.pad(contour, 1, PadWithZeros)
     highres = zoom(contour, 100, order=0, mode="nearest")
     extent = np.array([-1, nx, -1, ny])
-
-    # if tpf.targetid is not None:
-    #     ticid = tpf.targetid
 
     if verbose:
         print(
@@ -146,7 +218,7 @@ def plot_gaia_sources(
 
     # -----------create figure---------------#
     if ax is None:
-        fig = pl.figure(figsize=(6, 6))
+        fig = pl.figure(figsize=figsize)
         # define scaling in projection
         ax = fig.add_subplot(111, projection=WCS(hdu.header))
     nax, hdu = plot_finder_image(
@@ -160,32 +232,30 @@ def plot_gaia_sources(
         levels=[0.5],
         extent=extent,
         origin="lower",
-        colors="b",
+        colors="C0",
         transform=nax.get_transform(WCS(maskhdr)),
     )
     idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
-    # marker & size
-    marker, s = "o", 100
-    # NEBs = []
-    for r, d, mag, id in gaia_sources[
-        ["ra", "dec", "phot_g_mean_mag", "source_id"]
-    ].values:
+
+    for index, rows in gaia_sources.iterrows():
+        marker, s = "o", 100
+        r, d, mag, id = rows[["ra", "dec", "phot_g_mean_mag", "source_id"]]
         pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
-        if int(id) != target_gaiaid:
-            dmag = mag - target_gmag
-            gamma = 1 + 10 ** (0.4 * dmag)
+        if int(id) != int(target_gaiaid):
+            gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
             if depth > kmax / gamma:
                 # too deep to have originated from secondary star
-                edgecolor = "b"
-                alpha = 0.1
+                edgecolor = "C1"
+                alpha = 1  # 0.5
             else:
                 # possible NEBs
-                # NEBs.append(id)
-                edgecolor = "r"
+                edgecolor = "C3"
                 alpha = 1
         else:
-            edgecolor = "y"
+            s = 200
+            edgecolor = "C2"
+            marker = "s"
             alpha = 1
         nax.scatter(
             pix[0],
@@ -196,12 +266,6 @@ def plot_gaia_sources(
             alpha=alpha,
             facecolor="none",
         )
-    # if verbose:
-    #     bad = gaia_sources.loc[gaia_sources.source_id.astype(int).isin(NEBs)]
-    #     bad["distance"] = bad["distance"].apply(
-    #         lambda x: x * u.arcmin.to(u.arcsec)
-    #     )
-    #     print(bad[["source_id", "distance", "parallax", "phot_g_mean_mag"]])
     # set img limits
     pl.setp(
         nax,
@@ -209,14 +273,34 @@ def plot_gaia_sources(
         ylim=(0, my),
         title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
     )
-    return ax  # , NEBs
+    return ax
 
 
-def PadWithZeros(vector, pad_width, iaxis, kwargs):
-    """ """
-    vector[: pad_width[0]] = 0
-    vector[-pad_width[1] :] = 0
-    return vector
+def plot_aperture_outline(img, mask, ax=None, imgwcs=None, figsize=None):
+    """
+    see https://github.com/rodluger/everest/blob/56f61a36625c0d9a39cc52e96e38d257ee69dcd5/everest/standalone.py
+    """
+    interval = ZScaleInterval(contrast=0.5)
+    ny, nx = mask.shape
+    contour = np.zeros((ny, nx))
+    contour[np.where(mask)] = 1
+    #     contour = np.lib.pad(contour, 1, PadWithZeros)
+    highres = zoom(contour, 100, order=0, mode="nearest")
+    extent = np.array([-1, nx, -1, ny])
+
+    if ax is None:
+        fig, ax = pl.subplots(
+            subplot_kw={"projection": imgwcs}, figsize=figsize
+        )
+        ax.set_xlabel("RA")
+        ax.set_ylabel("Dec")
+    _ = ax.contour(
+        highres, levels=[0.5], extent=extent, origin="lower", colors="C6"
+    )
+    zmin, zmax = interval.get_limits(img)
+    ax.matshow(img, origin="lower", vmin=zmin, vmax=zmax, extent=extent)
+    # verts = cs.allsegs[0][0]
+    return ax
 
 
 def plot_possible_NEBs(gaia_params, depth, gaiaid=None, kmax=1.0, ax=None):

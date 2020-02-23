@@ -25,6 +25,7 @@ setup(
         "tqdm",
         "transitleastsquares",
         "wotan",
+        "scikit-image",
         "deepdish",
     ],
 )

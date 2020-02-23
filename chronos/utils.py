@@ -15,9 +15,11 @@ import os
 # Import from module
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as pl
 from astropy import units as u
 from astropy import constants as c
 from astropy.io import ascii
+from scipy.ndimage import zoom
 
 # from astropy.io import ascii
 from astropy.coordinates import (
@@ -26,6 +28,7 @@ from astropy.coordinates import (
     Galactocentric,
     match_coordinates_3d,
 )
+from skimage import measure
 from astroquery.mast import Catalogs
 from astroquery.gaia import Gaia
 from tqdm import tqdm
@@ -54,6 +57,8 @@ __all__ = [
     "make_round_mask",
     "make_square_mask",
     "remove_bad_data",
+    "is_point_inside_mask",
+    "compute_fluxes_within_mask",
 ]
 
 # Ax/Av
@@ -516,7 +521,7 @@ def get_tois(
     verbose=False,
     remove_FP=True,
     remove_known_planets=False,
-    add_ffp=True,
+    add_FPP=True,
 ):
     """Download TOI list from TESS Alert/TOI Release.
 
@@ -541,55 +546,58 @@ def get_tois(
 
     if not exists(fp) or clobber:
         d = pd.read_csv(dl_link)  # , dtype={'RA': float, 'Dec': float})
-        # remove False Positives
-        if remove_FP:
-            d = d[d["TFOPWG Disposition"] != "FP"]
-            if verbose:
-                print("TOIs with TFPWG disposition==FP are removed.\n")
-        if remove_known_planets:
-            planet_keys = [
-                "WASP",
-                "SWASP",
-                "HAT",
-                "HATS",
-                "KELT",
-                "QATAR",
-                "K2",
-                "Kepler",
-            ]
-            keys = []
-            for key in planet_keys:
-                idx = ~np.array(
-                    d["Comments"].str.contains(key).tolist(), dtype=bool
-                )
-                d = d[idx]
-                if idx.sum() > 0:
-                    keys.append(key)
-            if verbose:
-                print(f"{keys} planets are removed.\n")
-        d.to_csv(fp, index=False)
-        msg = f"Saved: {fp}\n"
+        msg = f"Downloading {dl_link}\n"
+        if add_FPP:
+            fp = join(outdir, "Giacalone2020/tab4.txt")
+            classified = ascii.read(fp).to_pandas()
+            fp = join(outdir, "Giacalone2020/tab5.txt")
+            unclassified = ascii.read(fp).to_pandas()
+            fpp = pd.concat(
+                [
+                    classified[["TOI", "FPP-2m", "FPP-30m"]],
+                    unclassified[["TOI", "FPP"]],
+                ],
+                sort=True,
+            )
+            d = pd.merge(d, fpp, how="outer")
     else:
         d = pd.read_csv(fp)
-        # remove False Positives
-        if remove_FP:
-            d = d[d["TFOPWG Disposition"] != "FP"]
-        msg = f"Loaded: {fp}"
+        msg = f"Loaded: {fp}\n"
+    d.to_csv(fp, index=False)
+
+    # remove False Positives
+    if remove_FP:
+        d = d[d["TFOPWG Disposition"] != "FP"]
+        msg += "TOIs with TFPWG disposition==FP are removed.\n"
+    if remove_known_planets:
+        planet_keys = [
+            "HD",
+            "GJ",
+            "LHS",
+            "XO",
+            "Pi Men" "WASP",
+            "SWASP",
+            "HAT",
+            "HATS",
+            "KELT",
+            "TrES",
+            "QATAR",
+            "CoRoT",
+            "K2",  # , "EPIC"
+            "Kepler",  # "KOI"
+        ]
+        keys = []
+        for key in planet_keys:
+            idx = ~np.array(
+                d["Comments"].str.contains(key).tolist(), dtype=bool
+            )
+            d = d[idx]
+            if idx.sum() > 0:
+                keys.append(key)
+        msg += f"{keys} planets are removed.\n"
+    msg += f"Saved: {fp}\n"
     if verbose:
         print(msg)
-    if add_ffp:
-        fp = join(outdir, "Giacalone2020/tab4.txt")
-        classified = ascii.read(fp).to_pandas()
-        fp = join(outdir, "Giacalone2020/tab5.txt")
-        unclassified = ascii.read(fp).to_pandas()
-        fpp = pd.concat(
-            [
-                classified[["TOI", "FPP-2m", "FPP-30m"]],
-                unclassified[["TOI", "FPP"]],
-            ],
-            sort=True,
-        )
-        d = pd.merge(d, fpp)
     return d.sort_values("TOI")
 
 
@@ -942,3 +950,66 @@ def query_gaia_params_of_all_tois(
 #     ra = np.nanmedian(cluster["ra"])
 #     dec = np.nanmedian(cluster["dec"])
 #     return ra, dec
+
+
+def get_cartersian_distance(x1, y1, x2, y2):
+    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+
+def is_point_inside_mask(border, target):
+    """determine if target coordinate is within polygon border
+    """
+    degree = 0
+    for i in range(len(border) - 1):
+        a = border[i]
+        b = border[i + 1]
+
+        # calculate distance of vector
+        A = get_cartersian_distance(a[0], a[1], b[0], b[1])
+        B = get_cartersian_distance(target[0], target[1], a[0], a[1])
+        C = get_cartersian_distance(target[0], target[1], b[0], b[1])
+
+        # calculate direction of vector
+        ta_x = a[0] - target[0]
+        ta_y = a[1] - target[1]
+        tb_x = b[0] - target[0]
+        tb_y = b[1] - target[1]
+
+        cross = tb_y * ta_x - tb_x * ta_y
+        clockwise = cross < 0
+
+        # calculate sum of angles
+        if clockwise:
+            degree = degree + np.rad2deg(
+                np.arccos((B * B + C * C - A * A) / (2.0 * B * C))
+            )
+        else:
+            degree = degree - np.rad2deg(
+                np.arccos((B * B + C * C - A * A) / (2.0 * B * C))
+            )
+
+    if abs(round(degree) - 360) <= 3:
+        return True
+    return False
+
+
+def PadWithZeros(vector, pad_width, iaxis, kwargs):
+    vector[: pad_width[0]] = 0
+    vector[-pad_width[1] :] = 0
+    return vector
+
+
+def compute_fluxes_within_mask(tpf, mask, gaia_sources):
+    """compute relative fluxes of gaia sources within aperture
+    """
+    ra, dec = gaia_sources[["ra", "dec"]].values.T
+    pix_coords = tpf.wcs.all_world2pix(np.c_[ra, dec], 0)
+    contour_points = measure.find_contours(mask, level=0.1)[0]
+    isinside = [
+        is_point_inside_mask(contour_points, pix) for pix in pix_coords
+    ]
+    min_gmag = gaia_sources.loc[isinside, "phot_g_mean_mag"].min()
+    fluxes = gaia_sources.loc[isinside, "phot_g_mean_mag"].apply(
+        lambda x: 10 ** (0.4 * (min_gmag - x))
+    )
+    return fluxes

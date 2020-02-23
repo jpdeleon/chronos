@@ -29,6 +29,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ["ShortCadence", "LongCadence", "LightCurve"]
 
+
 class LongCadence(Target):
     """
     """
@@ -519,7 +520,11 @@ class ShortCadence(LongCadence):
         self.lc_custom = lc
         return lc
 
-# class LightCurve(ShortCadence, LongCadence):
+
+class LightCurve(ShortCadence, LongCadence):
+    NotImplementedError
+
+
 #     """
 #     """
 #     def __init__(
