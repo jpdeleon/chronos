@@ -10,9 +10,7 @@ from argparse import ArgumentParser
 
 import matplotlib.pyplot as pl
 
-from chronos import DATA_PATH
-from chronos.search import Target, Cluster
-from chronos.plot import plot_hrd, plot_xyz_uvw, plot_rdp_pmrv
+import chronos as cr
 
 if __name__ == "__main__":
     ap = ArgumentParser()
@@ -46,16 +44,22 @@ if __name__ == "__main__":
         "-s", "--save", action="store_true", default=False, help="save figures"
     )
     ap.add_argument(
-        "-o", "--outdir", type=str, default=DATA_PATH, help="output directory"
+        "-o",
+        "--outdir",
+        type=str,
+        default=cr.DATA_PATH,
+        help="output directory",
     )
     args = ap.parse_args()
 
-    t = Target(gaiaDR2id=args.gaiaid, verbose=args.verbose)
+    t = cr.Target(gaiaDR2id=args.gaiaid, verbose=args.verbose)
     # query gaia to populate target parameters including its distance
-    df_gaia = t.query_gaia_dr2_catalog(radius=args.radius, return_nearest_xmatch=True)
+    df_gaia = t.query_gaia_dr2_catalog(
+        radius=args.radius, return_nearest_xmatch=True
+    )
 
     if args.cluster:
-        c = Cluster(cluster_name=args.cluster, verbose=args.verbose)
+        c = cr.Cluster(cluster_name=args.cluster, verbose=args.verbose)
         df_mem = c.query_cluster_members()
     else:
         df_mem = None
@@ -74,30 +78,34 @@ if __name__ == "__main__":
         matched_cname = str(t.nearest_cluster_name).lower()
         if (len(matched_cname) == 0) or (matched_cname == "nan"):
             raise ValueError(f"nearest cluster match is NaN")
-        fig1 = plot_hrd(df=df_mem, target_gaia_id=t.gaiaid)
+
+        #
+        c = cr.Cluster(
+            cluster_name=t.nearest_cluster_name, verbose=args.verbose
+        )
+        # query radial_velocity for each star from gaia dr2 catalog
+
+        df_mem_gaia_params = c.query_cluster_members_gaia_params(
+            df=df_mem, gmag_cut=None, clobber=args.clobber
+        )
+        fig1 = cr.plot_cmd(df=df_mem_gaia_params, target_gaia_id=t.gaiaid)
         fig1.axes[0].set_title(t.nearest_cluster_name)
         if args.save:
             fp1 = join(args.outdir, f"{s.Cluster}_hrd.png")
             fig1.savefig(fp1)
             print(f"Saved: {fp1}")
 
-        #
-        c = Cluster(cluster_name=t.nearest_cluster_name, verbose=args.verbose)
-        # query radial_velocity for each star from gaia dr2 catalog
-
-        df_mem_gaia_params = c.query_cluster_members_gaia_params(
-            df=df_mem, gmag_cut=None, clobber=args.clobber
-        )
-
-        fig2 = plot_rdp_pmrv(df=df_mem_gaia_params, target_gaia_id=t.gaiaid)
+        fig2 = cr.plot_rdp_pmrv(df=df_mem_gaia_params, target_gaia_id=t.gaiaid)
         fig2.suptitle(t.nearest_cluster_name)
         if args.save:
             fp2 = join(args.outdir, f"{s.Cluster}_kinematics.png")
             fig2.savefig(fp2)
             print(f"Saved: {fp2}")
 
-        fig3 = plot_xyz_uvw(
-            df=df_mem_gaia_params, target_gaia_id=t.gaiaid, verbose=args.verbose
+        fig3 = cr.plot_xyz_uvw(
+            df=df_mem_gaia_params,
+            target_gaia_id=t.gaiaid,
+            verbose=args.verbose,
         )
         fig3.suptitle(t.nearest_cluster_name)
         if args.save:

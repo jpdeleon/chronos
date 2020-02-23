@@ -23,9 +23,11 @@ setup(
         "astropy",
         "pandas",
         "tqdm",
+        "astroplan",
         "transitleastsquares",
-        "wotan",
+        # "wotan",
         "scikit-image",
+        "git-lfs",
         "deepdish",
     ],
 )

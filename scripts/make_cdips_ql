@@ -8,9 +8,14 @@ from argparse import ArgumentParser
 
 import numpy as np
 import matplotlib.pyplot as pl
-from chronos import CDIPS
-from wotan import flatten
 from transitleastsquares import transitleastsquares
+
+try:
+    from wotan import flatten
+except Exception:
+    raise ModuleNotFoundError("pip install wotan")
+
+import chronos as cr
 
 fontsize = 18
 
@@ -19,10 +24,16 @@ if __name__ == "__main__":
     ap.add_argument("gaiaid", type=int, help="target Gaia DR2 id")
     ap.add_argument("-c", "--clobber", action="store_true", default=False)
     ap.add_argument(
-        "-s", "--savefig", action="store_true", default=False, help="save figures"
+        "-s",
+        "--savefig",
+        action="store_true",
+        default=False,
+        help="save figures",
     )
     ap.add_argument("--sector", type=int, default=None, help="TESS sector")
-    ap.add_argument("-o", "--outdir", type=str, default=".", help="output directory")
+    ap.add_argument(
+        "-o", "--outdir", type=str, default=".", help="output directory"
+    )
     ap.add_argument("-p", "--show-plot", action="store_true", default=False)
     args = ap.parse_args()
     fp = join(args.outdir, f"gaia{args.gaiaid}_cdips_ql.png")
@@ -30,7 +41,7 @@ if __name__ == "__main__":
         if not exists(args.outdir):
             makedirs(args.outdir)
 
-        cdips = CDIPS(
+        cdips = cr.CDIPS(
             gaiaDR2id=args.gaiaid,
             sector=args.sector,
             lctype="flux",

@@ -33,13 +33,11 @@ from astroquery.mast import Catalogs
 from astroquery.gaia import Gaia
 from tqdm import tqdm
 import deepdish as dd
-import k2plr
 
 # Import from package
 from chronos import target
 from chronos.config import DATA_PATH
 
-client = k2plr.API()
 log = logging.getLogger(__name__)
 
 __all__ = [
@@ -677,6 +675,14 @@ def get_target_coord(
         )
     # name resolver
     elif epic is not None:
+        try:
+            import k2plr
+
+            client = k2plr.API()
+        except Exception:
+            raise ModuleNotFoundError(
+                "pip install git+https://github.com/rodluger/k2plr.git"
+            )
         star = client.k2_star(int(epic))
         ra = float(star.k2_ra)
         dec = float(star.k2_dec)

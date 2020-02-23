@@ -151,8 +151,8 @@ class Target:
         """
         try:
             import dustmaps
-        except ImportError:
-            print("pip install dustmaps")
+        except Exception:
+            raise ModuleNotFoundError("pip install dustmaps")
 
         if map == "sfd":
             from dustmaps import sfd
