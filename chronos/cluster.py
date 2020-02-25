@@ -59,7 +59,7 @@ class ClusterCatalog:
         self.all_members = None
         self.all_clusters = None
 
-    def query_catalog(self, name=None, return_members=False):
+    def query_catalog(self, name=None, return_members=False, **kwargs):
         """Query catalogs
 
         Parameters
@@ -113,7 +113,9 @@ class ClusterCatalog:
                 return df
         elif self.catalog_name == "Babusiaux2018":
             if return_members:
-                raise NotImplementedError("To be updated")
+                # raise NotImplementedError("To be updated")
+                # return self.get_members_Babusiaux2018_near() #fewer members
+                return self.get_members_Babusiaux2018() # has parallaxes
             else:
                 df = self.get_clusters_Babusiaux2018()
                 self.all_clusters = df

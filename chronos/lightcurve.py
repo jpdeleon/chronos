@@ -46,6 +46,9 @@ class LongCadence(Target):
         dec_deg=None,
         search_radius=3 * u.arcsec,
         sap_mask="threshold",
+        aper_radius=1,
+        threshold_sigma=3,
+        percentile=90,
         cutout_size=(50, 50),
         clobber=True,
         verbose=True,
@@ -75,6 +78,9 @@ class LongCadence(Target):
             print(f"Available sectors: {self.get_all_sectors()}")
             print(f"Using sector={self.sector}.")
         self.sap_mask = sap_mask
+        self.aper_radius = aper_radius
+        self.percentile = percentile
+        self.threshold_sigma = threshold_sigma
         self.cutout_size = cutout_size
         self.search_radius = search_radius
         self.tpf_tesscut = None
@@ -104,7 +110,7 @@ class LongCadence(Target):
             tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
                 cutout_size=cutout_size
             )
-
+        assert tpf is not None, 'No results from Tesscut search.'
         # remove zeros
         zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
         if zero_mask.sum() > 0:
@@ -149,6 +155,8 @@ class LongCadence(Target):
         """
         sector = sector if sector else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
+        aper_radius = aper_radius if aper_radius else self.aper_radius
+        percentile = percentile if percentile else self.percentile
         cutout_size = cutout_size if cutout_size else self.cutout_size
         self.tpf_tesscut = self.get_tpf_tesscut(sector=sector)
         # Make an aperture mask and a raw light curve
@@ -286,6 +294,7 @@ class ShortCadence(LongCadence):
                 q = lk.search_lightcurvefile(
                     query_str, sector=sector, mission=MISSION
                 )
+                assert q is not None, "Empty result. Check long cadence."
                 if (sector == "all") & (len(self.all_sectors) > 1):
                     lcf = q.download_all(quality_bitmask=quality_bitmask)
                 else:

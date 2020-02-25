@@ -76,7 +76,7 @@ def plot_gaia_sources_on_tpf(
     img = np.median(tpf.flux, axis=0)
     # make aperture mask
     mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
-    ax = plot_aperture_outline(img, mask=mask, imgwcs=tpf.wcs, figsize=figsize)
+    ax = plot_aperture_outline(img, mask=mask, imgwcs=tpf.wcs, figsize=figsize, ax=ax)
     if fov_rad is None:
         nx, ny = tpf.shape[:2]
         diag = np.sqrt(nx ** 2 + ny ** 2)
