@@ -54,8 +54,9 @@ setup(
     author_email="jpdeleon.bsap@gmail.com",
     license="MIT",
     packages=["chronos"],  # or find_packages(),
+    # data_files=['data'],
     # package_data={"chronos": "data"},
-    include_package_data=True,
+    # include_package_data=True,
     scripts=[
         "scripts/query_cluster_members_gaia_params",
         "scripts/find_cluster_near_target",
@@ -65,4 +66,4 @@ setup(
     install_requires=install_requires(),
 )
 
-print('Finally, git lfs pull')
+print("Finally, git lfs pull")
