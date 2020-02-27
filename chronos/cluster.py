@@ -201,7 +201,7 @@ class ClusterCatalog:
         )
         df = pd.read_csv(fp, delimiter="\t", comment="#")
         # remove spaces
-        df.Cluster = df.Cluster.apply(lambda x: x.replace(" ", "_"))
+        df.Cluster = df.Cluster.apply(lambda x: x.strip())
         df = df.rename(
             columns={
                 "RAJ2000": "ra",
@@ -222,7 +222,7 @@ class ClusterCatalog:
             "TablesCantatGaudin2018/Membership probabilities of all individual stars.tsv",
         )
         df = pd.read_csv(fp, delimiter="\t", comment="#")
-        df.Cluster = df.Cluster.apply(lambda x: x.replace(" ", "_"))
+        df.Cluster = df.Cluster.apply(lambda x: x.strip())
         df = df.rename(
             columns={
                 "RA_ICRS": "ra",
@@ -245,7 +245,7 @@ class ClusterCatalog:
         )
         df = pd.read_csv(fp, delimiter=",", comment="#")
         df["distance"] = Distance(distmod=df["DM"]).pc
-        df["Cluster"] = df.Cluster.apply(lambda x: x.replace(" ", "_"))
+        df["Cluster"] = df.Cluster.apply(lambda x: x.strip().replace(" ", "_"))
         df = df.rename(
             columns={
                 "RA": "ra",
@@ -267,7 +267,7 @@ class ClusterCatalog:
         )
         df = pd.read_csv(fp, delimiter="\t", comment="#")
         df.columns = [c.strip() for c in df.columns]
-        df.Cluster = df.Cluster.apply(lambda x: x.replace(" ", "_"))
+        df.Cluster = df.Cluster.apply(lambda x: x.strip().replace(" ", "_"))
         return df
 
     def get_clusters_Babusiaux2018_far(self):
@@ -281,7 +281,7 @@ class ClusterCatalog:
         df = pd.read_csv(fp, delimiter="\t", comment="#")
         df = df.replace(r"^\s*$", np.nan, regex=True)
         df.columns = [c.strip() for c in df.columns]
-        df.Cluster = df.Cluster.apply(lambda x: x.replace("", "_"))
+        df.Cluster = df.Cluster.apply(lambda x: x.strip().replace(" ", "_"))
         return df
 
     def get_members_Babusiaux2018_near(self):
@@ -308,7 +308,7 @@ class ClusterCatalog:
         df = pd.read_csv(fp, delimiter=",", comment="#")
         df = df.replace(r"^\s*$", np.nan, regex=True)
         df.columns = [c.strip() for c in df.columns]
-        df.Cluster = df.Cluster.apply(lambda x: x.replace(" ", "_"))
+        df.Cluster = df.Cluster.apply(lambda x: x.strip().replace(" ", "_"))
         return df
 
     # def get_open_cluster_members_far_parallax(self, save_csv=True):
@@ -509,14 +509,14 @@ class Cluster(ClusterCatalog):
             catalog_name=catalog_name, data_loc=data_loc, verbose=verbose
         )
         self.all_members = self.query_catalog(return_members=True)
-        self.all_clusters = self.all_members.Cluster.unique()
+        self.all_clusters = self.all_members.Cluster.unique().tolist()
         self.cluster_name = cluster_name
         self.cluster_members = None
         self.cluster_members_gaia_params = None
         self.verbose = verbose
         # self.cluster_summary = None
         errmsg = f"{self.cluster_name} is not found in {self.catalog_name}:\n"
-        errmsg += f"{list(self.all_clusters)}"
+        errmsg += f"{self.all_clusters}"
         assert np.any(
             self.all_members.Cluster.isin([self.cluster_name])
         ), errmsg
