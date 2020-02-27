@@ -242,6 +242,8 @@ def make_tql(
         fig.savefig(fp + ".png", bbox_inches="tight")
         msg += f"Saved: {fp}.png"
     if savetls:
+        tls_results["gaiaid"] = l.gaiaid
+        tls_results["ticid"] = l.ticid
         dd.io.save(fp + "_tls.h5", tls_results)
         msg += f"Saved: {fp}_tls.h5"
     if verbose:
