@@ -57,7 +57,7 @@ __all__ = [
     "remove_bad_data",
     "is_point_inside_mask",
     "compute_fluxes_within_mask",
-    "check_harps_RV"
+    "check_harps_RV",
 ]
 
 # Ax/Av
@@ -75,30 +75,38 @@ extinction_ratios = {
     "Rp": 0.65199,
 }
 
-def check_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
+
+def check_harps_RV(
+    target_coord, separation=30, outdir=DATA_PATH, verbose=True
+):
     """
     Check if target has archival HARPS data from:
     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
     """
-    fp = os.path.join(outdir, 'HARPS_RVBank_table.csv')
+    fp = os.path.join(outdir, "HARPS_RVBank_table.csv")
     if os.path.exists(fp):
         df = pd.read_csv(fp)
-        msg=f'Loaded: {fp}\n'
+        msg = f"Loaded: {fp}\n"
     else:
         if verbose:
-            print('This may take a while...')
-        #csvurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank_v1.csv"
-        #df = pd.read_csv(csvurl)
+            print("This may take a while...")
+        # csvurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank_v1.csv"
+        # df = pd.read_csv(csvurl)
         homeurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank.html"
-        df = pd.read_html(homeurl, header=0)[0]# choose first table
+        df = pd.read_html(homeurl, header=0)[0]  # choose first table
         df.to_csv(fp, index=False)
-        msg=f'Saved: {fp}\n'
+        msg = f"Saved: {fp}\n"
     if verbose:
         print(msg)
     # coordinates
-    coords = SkyCoord(ra=df["RA"], dec=df["DEC"], distance=df["Dist [pc]"], unit=(u.hourangle, u.deg, u.pc))
+    coords = SkyCoord(
+        ra=df["RA"],
+        dec=df["DEC"],
+        distance=df["Dist [pc]"],
+        unit=(u.hourangle, u.deg, u.pc),
+    )
     # check which falls within `separation`
-    idxs = target_coord.separation(coords) < separation*u.arcsec
+    idxs = target_coord.separation(coords) < separation * u.arcsec
     if idxs.sum() > 0:
         # result may be multiple objects
         res = df[idxs]
@@ -115,7 +123,9 @@ def check_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
         sep2d = target_coord.separation(coords[idx])
         nearest_obj = df.iloc[idx]["Target"]
         ra, dec = df.iloc[idx][["RA", "DEC"]]
-        print(f"Nearest HARPS obj to target is\n{nearest_obj}: ra,dec=({ra},{dec})\n")
+        print(
+            f"Nearest HARPS obj to target is\n{nearest_obj}: ra,dec=({ra},{dec})\n"
+        )
         print(f'Try angular distance larger than d={sep2d.arcsec:.4f}"\n')
         return None
 
@@ -545,10 +555,10 @@ def get_tois(
         d = pd.read_csv(dl_link)  # , dtype={'RA': float, 'Dec': float})
         msg = f"Downloading {dl_link}\n"
         if add_FPP:
-            fp = join(outdir, "Giacalone2020/tab4.txt")
-            classified = ascii.read(fp).to_pandas()
-            fp = join(outdir, "Giacalone2020/tab5.txt")
-            unclassified = ascii.read(fp).to_pandas()
+            fp2 = join(outdir, "Giacalone2020/tab4.txt")
+            classified = ascii.read(fp2).to_pandas()
+            fp3 = join(outdir, "Giacalone2020/tab5.txt")
+            unclassified = ascii.read(fp3).to_pandas()
             fpp = pd.concat(
                 [
                     classified[["TOI", "FPP-2m", "FPP-30m"]],

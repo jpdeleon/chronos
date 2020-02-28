@@ -33,6 +33,7 @@ CATALOG_LIST = [
     "Babusiaux2018",
     "CantatGaudin2018",
     "Bossini2019",
+    "Gagne2018",
     "Dias2014",
     "Karchenko2013",
     "Cody2018",
@@ -93,6 +94,15 @@ class ClusterCatalog:
                 df = self.get_clusters_CantatGaudin2018()
                 self.all_clusters = df
                 return df
+        elif self.catalog_name == "Gagne2018":
+            if return_members:
+                df_mem = self.get_members_Gagne2018()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Gagne2018()
+                self.all_clusters = df
+                return df
         elif self.catalog_name == "Dias2014":
             if return_members:
                 raise ValueError(
@@ -113,9 +123,11 @@ class ClusterCatalog:
                 return df
         elif self.catalog_name == "Babusiaux2018":
             if return_members:
+                df_mem = self.get_members_Babusiaux2018()
                 # raise NotImplementedError("To be updated")
                 # return self.get_members_Babusiaux2018_near() #fewer members
-                return self.get_members_Babusiaux2018()  # has parallaxes
+                self.all_members = df_mem
+                return df_mem  # has parallaxes
             else:
                 df = self.get_clusters_Babusiaux2018()
                 self.all_clusters = df
@@ -133,7 +145,9 @@ class ClusterCatalog:
             raise NotImplementedError("Catalog to be added later.")
         # add more catalogs here
         else:
-            raise ValueError("Catalog name not found; see `all_catalogs`")
+            raise ValueError(
+                f"Catalog name not found; See `{self.all_catalogs}`"
+            )
 
     def get_members_Bouma2019(self):
         """
@@ -309,6 +323,43 @@ class ClusterCatalog:
         df = df.replace(r"^\s*$", np.nan, regex=True)
         df.columns = [c.strip() for c in df.columns]
         df.Cluster = df.Cluster.apply(lambda x: x.strip().replace(" ", "_"))
+        return df
+
+    def get_clusters_Gagne2018(self):
+        """
+        BANYAN. XII. New members of nearby young associations from Gaia-Tycho data.
+        2018ApJ...860...43G2018ApJ...860...43G
+        """
+        fp = join(self.data_loc, "TablesGagne2018/Table2.tsv")
+        df = pd.read_csv(fp, delimiter="\t", comment="#", index_col=0)
+        df.columns = [x.strip() for x in df.columns]
+        for col in df.columns:
+            df[col] = df[col].apply(
+                lambda x: str(x).strip().replace("~", "nan")
+            )
+        df["identifier"] = df["identifier"].str.replace(" ", "_")
+        # df = df.rename(
+        #     columns={
+        #         "coord1 (ICRS,J2000/2000)": "coord"
+        #         "RA": "ra",
+        #         "Dec": "dec",
+        #     }
+        return df
+
+    def get_members_Gagne2018(self):
+        """BANYAN. XII. New members from Gaia-Tycho data (Gagne+, 2018)
+        https://ui.adsabs.harvard.edu/abs/2018ApJ...860...43G/abstract
+        """
+        fp = join(self.data_loc, "TablesGagne2018/Table3.tsv")
+        df = pd.read_csv(fp, delimiter="\t", comment="#")
+        df = df.rename(
+            columns={
+                # "Assoc": "Cluster"
+                "_RAJ2000": "ra",
+                "_DecJ2000": "dec",
+            }
+        )
+        df["Cluster"] = df["Assoc"].copy()
         return df
 
     # def get_open_cluster_members_far_parallax(self, save_csv=True):

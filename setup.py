@@ -58,7 +58,7 @@ setup(
     # package_data={"chronos": "data"},
     # include_package_data=True,
     scripts=[
-        "scripts/make_tql"
+        "scripts/make_tql",
         "scripts/query_cluster_members_gaia_params",
         "scripts/find_cluster_near_target",
         "scripts/make_cdips_ql",
