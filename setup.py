@@ -54,9 +54,9 @@ setup(
     author_email="jpdeleon.bsap@gmail.com",
     license="MIT",
     packages=["chronos"],  # or find_packages(),
+    include_package_data=True,
     # data_files=['data'],
     # package_data={"chronos": "data"},
-    # include_package_data=True,
     scripts=[
         "scripts/make_tql",
         "scripts/query_cluster_members_gaia_params",

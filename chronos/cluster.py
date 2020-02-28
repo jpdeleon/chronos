@@ -356,7 +356,7 @@ class ClusterCatalog:
             columns={
                 # "Assoc": "Cluster"
                 "_RAJ2000": "ra",
-                "_DecJ2000": "dec",
+                "_DEJ2000": "dec",
             }
         )
         df["Cluster"] = df["Assoc"].copy()
