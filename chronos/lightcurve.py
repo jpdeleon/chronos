@@ -78,6 +78,7 @@ class LongCadence(Target):
             print(f"Available sectors: {self.get_all_sectors()}")
             print(f"Using sector={self.sector}.")
         self.sap_mask = sap_mask
+        self.aper_mask = None
         self.aper_radius = aper_radius
         self.percentile = percentile
         self.threshold_sigma = threshold_sigma
@@ -90,45 +91,89 @@ class LongCadence(Target):
         self.lc_cdips = None
 
     def get_tpf_tesscut(
-        self, sector=None, apply_data_quality_mask=True, cutout_size=None
+        self,
+        sector=None,
+        apply_data_quality_mask=True,
+        cutout_size=None,
+        verbose=True,
     ):
         """
         """
         cutout_size = cutout_size if cutout_size else self.cutout_size
-        if self.tpf_tesscut is not None:
-            if self.tpf_tesscut.sector == sector:
-                tpf = self.tpf_tesscut
-            else:
-                if self.verbose:
-                    print(f"Searching targetpixelfile using Tesscut")
-                tpf = lk.search_tesscut(
-                    self.target_coord, sector=sector
-                ).download(cutout_size=cutout_size)
-        else:
-            if self.verbose:
-                print(f"Searching targetpixelfile using Tesscut")
+        sector = sector if sector else self.sector
+        if self.tpf_tesscut is None:
+            if verbose:
+                print("Searching targetpixelfile using Tesscut")
             tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
                 cutout_size=cutout_size
             )
-        assert tpf is not None, 'No results from Tesscut search.'
+        else:
+            if (self.tpf_tesscut.sector == sector) & (
+                self.cutout_size == cutout_size
+            ):
+                tpf = self.tpf_tesscut
+            else:
+                if verbose:
+                    print("Searching targetpixelfile using Tesscut")
+                tpf = lk.search_tesscut(
+                    self.target_coord, sector=sector
+                ).download(cutout_size=cutout_size)
+        assert tpf is not None, "No results from Tesscut search."
         # remove zeros
         zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
         if zero_mask.sum() > 0:
             tpf = tpf[~zero_mask]
         if apply_data_quality_mask:
-            tpf = remove_bad_data(tpf, sector=sector, verbose=self.verbose)
+            tpf = remove_bad_data(tpf, sector=sector, verbose=verbose)
+        self.tpf_tesscut = tpf
         return tpf
 
-    def make_custom_lc(
+    def get_aper_mask(
         self,
         sector=None,
-        cutout_size=None,
-        pca_nterms=5,
-        with_offset=True,
         sap_mask=None,
         aper_radius=None,
         percentile=None,
         threshold_sigma=None,
+        tpf_size=None,
+        verbose=True,
+    ):
+        """
+        """
+        sector = sector if sector else self.sector
+        sap_mask = sap_mask if sap_mask else self.sap_mask
+        aper_radius = aper_radius if aper_radius else self.aper_radius
+        percentile = percentile if percentile else self.percentile
+        threshold_sigma = (
+            threshold_sigma if threshold_sigma else self.threshold_sigma
+        )
+        cutout_size = tpf_size if tpf_size else self.cutout_size
+
+        tpf = self.get_tpf_tesscut(
+            sector=sector, cutout_size=cutout_size, verbose=verbose
+        )
+
+        aper_mask = parse_aperture_mask(
+            tpf,
+            sap_mask=sap_mask,
+            aper_radius=aper_radius,
+            percentile=percentile,
+            threshold_sigma=threshold_sigma,
+            verbose=verbose,
+        )
+        self.aper_mask = aper_mask
+        return aper_mask
+
+    def make_custom_lc(
+        self,
+        sector=None,
+        tpf_size=None,
+        sap_mask=None,
+        aper_radius=None,
+        percentile=None,
+        threshold_sigma=None,
+        pca_nterms=5,
+        with_offset=True,
     ):
         """
         create a custom lightcurve based on this tutorial:
@@ -157,18 +202,23 @@ class LongCadence(Target):
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius
         percentile = percentile if percentile else self.percentile
-        cutout_size = cutout_size if cutout_size else self.cutout_size
-        self.tpf_tesscut = self.get_tpf_tesscut(sector=sector)
-        # Make an aperture mask and a raw light curve
-        aper_mask = parse_aperture_mask(
-            self.tpf_tesscut,
+        threshold_sigma = (
+            threshold_sigma if threshold_sigma else self.threshold_sigma
+        )
+        cutout_size = tpf_size if tpf_size else self.cutout_size
+
+        tpf_tesscut = self.get_tpf_tesscut(
+            sector=sector, cutout_size=cutout_size
+        )
+
+        aper_mask = self.get_aper_mask(
             sap_mask=sap_mask,
             aper_radius=aper_radius,
             percentile=percentile,
             threshold_sigma=threshold_sigma,
-            verbose=self.verbose,
+            verbose=False,
         )
-        raw_lc = self.tpf_tesscut.to_lightcurve(
+        raw_lc = tpf_tesscut.to_lightcurve(
             method="aperture", aperture_mask=aper_mask
         )
         idx = (
@@ -179,7 +229,7 @@ class LongCadence(Target):
         raw_lc = raw_lc[~idx]
         self.lc_custom_raw = raw_lc
         # Make a design matrix and pass it to a linear regression corrector
-        regressors = self.tpf_tesscut.flux[~idx][:, ~aper_mask]
+        regressors = tpf_tesscut.flux[~idx][:, ~aper_mask]
         dm = (
             lk.DesignMatrix(regressors, name="regressors")
             .pca(nterms=pca_nterms)
@@ -262,6 +312,7 @@ class ShortCadence(LongCadence):
         )
         self.apphot_method = apphot_method
         self.sap_mask = sap_mask
+        self.aper_mask = None
         self.quality_bitmask = quality_bitmask
         self.search_radius = search_radius
         self.data_quality_mask = None
@@ -342,7 +393,6 @@ class ShortCadence(LongCadence):
         apphot_method=None,
         apply_data_quality_mask=True,
         quality_bitmask=None,
-        sap_mask=None,
         return_df=True,
     ):
         """Download tpf from MAST given coordinates
@@ -354,8 +404,6 @@ class ShortCadence(LongCadence):
             TESS sector
         apphot_method : str
             aperture photometry method
-        sap_mask : str
-            SAP mask type
         fitsoutdir : str
             fits output directory
 
@@ -367,7 +415,6 @@ class ShortCadence(LongCadence):
         #     print(f'Searching targetpixelfile using lightkurve')
         sector = sector if sector else self.sector
         apphot_method = apphot_method if apphot_method else self.apphot_method
-        sap_mask = sap_mask if sap_mask else self.sap_mask
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
         )
@@ -438,9 +485,7 @@ class ShortCadence(LongCadence):
                     )
                 tpf = lk.TessTargetPixelFile(filepath)
             if apply_data_quality_mask:
-                tpf = remove_bad_data(
-                    tpf, sector=self.sector, verbose=self.verbose
-                )
+                tpf = remove_bad_data(tpf, sector=sector, verbose=self.verbose)
             self.tpf = tpf
             if return_df:
                 return tpf, df
@@ -451,16 +496,66 @@ class ShortCadence(LongCadence):
             logging.info(msg)
             raise FileNotFoundError(msg)
 
-    def make_custom_lc(
+    def get_aper_mask(
         self,
         sector=None,
-        cutout_size=(50, 50),
-        pca_nterms=5,
-        with_offset=True,
         sap_mask=None,
         aper_radius=None,
         percentile=None,
         threshold_sigma=None,
+        quality_bitmask=None,
+        apply_data_quality_mask=None,
+        verbose=True,
+    ):
+        """
+        """
+        sector = sector if sector else self.sector
+        sap_mask = sap_mask if sap_mask else self.sap_mask
+        aper_radius = aper_radius if aper_radius else self.aper_radius
+        percentile = percentile if percentile else self.percentile
+        threshold_sigma = (
+            threshold_sigma if threshold_sigma else self.threshold_sigma
+        )
+
+        if self.tpf is None:
+            tpf, tpf_info = self.get_tpf(
+                sector=sector,
+                quality_bitmask=quality_bitmask,
+                apply_data_quality_mask=apply_data_quality_mask,
+                return_df=True,
+            )
+        else:
+            if self.sector != sector:
+                tpf, tpf_info = self.get_tpf(
+                    sector=sector,
+                    quality_bitmask=quality_bitmask,
+                    apply_data_quality_mask=apply_data_quality_mask,
+                    return_df=True,
+                )
+            else:
+                tpf = self.tpf
+
+        aper_mask = parse_aperture_mask(
+            tpf,
+            sap_mask=sap_mask,
+            aper_radius=aper_radius,
+            percentile=percentile,
+            threshold_sigma=threshold_sigma,
+            verbose=verbose,
+        )
+        self.aper_mask = aper_mask
+        return aper_mask
+
+    def make_custom_lc(
+        self,
+        sector=None,
+        sap_mask=None,
+        aper_radius=None,
+        percentile=None,
+        threshold_sigma=None,
+        quality_bitmask=None,
+        pca_nterms=5,
+        with_offset=True,
     ):
         """
         create a custom lightcurve based on this tutorial:
@@ -470,8 +565,6 @@ class ShortCadence(LongCadence):
         ----------
         sector : int or str
             specific sector or all
-        cutout_size : tuple
-            tpf cutout size
         aper_radius: int
             aperture mask radius
         percentile: float
@@ -487,18 +580,25 @@ class ShortCadence(LongCadence):
         """
         sector = sector if sector else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
-        if self.tpf is None:
-            self.tpf, tpf_info = self.get_tpf(sector, return_df=True)
+        aper_radius = aper_radius if aper_radius else self.aper_radius
+        percentile = percentile if percentile else self.percentile
+        threshold_sigma = (
+            threshold_sigma if threshold_sigma else self.threshold_sigma
+        )
+
+        tpf, tpf_info = self.get_tpf(
+            sector=sector, quality_bitmask=quality_bitmask
+        )
         # Make an aperture mask and a raw light curve
         aper_mask = parse_aperture_mask(
-            self.tpf,
+            tpf,
             sap_mask=sap_mask,
             aper_radius=aper_radius,
             percentile=percentile,
             threshold_sigma=threshold_sigma,
-            verbose=self.verbose,
+            verbose=False,
         )
-        raw_lc = self.tpf.to_lightcurve(aperture_mask=aper_mask)
+        raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
         idx = (
             np.isnan(raw_lc.time)
             | np.isnan(raw_lc.flux)
@@ -507,7 +607,7 @@ class ShortCadence(LongCadence):
         raw_lc = raw_lc[~idx]
         self.lc_custom_raw = raw_lc
         # Make a design matrix and pass it to a linear regression corrector
-        regressors = self.tpf.flux[~idx][:, ~aper_mask]
+        regressors = tpf.flux[~idx][:, ~aper_mask]
         self.lc_custom_raw = raw_lc
         dm = (
             lk.DesignMatrix(regressors, name="pixels")

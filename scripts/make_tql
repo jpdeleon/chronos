@@ -1,37 +1,42 @@
 #!/usr/bin/env python
 import matplotlib
-matplotlib.use('pdf')
 import chronos as cr
 from tqdm import tqdm
 import argparse
-parser = argparse.ArgumentParser(description='create tql based on chronos')
-parser.add_argument('cluster', type=str, help='cluster name')
-parser.add_argument('--catalog', type=str, help='catalog name', default='Babusiaux2018')
+
+matplotlib.use("pdf")
+
+parser = argparse.ArgumentParser(description="create tql based on chronos")
+parser.add_argument("cluster", type=str, help="cluster name")
+parser.add_argument(
+    "--catalog", type=str, help="catalog name", default="Babusiaux2018"
+)
+parser.add_argument(
+    "--cadence", type=str, choices=["long", "short"], default="long"
+)
 
 args = parser.parse_args()
 cluster_name = args.cluster
 catalog_name = args.catalog
+cadence = args.cadence
 
 c = cr.Cluster(catalog_name=catalog_name, cluster_name=cluster_name)
 mem = c.query_cluster_members()
+gaiaids = mem["source_id"].values
 
-muscat_obs_constraint = mem.dec>-30
+# print(len(gaiaids))
 
-if catalog_name=='Babusiaux2018':
-    gaiaids = mem['SourceId'].values
-elif catalog_name=='CantatGaudin2018':
-    gaiaids = mem['source_id'].values
-elif catalog_name=='Bouma2019':
-    gaiaids = mem['source_id'].values
-else:
-    raise ValueError('Invalid catalog name.')
-#print(len(gaiaids))
-
+muscat_obs_constraint = mem.dec > -30
 for gaiaid in tqdm(gaiaids[muscat_obs_constraint]):
     try:
-        outdir = cluster_name.lower().replace(' ','')
-        fig = cr.make_tql(gaiaid=gaiaid, savefig=True, savetls=True, outdir=outdir, verbose=False);
+        outdir = cluster_name.lower().replace(" ", "")
+        fig = cr.make_tql(
+            gaiaid=gaiaid,
+            cadence=cadence,
+            savefig=True,
+            savetls=True,
+            outdir=outdir,
+            verbose=False,
+        )
     except Exception as e:
         print(e)
-
-

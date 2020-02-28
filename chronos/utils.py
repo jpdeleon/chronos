@@ -285,6 +285,7 @@ def parse_aperture_mask(
         mask = make_square_mask(tpf.flux[0], size=aper_radius, angle=None)
     elif sap_mask == "threshold":
         assert threshold_sigma is not None, "supply threshold_sigma"
+        # FIXME: make sure aperture is contiguous
         mask = tpf.create_threshold_mask(threshold_sigma)
     elif sap_mask == "percentile":
         assert percentile is not None, "supply percentile"

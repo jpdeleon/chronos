@@ -266,7 +266,6 @@ class ClusterCatalog:
                 "Dec": "dec",
                 "log(age)": "log10_age",
                 "DM": "dist_mod",
-                # "Memb": ""
             }
         )
         return df
@@ -323,6 +322,7 @@ class ClusterCatalog:
         df = df.replace(r"^\s*$", np.nan, regex=True)
         df.columns = [c.strip() for c in df.columns]
         df.Cluster = df.Cluster.apply(lambda x: x.strip().replace(" ", "_"))
+        df = df.rename(columns={"SourceId": "source_id"})
         return df
 
     def get_clusters_Gagne2018(self):

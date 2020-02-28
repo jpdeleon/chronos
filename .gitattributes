@@ -8,6 +8,4 @@ data/TablesBossini2019/ filter=lfs diff=lfs merge=lfs -text
 data/HARPS_RVBank_v1.csv filter=lfs diff=lfs merge=lfs -text
 data/HARPS_RVBank_table.csv filter=lfs diff=lfs merge=lfs -text
 data/harps_rvs.hdf5 filter=lfs diff=lfs merge=lfs -text
-notebooks/tois[[:space:]]with[[:space:]]RV[[:space:]]data.ipynb filter=lfs diff=lfs merge=lfs -text
-notebooks/tois_with_RV_data.ipynb filter=lfs diff=lfs merge=lfs -text
 data/TablesGagne2018 filter=lfs diff=lfs merge=lfs -text
