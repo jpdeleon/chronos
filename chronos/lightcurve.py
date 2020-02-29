@@ -47,8 +47,8 @@ class LongCadence(Target):
         search_radius=3 * u.arcsec,
         sap_mask="threshold",
         aper_radius=1,
-        threshold_sigma=3,
-        percentile=90,
+        threshold_sigma=5,
+        percentile=95,
         cutout_size=(50, 50),
         quality_bitmask="default",
         apply_data_quality_mask=True,
@@ -286,9 +286,12 @@ class ShortCadence(LongCadence):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3 * u.arcsec,
-        apphot_method="sap",  # prf
         sap_mask="pipeline",
+        search_radius=3 * u.arcsec,
+        aper_radius=1,
+        threshold_sigma=5,
+        percentile=95,
+        apphot_method="sap",  # prf
         quality_bitmask="default",
         apply_data_quality_mask=True,
         verbose=True,
@@ -318,6 +321,9 @@ class ShortCadence(LongCadence):
         self.apphot_method = apphot_method
         self.sap_mask = sap_mask
         self.aper_mask = None
+        self.aper_radius = aper_radius
+        self.threshold_sigma = threshold_sigma
+        self.percentile = percentile
         self.quality_bitmask = quality_bitmask
         self.search_radius = search_radius
         self.data_quality_mask = None
@@ -524,10 +530,10 @@ class ShortCadence(LongCadence):
         if self.tpf is None:
             tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
         else:
-            if self.tpf.sector != sector:
-                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
-            else:
+            if self.tpf.sector == sector:
                 tpf = self.tpf
+            else:
+                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
 
         aper_mask = parse_aperture_mask(
             tpf,

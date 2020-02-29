@@ -4,9 +4,11 @@ r"""
 classes for plotting cluster properties
 """
 # Import standard library
+import sys
 import os
 import logging
 import itertools
+import traceback
 
 # Import modules
 import numpy as np
@@ -61,7 +63,6 @@ __all__ = [
     "make_tql",
 ]
 
-
 def make_tql(
     gaiaid=None,
     toiid=None,
@@ -83,220 +84,237 @@ def make_tql(
     verbose=False,
     clobber=False,
 ):
-    if cadence == "long":
-        if sap_mask is None:
-            sap_mask = "square"
-        l = LongCadence(
-            gaiaDR2id=gaiaid,
-            toiid=toiid,
-            ticid=ticid,
-            name=name,
-            sector=sector,
-            sap_mask=sap_mask,
-            aper_radius=aper_radius,
-            threshold_sigma=threshold_sigma,
-            percentile=percentile,
-            cutout_size=cutout_size,
-            quality_bitmask=quality_bitmask,
-            apply_data_quality_mask=apply_data_quality_mask,
-            verbose=verbose,
-            clobber=clobber,
+    try:
+        if cadence == "long":
+            if sap_mask is None:
+                sap_mask = "square"
+            l = LongCadence(
+                gaiaDR2id=gaiaid,
+                toiid=toiid,
+                ticid=ticid,
+                name=name,
+                sector=sector,
+                sap_mask=sap_mask,
+                aper_radius=aper_radius,
+                threshold_sigma=threshold_sigma,
+                percentile=percentile,
+                cutout_size=cutout_size,
+                quality_bitmask=quality_bitmask,
+                apply_data_quality_mask=apply_data_quality_mask,
+                verbose=verbose,
+                clobber=clobber,
+            )
+            if verbose:
+                print("Querying Tesscut\n")
+            tpf = l.get_tpf_tesscut(sector=l.sector)
+        elif cadence == "short":
+            if sap_mask is None:
+                sap_mask = "pipeline"
+            l = ShortCadence(
+                gaiaDR2id=gaiaid,
+                toiid=toiid,
+                ticid=ticid,
+                name=name,
+                sector=sector,
+                sap_mask=sap_mask,
+                aper_radius=aper_radius,
+                threshold_sigma=threshold_sigma,
+                percentile=percentile,
+                quality_bitmask=quality_bitmask,
+                apply_data_quality_mask=apply_data_quality_mask,
+                verbose=verbose,
+                clobber=clobber,
+            )
+            if verbose:
+                print("Querying Tesscut\n")
+            tpf, tpf_info = l.get_tpf(sector=l.sector)
+        else:
+            raise ValueError("Use cadence=(long, short).")
+
+        if (outdir is not None) & (not os.path.exists(outdir)):
+            os.makedirs(outdir)
+
+        fig, axs = pl.subplots(2, 3, figsize=(12, 8))
+        axs = axs.flatten()
+
+        # +++++++++++++++++++++ax0: tpf
+        ax = axs[0]
+        if gaiaid is None:
+            _ = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+        if l.gaia_sources is None:
+            _ = l.query_gaia_dr2_catalog(radius=120)
+        _ = plot_gaia_sources_on_tpf(
+            tpf=tpf,
+            target_gaiaid=l.gaiaid,
+            gaia_sources=l.gaia_sources,
+            sap_mask=l.sap_mask,
+            aper_radius=l.aper_radius,
+            threshold_sigma=l.threshold_sigma,
+            ax=ax,
         )
-        if verbose:
-            print("Querying Tesscut\n")
-        tpf = l.get_tpf_tesscut(sector=l.sector)
-    elif cadence == "short":
-        if sap_mask is None:
-            sap_mask = "pipeline"
-        l = ShortCadence(
-            gaiaDR2id=gaiaid,
-            toiid=toiid,
-            ticid=ticid,
-            name=name,
-            sector=sector,
-            sap_mask=sap_mask,
-            aper_radius=aper_radius,
-            threshold_sigma=threshold_sigma,
-            percentile=percentile,
-            quality_bitmask=quality_bitmask,
-            apply_data_quality_mask=apply_data_quality_mask,
-            verbose=verbose,
-            clobber=clobber,
+        #     #+++++++++++++++++++++ax1: raw lc
+        #     ax = axs[1]
+        aper_mask = parse_aperture_mask(
+            tpf,
+            sap_mask=l.sap_mask,
+            aper_radius=l.aper_radius,
+            # threshold_sigma=l.threshold_sigma
         )
-    else:
-        raise ValueError("Use cadence=(long, short).")
+        raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
+        #     raw_lc.scatter(ax=ax, label='raw')
+        #     ax.legend()
+
+        # +++++++++++++++++++++ax1: bkg-subtracted lc
         if verbose:
-            print("Querying Tesscut\n")
-        tpf = l.get_tpf(sector=l.sector)
-    if (outdir is not None) & (not os.path.exists(outdir)):
-        os.makedirs(outdir)
+            print("Performing background subtraction\n")
+        idx = (
+            np.isnan(raw_lc.time)
+            | np.isnan(raw_lc.flux)
+            | np.isnan(raw_lc.flux_err)
+        )
+        raw_lc = raw_lc[~idx]
+        # Make a design matrix and pass it to a linear regression corrector
+        regressors = tpf.flux[~idx][:, ~aper_mask]
+        dm = (
+            lk.DesignMatrix(regressors, name="pixels")
+            .pca(nterms=5)
+            .append_constant()
+        )
 
-    fig, axs = pl.subplots(2, 3, figsize=(12, 8))
-    axs = axs.flatten()
+        # Regression Corrector Object
+        rc = lk.RegressionCorrector(raw_lc)
+        bkg_sub_lc = rc.correct(dm)
+        #     bkg_sub_lc.normalize().scatter(ax=ax, label='bkg_sub')
+        #     bkg_sub_lc.normalize().bin(10).scatter(ax=ax, marker='o', label='bkg_sub (bin=10)')
 
-    # +++++++++++++++++++++ax0: tpf
-    ax = axs[0]
-    if gaiaid is None:
-        _ = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-    if l.gaia_sources is None:
-        _ = l.query_gaia_dr2_catalog(radius=120)
-    _ = plot_gaia_sources_on_tpf(
-        tpf=tpf,
-        target_gaiaid=l.gaiaid,
-        gaia_sources=l.gaia_sources,
-        sap_mask=l.sap_mask,
-        aper_radius=l.aper_radius,
-        threshold_sigma=l.threshold_sigma,
-        ax=ax,
-    )
-    #     #+++++++++++++++++++++ax1: raw lc
-    #     ax = axs[1]
-    aper_mask = parse_aperture_mask(
-        tpf,
-        sap_mask=l.sap_mask,
-        aper_radius=l.aper_radius,
-        # threshold_sigma=l.threshold_sigma
-    )
-    raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
-    #     raw_lc.scatter(ax=ax, label='raw')
-    #     ax.legend()
+        # +++++++++++++++++++++ax2: Detrending/ Flattening
+        ax = axs[1]
+        lc = bkg_sub_lc.normalize().remove_nans().remove_outliers()
+        flat, trend = lc.flatten(window_length=window_length, return_trend=True)
+        _ = lc.scatter(ax=ax, label="bkg_sub")
+        trend.plot(ax=ax, label="trend", lw=3, c="r")
 
-    # +++++++++++++++++++++ax1: bkg-subtracted lc
-    if verbose:
-        print("Performing background subtraction\n")
-    idx = (
-        np.isnan(raw_lc.time)
-        | np.isnan(raw_lc.flux)
-        | np.isnan(raw_lc.flux_err)
-    )
-    raw_lc = raw_lc[~idx]
-    # Make a design matrix and pass it to a linear regression corrector
-    regressors = tpf.flux[~idx][:, ~aper_mask]
-    dm = (
-        lk.DesignMatrix(regressors, name="pixels")
-        .pca(nterms=5)
-        .append_constant()
-    )
+        ax = axs[2]
+        flat.scatter(ax=ax, label="flat")
+        flat.bin(10).scatter(ax=ax, label="flat (bin=10)")
 
-    # Regression Corrector Object
-    rc = lk.RegressionCorrector(raw_lc)
-    bkg_sub_lc = rc.correct(dm)
-    #     bkg_sub_lc.normalize().scatter(ax=ax, label='bkg_sub')
-    #     bkg_sub_lc.normalize().bin(10).scatter(ax=ax, marker='o', label='bkg_sub (bin=10)')
+        # +++++++++++++++++++++ax3: TLS periodogram
+        ax = axs[3]
+        lc = flat
+        tls_results = tls(lc.time, lc.flux).power()
 
-    # +++++++++++++++++++++ax2: Detrending/ Flattening
-    ax = axs[1]
-    lc = bkg_sub_lc.normalize().remove_nans().remove_outliers()
-    flat, trend = lc.flatten(window_length=window_length, return_trend=True)
-    _ = lc.scatter(ax=ax, label="bkg_sub")
-    trend.plot(ax=ax, label="trend", lw=3, c="r")
+        label = f"Best period={tls_results.period:.3}"
+        ax.axvline(tls_results.period, alpha=0.4, lw=3, label=label)
+        ax.set_xlim(np.min(tls_results.periods), np.max(tls_results.periods))
 
-    ax = axs[2]
-    flat.scatter(ax=ax, label="flat")
-    flat.bin(10).scatter(ax=ax, label="flat (bin=10)")
+        for i in range(2, 10):
+            ax.axvline(i * tls_results.period, alpha=0.4, lw=1, linestyle="dashed")
+            ax.axvline(tls_results.period / i, alpha=0.4, lw=1, linestyle="dashed")
+        ax.set_ylabel(r"SDE")
+        ax.set_xlabel("Period (days)")
+        ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
+        ax.set_xlim(0, max(tls_results.periods))
+        ax.set_title("TLS Periodogram")
+        ax.legend()
 
-    # +++++++++++++++++++++ax3: TLS periodogram
-    ax = axs[3]
-    lc = flat
-    tls_results = tls(lc.time, lc.flux).power()
+        # +++++++++++++++++++++ax4: phase-folded
+        ax = axs[4]
 
-    label = f"Best period={tls_results.period:.3}"
-    ax.axvline(tls_results.period, alpha=0.4, lw=3, label=label)
-    ax.set_xlim(np.min(tls_results.periods), np.max(tls_results.periods))
+        ax.plot(
+            tls_results.model_folded_phase,
+            tls_results.model_folded_model,
+            color="red",
+        )
+        ax.scatter(
+            tls_results.folded_phase,
+            tls_results.folded_y,
+            color="blue",
+            s=10,
+            alpha=0.5,
+            zorder=2,
+        )
+        ax.set_xlabel("Phase")
+        ax.set_ylabel("Relative flux")
+        ax.set_xlim(0.2, 0.8)
 
-    for i in range(2, 10):
-        ax.axvline(i * tls_results.period, alpha=0.4, lw=1, linestyle="dashed")
-        ax.axvline(tls_results.period / i, alpha=0.4, lw=1, linestyle="dashed")
-    ax.set_ylabel(r"SDE")
-    ax.set_xlabel("Period (days)")
-    ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
-    ax.set_xlim(0, max(tls_results.periods))
-    ax.set_title("TLS Periodogram")
-    ax.legend()
+        # +++++++++++++++++++++summary
+        ax = axs[5]
+        tic_params = l.query_tic_catalog(return_nearest_xmatch=True)
+        Rp = tls_results["rp_rs"] * tic_params["rad"] * u.Rsun.to(u.Rearth)
 
-    # +++++++++++++++++++++ax4: phase-folded
-    ax = axs[4]
+        msg = "Candidate Properties\n"
+        msg += "-" * 30 + "\n"
+        msg += f"SDE={tls_results.SDE:.2f}\n"
+        msg += (
+            f"Period={tls_results.period:.2f}+/-{tls_results.period_uncertainty:.2f} d"
+            + " " * 5
+        )
+        msg += f"T0={tls_results.T0:.2f} BTJD\n"
+        msg += f"Duration={tls_results.duration:.2f} d\n"
+        msg += f"Depth={1-tls_results.depth:.4f}\t"
+        msg += f"Rp={Rp:.2f} " + r"R$_{\oplus}$" + "\n"
+        msg += f"Odd-Even mismatch={tls_results.odd_even_mismatch:.2f}\n"
 
-    ax.plot(
-        tls_results.model_folded_phase,
-        tls_results.model_folded_model,
-        color="red",
-    )
-    ax.scatter(
-        tls_results.folded_phase,
-        tls_results.folded_y,
-        color="blue",
-        s=10,
-        alpha=0.5,
-        zorder=2,
-    )
-    ax.set_xlabel("Phase")
-    ax.set_ylabel("Relative flux")
-    ax.set_xlim(0.2, 0.8)
+        msg += "\n" * 2
+        msg += "Stellar Properties\n"
+        msg += "-" * 30 + "\n"
+        msg += f"TIC ID={int(tic_params['ID'])}" + " " * 5
+        msg += f"Tmag={tic_params['Tmag']:.2f}\n"
+        msg += (
+            f"Rstar={tic_params['rad']:.2f}+/-{tic_params['e_rad']:.2f} "
+            + r"R$_{\odot}$"
+            + " " * 5
+        )
+        msg += (
+            f"Mstar={tic_params['mass']:.2f}+/-{tic_params['e_mass']:.2f} "
+            + r"M$_{\odot}$"
+            + "\n"
+        )
+        msg += (
+            f"Teff={int(tic_params['Teff'])}+/-{int(tic_params['e_Teff'])} K"
+            + " " * 5
+        )
+        msg += f"logg={tic_params['logg']:.2f}+/-{tic_params['e_logg']:.2f} dex\n"
+        msg += (
+            r"$\rho$"
+            + f"star={tic_params['rho']:.2f}+/-{tic_params['e_rho']:.2f} gcc\n"
+        )
+        msg += f"Contamination ratio={tic_params['contratio']:.2f}\n"
+        ax.text(0, 0, msg, fontsize=10)
+        ax.axis("off")
 
-    # +++++++++++++++++++++summary
-    ax = axs[5]
-    tic_params = l.query_tic_catalog(return_nearest_xmatch=True)
-    Rp = tls_results["rp_rs"] * tic_params["rad"] * u.Rsun.to(u.Rearth)
+        ticid = tic_params["ID"]
+        fig.suptitle(f"TIC {ticid} (sector {l.sector})")
+        fig.tight_layout()
 
-    msg = "Candidate Properties\n"
-    msg += "-" * 30 + "\n"
-    msg += f"SDE={tls_results.SDE:.2f}\n"
-    msg += (
-        f"Period={tls_results.period:.2f}+/-{tls_results.period_uncertainty:.2f} d"
-        + " " * 5
-    )
-    msg += f"T0={tls_results.T0:.2f} BTJD\n"
-    msg += f"Duration={tls_results.duration:.2f} d\n"
-    msg += f"Depth={1-tls_results.depth:.4f}\t"
-    msg += f"Rp={Rp:.2f} " + r"R$_{\oplus}$" + "\n"
-    msg += f"Odd-Even mismatch={tls_results.odd_even_mismatch:.2f}\n"
+        msg = ""
+        if savefig:
+            fp = os.path.join(outdir, f"tic{ticid}_s{l.sector}_{cadence[0]}c")
+            fig.savefig(fp + ".png", bbox_inches="tight")
+            msg += f"Saved: {fp}.png\n"
+        if savetls:
+            tls_results["gaiaid"] = l.gaiaid
+            tls_results["ticid"] = l.ticid
+            dd.io.save(fp + "_tls.h5", tls_results)
+            msg += f"Saved: {fp}_tls.h5"
+        if verbose:
+            print(msg)
+        return fig
 
-    msg += "\n" * 2
-    msg += "Stellar Properties\n"
-    msg += "-" * 30 + "\n"
-    msg += f"TIC ID={int(tic_params['ID'])}" + " " * 5
-    msg += f"Tmag={tic_params['Tmag']:.2f}\n"
-    msg += (
-        f"Rstar={tic_params['rad']:.2f}+/-{tic_params['e_rad']:.2f} "
-        + r"R$_{\odot}$"
-        + " " * 5
-    )
-    msg += (
-        f"Mstar={tic_params['mass']:.2f}+/-{tic_params['e_mass']:.2f} "
-        + r"M$_{\odot}$"
-        + "\n"
-    )
-    msg += (
-        f"Teff={int(tic_params['Teff'])}+/-{int(tic_params['e_Teff'])} K"
-        + " " * 5
-    )
-    msg += f"logg={tic_params['logg']:.2f}+/-{tic_params['e_logg']:.2f} dex\n"
-    msg += (
-        r"$\rho$"
-        + f"star={tic_params['rho']:.2f}+/-{tic_params['e_rho']:.2f} gcc\n"
-    )
-    msg += f"Contamination ratio={tic_params['contratio']:.2f}\n"
-    ax.text(0, 0, msg, fontsize=10)
-    ax.axis("off")
+    except Exception as ex:
+        # Get current system exception
+        ex_type, ex_value, ex_traceback = sys.exc_info()
+        # Extract unformatter stack traces as tuples
+        trace_back = traceback.extract_tb(ex_traceback)
 
-    ticid = tic_params["ID"]
-    fig.suptitle(f"TIC {ticid} (sector {l.sector})")
-    fig.tight_layout()
-
-    msg = ""
-    if savefig:
-        fp = os.path.join(outdir, f"{ticid}_s{l.sector}")
-        fig.savefig(fp + ".png", bbox_inches="tight")
-        msg += f"Saved: {fp}.png"
-    if savetls:
-        tls_results["gaiaid"] = l.gaiaid
-        tls_results["ticid"] = l.ticid
-        dd.io.save(fp + "_tls.h5", tls_results)
-        msg += f"Saved: {fp}_tls.h5"
-    if verbose:
-        print(msg)
-    return fig
+        print(f"Exception type: {ex_type.__name__}")
+        print(f"Exception message: {ex_value}")
+        # Format stacktrace
+        for trace in trace_back:
+            print(f"File : {trace[0]}")
+            print(f"Line. : {trace[1]}")
+            print(f"Func : {trace[2]}")
+            print(f"Message : {trace[3]}")
 
 
 def plot_gaia_sources_on_tpf(
@@ -315,7 +333,7 @@ def plot_gaia_sources_on_tpf(
     sources within aperture are red or orange if depth>kmax/gamma; green if outside
     """
     assert target_gaiaid is not None
-    img = np.median(tpf.flux, axis=0)
+    img = np.nanmedian(tpf.flux, axis=0)
     # make aperture mask
     mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
     ax = plot_aperture_outline(
