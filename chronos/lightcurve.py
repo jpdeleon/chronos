@@ -50,6 +50,8 @@ class LongCadence(Target):
         threshold_sigma=3,
         percentile=90,
         cutout_size=(50, 50),
+        quality_bitmask='default',
+        apply_data_quality_mask=True,
         clobber=True,
         verbose=True,
         # mission="TESS",
@@ -84,6 +86,8 @@ class LongCadence(Target):
         self.threshold_sigma = threshold_sigma
         self.cutout_size = cutout_size
         self.search_radius = search_radius
+        self.quality_bitmask = quality_bitmask
+        self.apply_data_quality_mask = apply_data_quality_mask
         self.tpf_tesscut = None
         self.corrector = None
         self.lc_custom = None
@@ -93,7 +97,6 @@ class LongCadence(Target):
     def get_tpf_tesscut(
         self,
         sector=None,
-        apply_data_quality_mask=True,
         cutout_size=None,
         verbose=True,
     ):
@@ -105,7 +108,7 @@ class LongCadence(Target):
             if verbose:
                 print("Searching targetpixelfile using Tesscut")
             tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
-                cutout_size=cutout_size
+                quality_bitmask=self.quality_bitmask, cutout_size=cutout_size
             )
         else:
             if (self.tpf_tesscut.sector == sector) & (
@@ -117,13 +120,13 @@ class LongCadence(Target):
                     print("Searching targetpixelfile using Tesscut")
                 tpf = lk.search_tesscut(
                     self.target_coord, sector=sector
-                ).download(cutout_size=cutout_size)
+                ).download(quality_bitmask=self.quality_bitmask, cutout_size=cutout_size)
         assert tpf is not None, "No results from Tesscut search."
         # remove zeros
         zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
         if zero_mask.sum() > 0:
             tpf = tpf[~zero_mask]
-        if apply_data_quality_mask:
+        if self.apply_data_quality_mask:
             tpf = remove_bad_data(tpf, sector=sector, verbose=verbose)
         self.tpf_tesscut = tpf
         return tpf
@@ -211,13 +214,16 @@ class LongCadence(Target):
             sector=sector, cutout_size=cutout_size
         )
 
-        aper_mask = self.get_aper_mask(
+        aper_mask = parse_aperture_mask(
+            tpf_tesscut,
             sap_mask=sap_mask,
             aper_radius=aper_radius,
             percentile=percentile,
             threshold_sigma=threshold_sigma,
             verbose=False,
         )
+        self.aper_mask = aper_mask
+
         raw_lc = tpf_tesscut.to_lightcurve(
             method="aperture", aperture_mask=aper_mask
         )
@@ -286,6 +292,7 @@ class ShortCadence(LongCadence):
         apphot_method="sap",  # prf
         sap_mask="pipeline",
         quality_bitmask="default",
+        apply_data_quality_mask=True,
         verbose=True,
         clobber=True,
         # mission="TESS",
@@ -316,6 +323,8 @@ class ShortCadence(LongCadence):
         self.quality_bitmask = quality_bitmask
         self.search_radius = search_radius
         self.data_quality_mask = None
+        self.quality_bitmask = quality_bitmask
+        self.apply_data_quality_mask = apply_data_quality_mask
         self.tpf = None
         self.lc_custom = None
         self.lc_custom_raw = None
@@ -391,7 +400,6 @@ class ShortCadence(LongCadence):
         self,
         sector=None,
         apphot_method=None,
-        apply_data_quality_mask=True,
         quality_bitmask=None,
         return_df=True,
     ):
@@ -484,7 +492,7 @@ class ShortCadence(LongCadence):
                         )
                     )
                 tpf = lk.TessTargetPixelFile(filepath)
-            if apply_data_quality_mask:
+            if self.apply_data_quality_mask:
                 tpf = remove_bad_data(tpf, sector=sector, verbose=self.verbose)
             self.tpf = tpf
             if return_df:
@@ -503,8 +511,6 @@ class ShortCadence(LongCadence):
         aper_radius=None,
         percentile=None,
         threshold_sigma=None,
-        quality_bitmask=None,
-        apply_data_quality_mask=None,
         verbose=True,
     ):
         """
@@ -520,16 +526,12 @@ class ShortCadence(LongCadence):
         if self.tpf is None:
             tpf, tpf_info = self.get_tpf(
                 sector=sector,
-                quality_bitmask=quality_bitmask,
-                apply_data_quality_mask=apply_data_quality_mask,
                 return_df=True,
             )
         else:
-            if self.sector != sector:
+            if self.tpf.sector != sector:
                 tpf, tpf_info = self.get_tpf(
                     sector=sector,
-                    quality_bitmask=quality_bitmask,
-                    apply_data_quality_mask=apply_data_quality_mask,
                     return_df=True,
                 )
             else:
@@ -553,12 +555,11 @@ class ShortCadence(LongCadence):
         aper_radius=None,
         percentile=None,
         threshold_sigma=None,
-        quality_bitmask=None,
         pca_nterms=5,
         with_offset=True,
     ):
         """
-        create a custom lightcurve based on this tutorial:
+        create a custom lightcurve with background subtraction, based on this tutorial:
         https://docs.lightkurve.org/tutorials/04-how-to-remove-tess-scattered-light-using-regressioncorrector.html
 
         Parameters
@@ -586,9 +587,7 @@ class ShortCadence(LongCadence):
             threshold_sigma if threshold_sigma else self.threshold_sigma
         )
 
-        tpf, tpf_info = self.get_tpf(
-            sector=sector, quality_bitmask=quality_bitmask
-        )
+        tpf, tpf_info = self.get_tpf(sector=sector)
         # Make an aperture mask and a raw light curve
         aper_mask = parse_aperture_mask(
             tpf,
@@ -598,6 +597,8 @@ class ShortCadence(LongCadence):
             threshold_sigma=threshold_sigma,
             verbose=False,
         )
+        self.aper_mask = aper_mask
+
         raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
         idx = (
             np.isnan(raw_lc.time)

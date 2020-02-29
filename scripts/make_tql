@@ -1,42 +1,105 @@
 #!/usr/bin/env python
-import matplotlib
+import matplotlib.pyplot as pl
 import chronos as cr
 from tqdm import tqdm
 import argparse
-
-matplotlib.use("pdf")
+# import matplotlib
+# matplotlib.use("pdf")
 
 parser = argparse.ArgumentParser(description="create tql based on chronos")
-parser.add_argument("cluster", type=str, help="cluster name")
 parser.add_argument(
-    "--catalog", type=str, help="catalog name", default="Babusiaux2018"
+    "--gaia", type=int, help="Gaia DR2 ID", default=None
+)
+parser.add_argument(
+    "--toi", type=int, help="TOI ID", default=None
+)
+parser.add_argument(
+    "--tic", type=int, help="TIC ID", default=None
+)
+parser.add_argument(
+    "--name", type=str, help="target name", default=None
+)
+parser.add_argument(
+    "--sector", type=int, help="TESS sector", default=None
 )
 parser.add_argument(
     "--cadence", type=str, choices=["long", "short"], default="long"
 )
+parser.add_argument(
+    "--sap_mask", type=str, help="mask type", default="square"
+)
+parser.add_argument(
+    "--threshold", type=float, help="mask threshold in sigma", default=5
+)
+parser.add_argument(
+    "--aper_radius", type=int, help="mask radius in pix", default=1
+)
+parser.add_argument(
+    "--percentile", type=float, help="mask percentile", default=90
+)
+parser.add_argument(
+    "--quality_bitmask", type=str, choices=['none',"default",'hard','hardest'], default='default'
+)
+parser.add_argument(
+    "--cutout_size", type=float, help="FFI tpf cutout size", default=(15,15)
+)
+parser.add_argument(
+    "--wl", "--window_length", type='int', help='Savitzky-Golay window length', default=31
+)
+parser.add_argument(
+    "-q", "--use_quality_mask", action='store_true', help="save figure", default=False
+)
+parser.add_argument(
+    "-s", "--save", action='store_true', help="save figure", default=False
+)
+parser.add_argument(
+    "-o", "--outdir", type=str, help="output directory", default='.'
+)
+parser.add_argument(
+    "-v", "--verbose", action='store_true', help="show details", default=False
+)
 
 args = parser.parse_args()
-cluster_name = args.cluster
-catalog_name = args.catalog
+gaiaid = args.gaia
+ticid = args.tic
+toiid = args.toi
+name = args.name
+sector = args.sector
 cadence = args.cadence
+sap_mask = args.sap_mask
+quality_bitmask = args.quality_bitmask
+aper_radius = args.aper_radius
+threshold = args.threshold
+percentile = args.percentile
+quality_bitmask = args.quality_bitmask
+apply_data_quality_mask = args.use_quality_mask
+window_length = args.window_length
+savefig = savetls = args.save
+verbose = args.verbose
+outdir = args.outdir
 
-c = cr.Cluster(catalog_name=catalog_name, cluster_name=cluster_name)
-mem = c.query_cluster_members()
-gaiaids = mem["source_id"].values
-
-# print(len(gaiaids))
-
-muscat_obs_constraint = mem.dec > -30
-for gaiaid in tqdm(gaiaids[muscat_obs_constraint]):
-    try:
-        outdir = cluster_name.lower().replace(" ", "")
-        fig = cr.make_tql(
-            gaiaid=gaiaid,
-            cadence=cadence,
-            savefig=True,
-            savetls=True,
-            outdir=outdir,
-            verbose=False,
+try:
+    fig = cr.make_tql(
+        gaiaid=gaiaid,
+        toiid=toiid,
+        ticid=ticid,
+        name=name,
+        sector=sector,
+        cadence=cadence,
+        sap_mask=sap_mask,
+        aper_radius=aper_radius,
+        threshold_sigma=threshold,
+        percentile=percentile,
+        quality_bitmask=quality_bitmask,
+        apply_data_quality_mask=apply_data_quality_mask,
+        window_length=window_length,
+        savefig=savefig,
+        savetls=savetls,
+        outdir=outdir,
+        verbose=verbose,
+        clobber=False
         )
-    except Exception as e:
-        print(e)
+    if not savefig:
+        pl.show()
+except Exception as e:
+    print(e)

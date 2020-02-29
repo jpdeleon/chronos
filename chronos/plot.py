@@ -63,23 +63,71 @@ __all__ = [
 
 
 def make_tql(
-    gaiaid,
+    gaiaid=None,
+    toiid=None,
+    ticid=None,
+    name=None,
     sector=None,
+    cadence='long',
+    sap_mask=None,
+    aper_radius=1,
+    threshold_sigma=5,
+    percentile=90,
+    cutout_size=(15,15),
+    quality_bitmask='default',
+    apply_data_quality_mask=True,
+    window_length=31,
     savefig=False,
     savetls=False,
     outdir=".",
     verbose=False,
+    clobber=False
 ):
-    l = LongCadence(
-        gaiaDR2id=gaiaid,
-        sector=sector,
-        sap_mask="square",
-        aper_radius=1,
-        # sap_mask='threshold', threshold_sigma=5,
-        cutout_size=(20, 20),
-        verbose=verbose,
-        clobber=False,
-    )
+    if cadence=='long':
+        if sap_mask is None:
+            sap_mask = "square"
+        l = LongCadence(
+            gaiaDR2id=gaiaid,
+            toiid=toiid,
+            ticid=ticid,
+            name=name,
+            sector=sector,
+            sap_mask=sap_mask,
+            aper_radius=aper_radius,
+            threshold_sigma=threshold_sigma,
+            percentile=percentile,
+            cutout_size=cutout_size,
+            quality_bitmask=quality_bitmask,
+            apply_data_quality_mask=apply_data_quality_mask,
+            verbose=verbose,
+            clobber=clobber,
+            )
+        if verbose:
+            print("Querying Tesscut\n")
+        tpf = l.get_tpf_tesscut(sector=l.sector)
+    elif cadence=='short':
+        if sap_mask is None:
+            sap_mask = 'pipeline'
+        l = ShortCadence(
+            gaiaDR2id=gaiaid,
+            toiid=toiid,
+            ticid=ticid,
+            name=name,
+            sector=sector,
+            sap_mask=sap_mask,
+            aper_radius=aper_radius,
+            threshold_sigma=threshold_sigma,
+            percentile=percentile,
+            quality_bitmask=quality_bitmask,
+            apply_data_quality_mask=apply_data_quality_mask,
+            verbose=verbose,
+            clobber=clobber,
+            )
+    else:
+        raise ValueError('Use cadence=(long, short).')
+        if verbose:
+            print("Querying Tesscut\n")
+        tpf = l.get_tpf(sector=l.sector)
     if (outdir is not None) & (not os.path.exists(outdir)):
         os.makedirs(outdir)
 
@@ -88,17 +136,17 @@ def make_tql(
 
     # +++++++++++++++++++++ax0: tpf
     ax = axs[0]
-    if verbose:
-        print("Querying Tesscut\n")
-    tpf = l.get_tpf_tesscut(sector=l.sector)
-    gaia_sources = l.query_gaia_dr2_catalog(radius=120)
+    if gaiaid is None:
+        gaia_params = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+    if l.gaia_sources is None:
+        gaia_sources = l.query_gaia_dr2_catalog(radius=120)
     _ = plot_gaia_sources_on_tpf(
         tpf=tpf,
         target_gaiaid=l.gaiaid,
-        gaia_sources=gaia_sources,
+        gaia_sources=l.gaia_sources,
         sap_mask=l.sap_mask,
         aper_radius=l.aper_radius,
-        # threshold_sigma=l.threshold_sigma,
+        threshold_sigma=l.threshold_sigma,
         ax=ax,
     )
     #     #+++++++++++++++++++++ax1: raw lc
@@ -139,7 +187,7 @@ def make_tql(
     # +++++++++++++++++++++ax2: Detrending/ Flattening
     ax = axs[1]
     lc = bkg_sub_lc.normalize().remove_nans().remove_outliers()
-    flat, trend = lc.flatten(window_length=31, return_trend=True)
+    flat, trend = lc.flatten(window_length=window_length, return_trend=True)
     _ = lc.scatter(ax=ax, label="bkg_sub")
     trend.plot(ax=ax, label="trend", lw=3, c="r")
 
