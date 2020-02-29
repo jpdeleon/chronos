@@ -50,7 +50,7 @@ class LongCadence(Target):
         threshold_sigma=3,
         percentile=90,
         cutout_size=(50, 50),
-        quality_bitmask='default',
+        quality_bitmask="default",
         apply_data_quality_mask=True,
         clobber=True,
         verbose=True,
@@ -94,12 +94,7 @@ class LongCadence(Target):
         self.lc_custom_raw = None
         self.lc_cdips = None
 
-    def get_tpf_tesscut(
-        self,
-        sector=None,
-        cutout_size=None,
-        verbose=True,
-    ):
+    def get_tpf_tesscut(self, sector=None, cutout_size=None, verbose=True):
         """
         """
         cutout_size = cutout_size if cutout_size else self.cutout_size
@@ -120,7 +115,10 @@ class LongCadence(Target):
                     print("Searching targetpixelfile using Tesscut")
                 tpf = lk.search_tesscut(
                     self.target_coord, sector=sector
-                ).download(quality_bitmask=self.quality_bitmask, cutout_size=cutout_size)
+                ).download(
+                    quality_bitmask=self.quality_bitmask,
+                    cutout_size=cutout_size,
+                )
         assert tpf is not None, "No results from Tesscut search."
         # remove zeros
         zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
@@ -524,16 +522,10 @@ class ShortCadence(LongCadence):
         )
 
         if self.tpf is None:
-            tpf, tpf_info = self.get_tpf(
-                sector=sector,
-                return_df=True,
-            )
+            tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
         else:
             if self.tpf.sector != sector:
-                tpf, tpf_info = self.get_tpf(
-                    sector=sector,
-                    return_df=True,
-                )
+                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
             else:
                 tpf = self.tpf
 

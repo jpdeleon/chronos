@@ -27,7 +27,7 @@ import deepdish as dd
 
 # Import from package
 from chronos.cluster import ClusterCatalog
-from chronos.lightcurve import LongCadence
+from chronos.lightcurve import ShortCadence, LongCadence
 from chronos.utils import (
     get_transformed_coord,
     get_toi,
@@ -68,22 +68,22 @@ def make_tql(
     ticid=None,
     name=None,
     sector=None,
-    cadence='long',
+    cadence="long",
     sap_mask=None,
     aper_radius=1,
     threshold_sigma=5,
     percentile=90,
-    cutout_size=(15,15),
-    quality_bitmask='default',
+    cutout_size=(15, 15),
+    quality_bitmask="default",
     apply_data_quality_mask=True,
     window_length=31,
     savefig=False,
     savetls=False,
     outdir=".",
     verbose=False,
-    clobber=False
+    clobber=False,
 ):
-    if cadence=='long':
+    if cadence == "long":
         if sap_mask is None:
             sap_mask = "square"
         l = LongCadence(
@@ -101,13 +101,13 @@ def make_tql(
             apply_data_quality_mask=apply_data_quality_mask,
             verbose=verbose,
             clobber=clobber,
-            )
+        )
         if verbose:
             print("Querying Tesscut\n")
         tpf = l.get_tpf_tesscut(sector=l.sector)
-    elif cadence=='short':
+    elif cadence == "short":
         if sap_mask is None:
-            sap_mask = 'pipeline'
+            sap_mask = "pipeline"
         l = ShortCadence(
             gaiaDR2id=gaiaid,
             toiid=toiid,
@@ -122,9 +122,9 @@ def make_tql(
             apply_data_quality_mask=apply_data_quality_mask,
             verbose=verbose,
             clobber=clobber,
-            )
+        )
     else:
-        raise ValueError('Use cadence=(long, short).')
+        raise ValueError("Use cadence=(long, short).")
         if verbose:
             print("Querying Tesscut\n")
         tpf = l.get_tpf(sector=l.sector)
@@ -137,9 +137,9 @@ def make_tql(
     # +++++++++++++++++++++ax0: tpf
     ax = axs[0]
     if gaiaid is None:
-        gaia_params = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+        _ = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
     if l.gaia_sources is None:
-        gaia_sources = l.query_gaia_dr2_catalog(radius=120)
+        _ = l.query_gaia_dr2_catalog(radius=120)
     _ = plot_gaia_sources_on_tpf(
         tpf=tpf,
         target_gaiaid=l.gaiaid,
