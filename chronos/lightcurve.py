@@ -8,6 +8,9 @@ from os.path import join, exists
 import logging
 
 # Import library
+# from matplotlib.figure import Figure
+# from matplotlib.image import AxesImage
+# from loguru import logger
 import numpy as np
 import astropy.units as u
 from lightkurve import TessLightCurve
@@ -18,7 +21,11 @@ import lightkurve as lk
 from chronos.config import DATA_PATH
 from chronos.target import Target
 from chronos.cdips import CDIPS
-from chronos.utils import remove_bad_data, parse_aperture_mask
+from chronos.utils import (
+    remove_bad_data,
+    parse_aperture_mask,
+    compute_fluxes_within_mask,
+)
 import getpass
 
 user = getpass.getuser()
@@ -93,6 +100,7 @@ class LongCadence(Target):
         self.lc_custom = None
         self.lc_custom_raw = None
         self.lc_cdips = None
+        self.contratio = None
 
     def get_tpf_tesscut(self, sector=None, cutout_size=None, verbose=True):
         """
@@ -250,6 +258,16 @@ class LongCadence(Target):
             )
         lc = corrected_lc.normalize()
         self.lc_custom = lc
+
+        # compute Contamination
+        if self.gaia_sources is None:
+            gaia_sources = self.query_gaia_dr2_catalog(radius=120)
+        else:
+            gaia_sources = self.gaia_sources
+        fluxes = compute_fluxes_within_mask(
+            tpf_tesscut, aper_mask, gaia_sources
+        )
+        self.contratio = sum(fluxes) - 1
         return lc
 
     def get_cdips_lc(
@@ -335,6 +353,7 @@ class ShortCadence(LongCadence):
         self.lcf = None
         self.lc_sap = None
         self.lc_pdcsap = None
+        self.contratio = None
 
     def get_lc(self, lctype="pdcsap", sector=None, quality_bitmask=None):
         """
@@ -430,6 +449,14 @@ class ShortCadence(LongCadence):
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
         )
+        if self.tpf is None:
+            tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
+        else:
+            if self.tpf.sector == sector:
+                tpf = self.tpf
+            else:
+                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
+
         if self.ticid:
             ticstr = f"TIC {self.ticid}"
             if self.verbose:
@@ -584,8 +611,13 @@ class ShortCadence(LongCadence):
         threshold_sigma = (
             threshold_sigma if threshold_sigma else self.threshold_sigma
         )
-
-        tpf, tpf_info = self.get_tpf(sector=sector)
+        if self.tpf is None:
+            tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
+        else:
+            if self.tpf.sector == sector:
+                tpf = self.tpf
+            else:
+                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
         # Make an aperture mask and a raw light curve
         aper_mask = parse_aperture_mask(
             tpf,
@@ -626,6 +658,14 @@ class ShortCadence(LongCadence):
             )
         lc = corrected_lc.normalize()
         self.lc_custom = lc
+
+        # compute Contamination
+        if self.gaia_sources is None:
+            gaia_sources = self.query_gaia_dr2_catalog(radius=120)
+        else:
+            gaia_sources = self.gaia_sources
+        fluxes = compute_fluxes_within_mask(tpf, aper_mask, gaia_sources)
+        self.contratio = sum(fluxes) - 1
         return lc
 
 

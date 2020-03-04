@@ -13,6 +13,9 @@ from os.path import join, exists
 import os
 
 # Import from module
+# from matplotlib.figure import Figure
+# from matplotlib.image import AxesImage
+# from loguru import logger
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
@@ -59,6 +62,8 @@ __all__ = [
     "compute_fluxes_within_mask",
     "check_harps_RV",
 ]
+
+TESS_TIME_OFFSET = 2457000.0  # TBJD = BJD - 2457000.0
 
 # Ax/Av
 extinction_ratios = {
@@ -1015,17 +1020,51 @@ def PadWithZeros(vector, pad_width, iaxis, kwargs):
     return vector
 
 
-def compute_fluxes_within_mask(tpf, mask, gaia_sources):
+def compute_fluxes_within_mask(tpf, aper_mask, gaia_sources):
     """compute relative fluxes of gaia sources within aperture
+    To compute the actual depth taking into account dilution,
+    delta_true = delta_obs*gamma, where
+    gamma = 1+10**(0.4*dmag) [dilution factor]
     """
+    assert tpf is not None
+    assert aper_mask is not None
+    assert gaia_sources is not None
     ra, dec = gaia_sources[["ra", "dec"]].values.T
     pix_coords = tpf.wcs.all_world2pix(np.c_[ra, dec], 0)
-    contour_points = measure.find_contours(mask, level=0.1)[0]
+    contour_points = measure.find_contours(aper_mask, level=0.1)[0]
     isinside = [
         is_point_inside_mask(contour_points, pix) for pix in pix_coords
     ]
     min_gmag = gaia_sources.loc[isinside, "phot_g_mean_mag"].min()
-    fluxes = gaia_sources.loc[isinside, "phot_g_mean_mag"].apply(
+    gamma = gaia_sources.loc[isinside, "phot_g_mean_mag"].apply(
         lambda x: 10 ** (0.4 * (min_gmag - x))
     )
-    return fluxes
+    return gamma
+
+
+def get_limbdark(band, tic_params, teff=None, logg=None, feh=None, **kwargs):
+    """
+    """
+    try:
+        import limbdark as ld
+    except Exception:
+        command = (
+            "pip install git+https://github.com/john-livingston/limbdark.git"
+        )
+        raise ModuleNotFoundError(command)
+
+    coeffs = ld.claret(
+        band=band,
+        teff=teff[0] if np.isnan(tic_params["Teff"]) else tic_params["Teff"],
+        uteff=teff[1]
+        if np.isnan(tic_params["e_Teff"])
+        else tic_params["e_Teff"],
+        logg=logg[0] if np.isnan(tic_params["logg"]) else tic_params["logg"],
+        ulogg=logg[1]
+        if np.isnan(tic_params["e_logg"])
+        else tic_params["e_logg"],
+        feh=feh[0] if np.isnan(tic_params["MH"]) else tic_params["MH"],
+        ufeh=feh[1] if np.isnan(tic_params["e_MH"]) else tic_params["e_MH"],
+        **kwargs,
+    )
+    return coeffs

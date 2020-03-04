@@ -3,6 +3,7 @@ This installation requires git which pulls large files first before pip installa
 https://stackoverflow.com/a/58932741/1910174
 """
 from setuptools import setup, find_packages
+from chronos import __version__, name
 
 import os
 import subprocess
@@ -46,26 +47,30 @@ def install_requires():
 # pull_first()
 
 setup(
-    name="chronos",
-    version="0.0.1",
+    name=name,
+    version=__version__,
     description="exploring young star catalogs",
     url="http://github.com/jpdeleon/chronos",
     author="Jerome de Leon",
     author_email="jpdeleon.bsap@gmail.com",
     license="MIT",
-    packages=["chronos"],  # or find_packages(),
+    packages=find_packages(),
     include_package_data=True,
     # data_files=['data'],
-    # package_data={"chronos": "data"},
+    # package_data={"chronos": "data"},,
+    zip_safe=False,
+    classifiers=(
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Operating System :: OS Independent",
+    ),
     scripts=[
         "scripts/make_tql",
+        "scripts/rank_tls",
         "scripts/make_tql_per_cluster",
         "scripts/query_cluster_members_gaia_params",
         "scripts/find_cluster_near_target",
         "scripts/make_cdips_ql",
     ],
-    zip_safe=False,
     install_requires=install_requires(),
 )
-
-print("Finally, git lfs pull")

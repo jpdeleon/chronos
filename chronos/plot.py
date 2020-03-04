@@ -11,6 +11,9 @@ import itertools
 import traceback
 
 # Import modules
+# from matplotlib.figure import Figure
+# from matplotlib.image import AxesImage
+# from loguru import logger
 import numpy as np
 import matplotlib.pyplot as pl
 import lightkurve as lk
@@ -52,6 +55,7 @@ __all__ = [
     "plot_cmd",
     "plot_hrd",
     "plot_tls",
+    "plot_odd_even",
     "plot_hrd_spectral_types",
     "plot_pdc_sap_comparison",
     "plot_lomb_scargle",
@@ -62,6 +66,7 @@ __all__ = [
     "plot_gaia_sources_on_tpf",
     "make_tql",
 ]
+
 
 def make_tql(
     gaiaid=None,
@@ -190,7 +195,9 @@ def make_tql(
         # +++++++++++++++++++++ax2: Detrending/ Flattening
         ax = axs[1]
         lc = bkg_sub_lc.normalize().remove_nans().remove_outliers()
-        flat, trend = lc.flatten(window_length=window_length, return_trend=True)
+        flat, trend = lc.flatten(
+            window_length=window_length, return_trend=True
+        )
         _ = lc.scatter(ax=ax, label="bkg_sub")
         trend.plot(ax=ax, label="trend", lw=3, c="r")
 
@@ -208,8 +215,12 @@ def make_tql(
         ax.set_xlim(np.min(tls_results.periods), np.max(tls_results.periods))
 
         for i in range(2, 10):
-            ax.axvline(i * tls_results.period, alpha=0.4, lw=1, linestyle="dashed")
-            ax.axvline(tls_results.period / i, alpha=0.4, lw=1, linestyle="dashed")
+            ax.axvline(
+                i * tls_results.period, alpha=0.4, lw=1, linestyle="dashed"
+            )
+            ax.axvline(
+                tls_results.period / i, alpha=0.4, lw=1, linestyle="dashed"
+            )
         ax.set_ylabel(r"SDE")
         ax.set_xlabel("Period (days)")
         ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
@@ -274,7 +285,9 @@ def make_tql(
             f"Teff={int(tic_params['Teff'])}+/-{int(tic_params['e_Teff'])} K"
             + " " * 5
         )
-        msg += f"logg={tic_params['logg']:.2f}+/-{tic_params['e_logg']:.2f} dex\n"
+        msg += (
+            f"logg={tic_params['logg']:.2f}+/-{tic_params['e_logg']:.2f} dex\n"
+        )
         msg += (
             r"$\rho$"
             + f"star={tic_params['rho']:.2f}+/-{tic_params['e_rho']:.2f} gcc\n"
@@ -301,7 +314,7 @@ def make_tql(
             print(msg)
         return fig
 
-    except Exception as ex:
+    except Exception:
         # Get current system exception
         ex_type, ex_value, ex_traceback = sys.exc_info()
         # Extract unformatter stack traces as tuples
@@ -351,7 +364,7 @@ def plot_gaia_sources_on_tpf(
         gaia_sources = Catalogs.query_region(
             target_coord, radius=fov_rad, catalog="Gaia", version=2
         ).to_pandas()
-
+    assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     # find sources within mask
     if depth is not None:
         # target is assumed to be the first row
@@ -447,8 +460,6 @@ def plot_gaia_sources_on_survey(
         subplot axis
     """
     assert target_gaiaid is not None
-    if gaia_sources is not None:
-        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:
         diag = np.sqrt(nx ** 2 + ny ** 2)
@@ -458,6 +469,7 @@ def plot_gaia_sources_on_survey(
         gaia_sources = Catalogs.query_region(
             target_coord, radius=fov_rad, catalog="Gaia", version=2
         ).to_pandas()
+    assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     # make aperture mask
     mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
     maskhdr = tpf.hdu[2].header
@@ -656,7 +668,7 @@ def plot_lomb_scargle(
     return fig
 
 
-def plot_tls(results, figsize=None):
+def plot_tls(results, period=None, plabel=None, figsize=None):
     """
 
     Attributes
@@ -684,15 +696,18 @@ def plot_tls(results, figsize=None):
     ax[n].set_xlabel("Period (days)")
     ax[n].plot(results.periods, results.power, color="black", lw=0.5)
     ax[n].set_xlim(0, max(results.periods))
+    if period is not None:
+        ax[n].axvline(period, 0, 1, ls="--", c="r", label=plabel)
+    ax[n].legend(title="best period (d)")
 
     n = 1
     ax[n].plot(
-        results.model_folded_phase, results.model_folded_model, color="red"
+        results.model_folded_phase - 0.5, results.model_folded_model, color="b"
     )
     ax[n].scatter(
-        results.folded_phase,
+        results.folded_phase - 0.5,
         results.folded_y,
-        color="blue",
+        color="k",
         s=10,
         alpha=0.5,
         zorder=2,
@@ -700,6 +715,24 @@ def plot_tls(results, figsize=None):
     ax[n].set_xlabel("Phase")
     ax[n].set_ylabel("Relative flux")
     fig.tight_layout()
+    return fig
+
+
+def plot_odd_even(flat, tls_results, yline=None, figsize=(8, 4)):
+    """
+    """
+    fig, axs = pl.subplots(1, 2, figsize=figsize, sharey=True)
+    fold = flat.fold(period=tls_results.period, t0=tls_results.T0)
+
+    ax = axs[0]
+    fold[fold.even_mask].scatter(label="even", ax=ax)
+    if yline is not None:
+        ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
+
+    ax = axs[1]
+    fold[fold.odd_mask].scatter(label="odd", ax=ax)
+    if yline is not None:
+        ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
     return fig
 
 

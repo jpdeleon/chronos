@@ -17,5 +17,5 @@ remote_theme: pmarsceill/just-the-docs
 aux_links:
   "chronos on GitHub":
     - "//github.com/jpdeleon/chronos"
-    
+
 #See template at: https://github.com/pmarsceill/just-the-docs/blob/8bd2da55fe198935aa707de048ddb444418b3feb/_config.yml

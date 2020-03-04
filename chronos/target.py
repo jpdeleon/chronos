@@ -6,10 +6,15 @@ classes for searching object
 
 # Import standard library
 from os.path import join, exists
+
+# from typing import Tuple
 import logging
 import re
 
 # Import modules
+# from matplotlib.figure import Figure
+# from matplotlib.image import AxesImage
+# from loguru import logger
 import numpy as np
 import pandas as pd
 from scipy.interpolate import NearestNDInterpolator
@@ -259,9 +264,14 @@ class Target:
         self.target_coord = target_coord
 
         if return_nearest_xmatch or (len(tab) == 1):
-            self.gaiaid = int(tab.loc[0, "source_id"])
-            self.gaia_params = tab.iloc[0]
-            self.gmag = self.gaia_params["phot_g_mean_mag"]
+            if self.gaiaid is not None:
+                id = int(tab.iloc[0]["source_id"])
+                msg = f"Nearest match ({id}) != {self.gaiaid}"
+                assert int(self.gaiaid) == id, msg
+            else:
+                self.gaia_params = tab.iloc[0]
+                self.gaiaid = int(self.gaia_params["source_id"])
+                self.gmag = self.gaia_params["phot_g_mean_mag"]
             return tab.iloc[0]  # return series of len 1
         else:
             # if self.verbose:
@@ -396,8 +406,15 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="TIC"
         ).to_pandas()
-        if return_nearest_xmatch:
+        if return_nearest_xmatch or (len(tab) == 1):
             tab = tab.iloc[0]
+            if self.ticid is not None:
+                id = int(tab["ID"])
+                msg = f"Nearest match ({id}) != {self.ticid}"
+                assert int(self.ticid) == id, msg
+            else:
+                if self.ticid is None:
+                    self.ticid = int(tab["ID"])
         self.tic_params = tab
         return tab
 

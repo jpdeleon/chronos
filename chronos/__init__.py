@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 # Import standard library
 import warnings
 
@@ -16,4 +15,5 @@ from .config import *
 
 warnings.simplefilter("ignore")
 
-# __version__ = "0.1"
+name = "chronos"
+__version__ = "0.0.1"

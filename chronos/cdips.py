@@ -50,6 +50,7 @@ class CDIPS(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
+        quality_bitmask=None,
         search_radius=2 * u.arcsec,
         verbose=True,
         lctype="flux",
@@ -81,14 +82,25 @@ class CDIPS(Target):
             CDIPS lc types: ["flux", "mag", "tfa", "pca"]
         """
         self.sector = sector
+        self.all_sectors = self.get_all_sectors()
+
+        if self.sector is None:
+            self.sector = self.all_sectors[0]
+            print(f"Available sectors: {self.all_sectors}")
+            print(f"Using sector={self.sector}.")
+        msg = f"CDIPS lc is currently available for sectors={CDIPS_SECTORS}\n"
+        assert self.sector in CDIPS_SECTORS, msg
+
         self.cam = cam
         self.ccd = ccd
+        if self.gaiaid is None:
+            _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
         if not np.all([self.sector, self.cam, self.ccd]):
             # overwrite
             sector, cam, ccd = self.get_sector_cam_ccd()
-            self.sector = sector if self.sector is None else str(sector)
-            self.cam = cam if self.cam is None else str(cam)
-            self.ccd = ccd if self.ccd is None else str(ccd)
+            self.sector = sector if self.sector is None else str(self.sector)
+            self.cam = cam if self.cam is None else str(self.cam)
+            self.ccd = ccd if self.ccd is None else str(self.ccd)
         # self.mission = mission
         self.lctype = lctype
         self.lctypes = ["flux", "mag", "tfa", "pca"]
@@ -97,7 +109,7 @@ class CDIPS(Target):
             "1",
             "2",
             "3",
-        ], "CDIPS has only 3 aperture indices"
+        ], "CDIPS has only [1,2,3] aperture indices"
         self.header0 = None  # target header
         self.catalog_ref = None  # references
         self.catalog_gaiaids = None  # gaia id(s) in catalog_ref
@@ -105,6 +117,7 @@ class CDIPS(Target):
         # self.ccd_info = Tesscut.get_sectors(self.target_coord).to_pandas()
         self.data, self.header = self.get_cdips_fits()
         time, flux, err = self.get_cdips_lc()
+        self.quality_bitmask = quality_bitmask
         # hack tess lightkurve
         self.lc = TessLightCurve(
             time=time,
@@ -116,7 +129,7 @@ class CDIPS(Target):
             centroid_col=None,
             centroid_row=None,
             quality=None,
-            quality_bitmask=None,
+            quality_bitmask=self.quality_bitmask,
             cadenceno=None,
             sector=self.sector,
             camera=self.cam,
@@ -155,6 +168,10 @@ class CDIPS(Target):
           <sectornum? = 4-digit, zero-padded Sector number, e.g., '0006'
         """
         base = "https://archive.stsci.edu/hlsps/cdips/"
+        assert self.sector is not None
+        assert self.cam is not None
+        assert self.ccd is not None
+        assert self.gaiaid is not None
         sec = self.sector.zfill(4)
         fp = (
             base
@@ -189,8 +206,7 @@ class CDIPS(Target):
 
         except Exception:
             msg = f"File not found:\n{fp}\n"
-            msg += f"The first observed sector ({self.sector}) was used by default.\n"
-            msg += f"CDIPS lc is currently available for sectors={CDIPS_SECTORS}\n"
+            msg += f"Using sector={self.sector} in {self.all_sectors}.\n"
             raise ValueError(msg)
 
     def validate_target_header(self):
