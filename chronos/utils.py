@@ -59,8 +59,9 @@ __all__ = [
     "make_square_mask",
     "remove_bad_data",
     "is_point_inside_mask",
-    "compute_fluxes_within_mask",
-    "check_harps_RV",
+    "get_fluxes_within_mask",
+    "get_harps_RV",
+    "get_specs_from_tfop",
 ]
 
 TESS_TIME_OFFSET = 2457000.0  # TBJD = BJD - 2457000.0
@@ -81,9 +82,7 @@ extinction_ratios = {
 }
 
 
-def check_harps_RV(
-    target_coord, separation=30, outdir=DATA_PATH, verbose=True
-):
+def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
     """
     Check if target has archival HARPS data from:
     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
@@ -572,9 +571,9 @@ def get_tois(
                 ],
                 sort=True,
             )
-            d = pd.merge(d, fpp, how="outer")
+            d = pd.merge(d, fpp, how="outer").drop_duplicates()
     else:
-        d = pd.read_csv(fp)
+        d = pd.read_csv(fp).drop_duplicates()
         msg = f"Loaded: {fp}\n"
     d.to_csv(fp, index=False)
 
@@ -614,7 +613,7 @@ def get_tois(
     return d.sort_values("TOI")
 
 
-def get_toi(toi, clobber=True, outdir=DATA_PATH, verbose=True):
+def get_toi(toi, clobber=True, outdir=DATA_PATH, add_FPP=False, verbose=True):
     """Query TOI from TOI list
 
     Parameters
@@ -661,6 +660,37 @@ def get_toi(toi, clobber=True, outdir=DATA_PATH, verbose=True):
         print("\nTFOPWG disposition is a False Positive!\n")
 
     return q.sort_values(by="TOI", ascending=True)
+
+
+def get_specs_from_tfop(
+    tic=None, clobber=True, outdir=DATA_PATH, verbose=True
+):
+    """
+    html:
+    https://exofop.ipac.caltech.edu/tess/view_spect.php?sort=id&ipp1=1000
+
+    plot notes:
+    https://exofop.ipac.caltech.edu/tess/classification_plots.php
+    """
+    fp = os.path.join(outdir, "tfop_sg2_spec_table.csv")
+    if not os.path.exists(fp) or clobber:
+        url = "https://exofop.ipac.caltech.edu/tess/download_spect.php?sort=id&output=csv"
+        df = pd.read_csv(url)
+        df.to_csv(fp, index=False)
+        if verbose:
+            print(f"Saved: {fp}")
+    else:
+        df = pd.read_csv(fp)
+        if verbose:
+            print(f"Loaded: {fp}")
+
+    if tic is not None:
+        idx = df["TIC ID"].isin([tic])
+        if verbose:
+            print(f"There are {idx.sum()} spectra")
+        return df[idx]
+    else:
+        return df
 
 
 def get_target_coord(
@@ -764,7 +794,8 @@ def get_transformed_coord(df, frame="galactocentric", verbose=True):
     """
     assert len(df) > 0, "df is empty"
     if np.any(df["parallax"] < 0):
-        df = df[df["parallax"] > 0]
+        # retain non-negative parallaxes including nan
+        df = df[(df["parallax"] >= 0) | (df["parallax"].isnull())]
         if verbose:
             print("Some parallaxes are negative!")
             print("These are removed for the meantime.")
@@ -810,6 +841,11 @@ def query_gaia_params_of_all_tois(
     fp=None, verbose=True, clobber=False, update=True
 ):
     """
+    See also
+    https://astroquery.readthedocs.io/en/latest/xmatch/xmatch.html
+
+    Note: Ticv8 is preferable since it has Gaia DR2 parameters and more
+    See: https://mast.stsci.edu/api/v0/pyex.html#MastTicCrossmatchPy
     """
     if fp is None:
         fp = join(DATA_PATH, "toi_gaia_params.hdf5")
@@ -1020,7 +1056,7 @@ def PadWithZeros(vector, pad_width, iaxis, kwargs):
     return vector
 
 
-def compute_fluxes_within_mask(tpf, aper_mask, gaia_sources):
+def get_fluxes_within_mask(tpf, aper_mask, gaia_sources):
     """compute relative fluxes of gaia sources within aperture
     To compute the actual depth taking into account dilution,
     delta_true = delta_obs*gamma, where

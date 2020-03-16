@@ -74,6 +74,15 @@ class ClusterCatalog:
         -------
         df : pandas.DataFrame
             dataframe parameters of the cluster or its individual members
+
+        Note: Use the following:
+        if np.any(df["parallax"] < 0):
+            df = df[(df["parallax"] >= 0) | (df["parallax"].isnull())]
+            if verbose:
+                print("Some parallaxes are negative!")
+                print("These are removed for the meantime.")
+                print("For proper treatment, see:")
+                print("https://arxiv.org/pdf/1804.09366.pdf\n")
         """
         self.catalog_name = name if name is not None else self.catalog_name
         if self.catalog_name == "Bouma2019":

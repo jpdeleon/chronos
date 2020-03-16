@@ -13,3 +13,5 @@
 - [] incorporate [triceratops](https://github.com/stevengiacalone/triceratops/tree/master/triceratops) in workflow
 - [] fix HR diagram
 - [] add isochrone fitting in CM diagram
+- [] add size=stellar radius and color=logg from tic catalog in CMD/HRD similar to Hardegree-Ullman+2020 to show if dwarf/giant misclassification
+- [] add lightcurve from ASAS-SN project (Shappee et al. 2014; Kochanek et al. 2017))

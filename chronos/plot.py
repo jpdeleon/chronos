@@ -42,7 +42,7 @@ from chronos.utils import (
     get_absolute_color_index,
     parse_aperture_mask,
     is_point_inside_mask,
-    compute_fluxes_within_mask,
+    get_fluxes_within_mask,
 )
 
 TESS_pix_scale = 21 * u.arcsec  # /pix
@@ -132,7 +132,7 @@ def make_tql(
             )
             if verbose:
                 print("Querying Tesscut\n")
-            tpf, tpf_info = l.get_tpf(sector=l.sector)
+            tpf, tpf_info = l.get_tpf(sector=l.sector, return_df=True)
         else:
             raise ValueError("Use cadence=(long, short).")
 
@@ -246,7 +246,7 @@ def make_tql(
         )
         ax.set_xlabel("Phase")
         ax.set_ylabel("Relative flux")
-        ax.set_xlim(0.2, 0.8)
+        ax.set_xlim(0.4, 0.6)
 
         # +++++++++++++++++++++summary
         ax = axs[5]
@@ -512,9 +512,9 @@ def plot_gaia_sources_on_survey(
     idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
-    for index, rows in gaia_sources.iterrows():
+    for index, row in gaia_sources.iterrows():
         marker, s = "o", 100
-        r, d, mag, id = rows[["ra", "dec", "phot_g_mean_mag", "source_id"]]
+        r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
         pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
         if int(id) != int(target_gaiaid):
             gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
@@ -577,21 +577,22 @@ def plot_aperture_outline(img, mask, ax=None, imgwcs=None, figsize=None):
     return ax
 
 
-def plot_possible_NEBs(gaia_params, depth, gaiaid=None, kmax=1.0, ax=None):
+def plot_possible_NEBs(gaia_sources, depth, gaiaid=None, kmax=1.0, ax=None):
     """
     """
-    assert len(gaia_params) > 1, "gaia_params contains single entry"
+    assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=(5, 5))
 
     if gaiaid is None:
         # nearest match (first entry row=0) is assumed as the target
-        gaiaid = gaia_params.iloc[0]["source_id"]
-    idx = gaia_params.source_id.isin([gaiaid])
-    target_gmag = gaia_params.loc[idx, "phot_g_mean_mag"].values[0]
+        gaiaid = gaia_sources.iloc[0]["source_id"]
+    idx = gaia_sources.source_id.isin([gaiaid])
+    target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
     good, bad, dmags = [], [], []
-    for id, mag in gaia_params[["source_id", "phot_g_mean_mag"]].values:
+    for index, row in gaia_sources.iterrows():
+        id, mag = row[["source_id", "phot_g_mean_mag"]]
         if int(id) != gaiaid:
             dmag = mag - target_gmag
             gamma = 1 + 10 ** (0.4 * dmag)
@@ -1274,7 +1275,8 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     good, bad, dmags = [], [], []
     idx = gaia_catalog.source_id.isin([gaiaid])
     target_gmag = gaia_catalog.iloc[idx]["phot_g_mean_mag"]
-    for id, mag in gaia_catalog[["source_id", "phot_g_mean_mag"]].values:
+    for index, row in gaia_catalog.iterrows():
+        id, mag = row[["source_id", "phot_g_mean_mag"]]
         if int(id) != gaiaid:
             dmag = mag - target_gmag
             gamma = 1 + 10 ** (0.4 * dmag)

@@ -18,9 +18,10 @@ import re
 import numpy as np
 import pandas as pd
 from scipy.interpolate import NearestNDInterpolator
-from astroquery.mast import Catalogs
+from astroquery.simbad import Simbad
+from astroquery.vizier import Vizier
+from astroquery.mast import Catalogs, Observations, tesscut
 from astropy.coordinates import SkyCoord, Distance
-from astroquery.mast.tesscut import Tesscut
 from astropy import units as u
 import lightkurve as lk
 
@@ -115,7 +116,9 @@ class Target:
             gaiaid=self.gaiaid,
             name=self.target_name,
         )
-        self.ccd_info = Tesscut.get_sectors(self.target_coord).to_pandas()
+        self.ccd_info = tesscut.Tesscut.get_sectors(
+            self.target_coord
+        ).to_pandas()
 
     def get_all_sectors(self):
         """
@@ -246,12 +249,12 @@ class Target:
         )
         # precess coordinate from Gaia DR2 epoch to J2000
         gcoords = gcoords.transform_to("icrs")
-        if self.gaiaid is not None:
-            # find by id match for gaiaDR2id input
-            idx = tab.source_id.isin([self.gaiaid]).argmax()
-        else:
+        if self.gaiaid is None:
             # find by nearest distance (for toiid or ticid input)
             idx = self.target_coord.separation(gcoords).argmin()
+        else:
+            # find by id match for gaiaDR2id input
+            idx = tab.source_id.isin([self.gaiaid]).argmax()
         star = tab.loc[idx]
         # get distance from parallax
         target_dist = Distance(parallax=star["parallax"] * u.mas)
@@ -263,15 +266,18 @@ class Target:
         )
         self.target_coord = target_coord
 
-        if return_nearest_xmatch or (len(tab) == 1):
+        nsources = len(tab)
+        if return_nearest_xmatch or (nsources == 1):
+            if nsources > 1:
+                print(f"There are {nsources} gaia sources within {radius}.")
             if self.gaiaid is not None:
                 id = int(tab.iloc[0]["source_id"])
                 msg = f"Nearest match ({id}) != {self.gaiaid}"
                 assert int(self.gaiaid) == id, msg
             else:
-                self.gaia_params = tab.iloc[0]
-                self.gaiaid = int(self.gaia_params["source_id"])
-                self.gmag = self.gaia_params["phot_g_mean_mag"]
+                self.gaiaid = int(tab.iloc[0]["source_id"])
+            self.gaia_params = tab.iloc[0]
+            self.gmag = tab.iloc[0]["phot_g_mean_mag"]
             return tab.iloc[0]  # return series of len 1
         else:
             # if self.verbose:
@@ -279,6 +285,81 @@ class Target:
             #     print(d)
             self.gaia_sources = tab
             return tab  # return dataframe of len 2 or more
+
+    def query_tic_catalog(self, radius=None, return_nearest_xmatch=False):
+        """
+        Parameter
+        ---------
+        radius : float
+            query radius in arcsec
+
+        Returns
+        -------
+        tab : pandas.DataFrame
+            table of star match(es)
+        """
+        radius = self.search_radius if radius is None else radius * u.arcsec
+        if self.verbose:
+            print(
+                f"""Querying TIC catalog for {self.target_coord.to_string()}
+            within {radius}.\n"""
+            )
+        # NOTE: check tic version
+        tab = Catalogs.query_region(
+            self.target_coord, radius=radius, catalog="TIC"
+        ).to_pandas()
+
+        nsources = len(tab)
+        if return_nearest_xmatch or (nsources == 1):
+            if nsources > 1:
+                print(f"There are {nsources} TIC stars within {radius}")
+            # get nearest match
+            tab = tab.iloc[0]
+            if tab.wdflag == 1:
+                print(f"white dwarf flag = True!")
+            if self.ticid is not None:
+                id = int(tab["ID"])
+                msg = f"Nearest match ({id}) != {self.ticid}"
+                assert int(self.ticid) == id, msg
+            else:
+                if self.ticid is None:
+                    self.ticid = int(tab["ID"])
+        self.tic_params = tab
+        return tab
+
+    def validate_gaia_tic_xmatch(self, Rtol=0.3):
+        """
+        check if Rstar and parallax from 2 catalogs match,
+        raises error otherwise
+        """
+        if (self.gaia_params is None) or (
+            isinstance(self.gaia_params, pd.DataFrame)
+        ):
+            msg = "run query_gaia_dr2_catalog(return_nearest_xmatch=True)"
+            raise ValueError(msg)
+        g = self.gaia_params
+        if (self.tic_params is None) or (
+            isinstance(self.tic_params, pd.DataFrame)
+        ):
+            msg = "run query_tic_catalog(return_nearest_xmatch=True)"
+            raise ValueError(msg)
+        t = self.tic_params
+
+        # check parallax
+        assert np.allclose(t.plx, g.parallax, rtol=1e-3)
+
+        # check Rstar
+        dradius = g.radius_val - t.rad
+        msg = f"Rgaia-Rtic={g.radius_val:.2f}-{t.rad:.2f}={dradius:.2f}"
+        assert dradius <= Rtol, msg
+
+        # check gaia ID
+        if self.gaiaid is not None:
+            assert g.source_id == int(t["GAIA"]), "Different source IDs"
+
+        msg = "Gaia and TIC catalog cross-match succeeded."
+        print(msg)
+        # return None
 
     # def plot_nearby_gaia_sources(self,separation=60):
     #     """
@@ -373,7 +454,8 @@ class Target:
         d = self.get_nearby_gaia_sources()
 
         good, bad = [], []
-        for id, dmag, gamma in d[["source_id", "delta_Gmag", "gamma"]].values:
+        for index, row in d.iterrows():
+            id, dmag, gamma = row[["source_id", "delta_Gmag", "gamma"]]
             if int(id) != gaiaid:
                 if depth > kmax / gamma:
                     # observed depth is too deep to have originated from the secondary star
@@ -384,51 +466,22 @@ class Target:
         uncleared = d.loc[d.source_id.isin(bad)]
         return uncleared
 
-    def query_tic_catalog(self, radius=None, return_nearest_xmatch=False):
-        """
-        Parameter
-        ---------
-        radius : float
-            query radius in arcsec
-
-        Returns
-        -------
-        tab : pandas.DataFrame
-            table of star match(es)
-        """
-        radius = self.search_radius if radius is None else radius * u.arcsec
-        if self.verbose:
-            print(
-                f"""Querying TIC catalog for {self.target_coord.to_string()}
-            within {radius}.\n"""
-            )
-        # NOTE: check tic version
-        tab = Catalogs.query_region(
-            self.target_coord, radius=radius, catalog="TIC"
-        ).to_pandas()
-        if return_nearest_xmatch or (len(tab) == 1):
-            tab = tab.iloc[0]
-            if self.ticid is not None:
-                id = int(tab["ID"])
-                msg = f"Nearest match ({id}) != {self.ticid}"
-                assert int(self.ticid) == id, msg
-            else:
-                if self.ticid is None:
-                    self.ticid = int(tab["ID"])
-        self.tic_params = tab
-        return tab
-
     def find_nearest_cluster_member(
-        self, catalog_name="Bouma2019", df=None, match_id=True
+        self,
+        catalog_name="Bouma2019",
+        df=None,
+        match_id=True,
+        with_parallax=True,
     ):
         """
         Parameters
         ----------
         df : pandas.DataFrame
             cluster catalog to match against
-        match_id : int
+        match_id : bool
             check if target gaiaid matches that of cluster member,
             else return nearest member only
+        with_parallax : uses parallax to compute 3d distance; otherwise 2d
 
         Returns
         -------
@@ -473,18 +526,46 @@ class Target:
                 raise ValueError(errmsg)
         else:
             # return closest member
-            cluster_mem_coords = SkyCoord(
-                ra=df["ra"].values * u.deg,
-                dec=df["dec"].values * u.deg,
-                distance=df["distance"].values * u.pc,
-            )
-            if self.target_coord.distance is None:
-                # query distance
-                if self.verbose:
-                    print(f"Querying parallax from Gaia DR2 to get distance")
-                self.target_coord = get_target_coord_3d(self.target_coord)
-            # compute 3d distance between target and all cluster members
-            separations = cluster_mem_coords.separation_3d(self.target_coord)
+            if "parallax" in df.columns:
+                # Bouma and CantatGaudin2018 have parallaxes in members table
+                # retain non-negative parallaxes including nan
+                df = df[(df["parallax"] >= 0) | (df["parallax"].isnull())]
+                cluster_mem_coords = SkyCoord(
+                    ra=df["ra"].values * u.deg,
+                    dec=df["dec"].values * u.deg,
+                    distance=Distance(parallax=df["parallax"].values * u.mas),
+                )
+                if with_parallax:
+                    if self.target_coord.distance is None:
+                        # query distance
+                        if self.verbose:
+                            print(
+                                f"Querying parallax from Gaia DR2 to get distance"
+                            )
+                        self.target_coord = get_target_coord_3d(
+                            self.target_coord
+                        )
+                    # compute 3d distance between target and all cluster members
+                    separations = cluster_mem_coords.separation_3d(
+                        self.target_coord
+                    )
+                else:
+                    cluster_mem_coords = SkyCoord(
+                        ra=df["ra"].values * u.deg,
+                        dec=df["dec"].values * u.deg,
+                    )
+                    # compute 2d distance between target and all cluster members
+                    separations = cluster_mem_coords.separation(
+                        self.target_coord
+                    )
+            else:
+                # Babusiaux2018 does not have parallax in members table
+                cluster_mem_coords = SkyCoord(
+                    ra=df["ra"].values * u.deg, dec=df["dec"].values * u.deg
+                )
+                # compute 2d distance between target and all cluster members
+                separations = cluster_mem_coords.separation(self.target_coord)
+
             nearest_star = df.iloc[separations.argmin()]
             self.distance_to_nearest_cluster_member = separations.min()
             self.nearest_cluster_member = nearest_star
@@ -502,7 +583,7 @@ class Target:
     def get_spec_type(
         self,
         columns="Teff B-V J-H H-Ks".split(),
-        nsamples=int(1e4),
+        nsamples=int(1e5),
         return_samples=False,
         clobber=False,
     ):
@@ -526,6 +607,8 @@ class Target:
 
         Notes:
         It may be good to check which color index yields most accurate result
+
+        Check sptype from self.query_simbad()
         """
         df = get_mamajek_table(clobber=clobber, verbose=self.verbose)
         if self.gaia_params is None:
@@ -592,3 +675,194 @@ class Target:
             return spt, samples
         else:
             return spt
+
+    def query_mast(self, radius=3):
+        """
+        https://astroquery.readthedocs.io/en/latest/mast/mast.html
+
+        See also:
+        https://gist.github.com/arfon/5cfc25d91ca21b8de62d64af7a0d25da
+        and
+        https://archive.stsci.edu/vo/python_examples.html
+        """
+        radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
+        if self.verbose:
+            print(
+                f"Searching MAST: ({self.target_coord.to_string()}) with radius={radius}"
+            )
+        table = Observations.query_region(self.target_coord, radius=radius)
+        msg = "No results from MAST"
+        assert len(table) > 0, msg
+        df = table.to_pandas()
+        if self.verbose:
+            wavs = df.wavelength_region.dropna().unique()
+            data = (
+                (df["obs_collection"] + "/" + df["filters"]).dropna().unique()
+            )
+            print(f"Available data: {list(data)} in {list(wavs)}")
+        return df
+
+    def query_simbad(self, radius=3):
+        """
+        Useful to get literature values for spectral type, Vsini, etc.
+        See:
+        https://astroquery.readthedocs.io/en/latest/simbad/simbad.html
+        See also meaning of object types (otype) here:
+        http://simbad.u-strasbg.fr/simbad/sim-display?data=otypes
+        """
+        radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
+        if self.verbose:
+            print(
+                f"Searching MAST: ({self.target_coord}) with radius={radius}"
+            )
+        simbad = Simbad()
+        simbad.add_votable_fields("typed_id", "otype", "sptype", "rot", "mk")
+        table = simbad.query_region(self.target_coord, radius=radius)
+        msg = "No results from Simbad"
+        assert len(table) > 0, msg
+        df = table.to_pandas()
+        df = df.drop(
+            [
+                "RA_PREC",
+                "DEC_PREC",
+                "COO_ERR_MAJA",
+                "COO_ERR_MINA",
+                "COO_ERR_ANGLE",
+                "COO_QUAL",
+                "COO_WAVELENGTH",
+            ],
+            axis=1,
+        )
+        return df
+
+    def query_vizier(self, radius=3):
+        """
+        Useful to get relevant catalogs from literature
+        See:
+        https://astroquery.readthedocs.io/en/latest/vizier/vizier.html
+        """
+        radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
+        if self.verbose:
+            print(
+                f"Searching Vizier: ({self.target_coord.to_string()}) with radius={radius}"
+            )
+        # standard column sorted in increasing distance
+        v = Vizier(
+            columns=["*", "+_r"],
+            # column_filters={"Vmag":">10"},
+            # keywords=['stars:white_dwarf']
+        )
+        tables = v.query_region(self.target_coord, radius=radius)
+        if self.verbose:
+            print(f"{len(tables)} tables found.")
+        return tables
+
+    def query_eso(self, diameter=3, instru=None, min_snr=1):
+        """
+        """
+        try:
+            import pyvo as vo
+
+            ssap_endpoint = "http://archive.eso.org/ssap"
+            ssap_service = vo.dal.SSAService(ssap_endpoint)
+        except Exception:
+            raise ModuleNotFoundError("pip install pyvo")
+
+        diameter = diameter * u.arcsec if diameter else 5 * u.arcsec
+
+        if self.verbose:
+            print(
+                f"Searching ESO: ({self.target_coord.to_string()}) with diameter={diameter}"
+            )
+        ssap_resultset = ssap_service.search(
+            pos=self.target_coord, diameter=diameter
+        )
+
+        table = ssap_resultset.to_table()
+        msg = "No results from ESO"
+        assert len(table) > 0, msg
+        df = table.to_pandas()
+
+        # decode bytes to str
+        df["COLLECTION"] = df["COLLECTION"].apply(lambda x: x.decode())
+        df["dp_id"] = df["dp_id"].apply(lambda x: x.decode())
+        df["CREATORDID"] = df["CREATORDID"].apply(lambda x: x.decode())
+        df["access_url"] = df["access_url"].apply(lambda x: x.decode())
+        df["TARGETNAME"] = df["TARGETNAME"].apply(lambda x: x.decode())
+
+        print(
+            "Available data:\n{: <10} {: <10}".format("Instrument", "Nspectra")
+        )
+        for k, d in df.groupby("COLLECTION"):
+            print("{: <10} {: <10}".format(k, len(d)))
+
+        fields = [
+            "COLLECTION",
+            "TARGETNAME",
+            "s_ra",
+            "s_dec",
+            "APERTURE",
+            "em_min",
+            "em_max",
+            "SPECRP",
+            "SNR",
+            "t_min",
+            "t_max",
+            "CREATORDID",
+            "access_url",
+            "dp_id",
+        ]
+
+        # appply filters
+        if instru is not None:
+            idx1 = (df["COLLECTION"] == instru).values
+        else:
+            idx1 = True
+            instru = df["COLLECTION"].unique()
+        filter = idx1 & (df["SNR"] > min_snr).values
+        df = df.loc[filter, fields]
+        if len(df) == 0:
+            raise ValueError("No ESO data found.\n")
+        elif len(df) > 0:
+            # if verbose:
+            print(f"\nFound {len(df)} {instru} spectra with SNR>{min_snr}\n")
+            targetnames = (
+                df["TARGETNAME"]
+                .apply(lambda x: str(x).replace("-", ""))
+                .unique()
+            )
+            if len(targetnames) > 1:
+                print("There are {} matches:".format(len(targetnames)))
+                # print coordinates of each match to check
+                for name in targetnames:
+                    try:
+                        coord = SkyCoord.from_name(name)
+                        print(f"{name: <10}: ra,dec=({coord.to_string()})")
+                    except Exception:
+                        print(f"{name: <10}: failed to fetch coordinates")
+            # if self.verbose:
+            #     print('\nPreview:\n')
+            #     print(df[["TARGETNAME", "s_ra", "s_dec", "APERTURE", \
+            #           "em_min", "em_max", "SPECRP", "SNR", "t_min", "t_max"]].head())
+        else:
+            raise ValueError("\nNo data that matches the given criteria.")
+
+    # def run_stardate(self):
+    #     try:
+    #         import stardate as sd
+    #     except Exception:
+    #         command = 'pip install git+https://github.com/RuthAngus/stardate.git'
+    #         raise ModuleNotFoundError(command)
+    #
+    #     if self.tic_params is None:
+    #         tic_params = self.query_tic_catalog(return_nearest_xmatch=True)
+    #     else:
+    #         tic_params = self.tic_params
+    #
+    #     iso_params = {"G": (df.phot_g_mean_mag[ind], .05),  # We'll just estimate the uncertainties for now.
+    #           "bp": (df.phot_bp_mean_mag[ind], .05),
+    #           "rp": (df.phot_rp_mean_mag[ind], .05),
+    #           "J": (df.jmag[ind], .05),
+    #           "H": (df.hmag[ind], .05),
+    #           "K": (df.kmag[ind], .05),
+    #           "parallax": (df.parallax[ind], df.parallax_error[ind])}

@@ -24,7 +24,7 @@ from chronos.cdips import CDIPS
 from chronos.utils import (
     remove_bad_data,
     parse_aperture_mask,
-    compute_fluxes_within_mask,
+    get_fluxes_within_mask,
 )
 import getpass
 
@@ -52,11 +52,11 @@ class LongCadence(Target):
         ra_deg=None,
         dec_deg=None,
         search_radius=3 * u.arcsec,
-        sap_mask="threshold",
+        sap_mask="square",
         aper_radius=1,
         threshold_sigma=5,
         percentile=95,
-        cutout_size=(50, 50),
+        cutout_size=(15, 15),
         quality_bitmask="default",
         apply_data_quality_mask=True,
         clobber=True,
@@ -83,9 +83,13 @@ class LongCadence(Target):
         # self.mission = mission
         self.sector = sector
         if self.sector is None:
-            self.sector = self.get_all_sectors()[0]
+            all_sectors = self.get_all_sectors()
+            msg = f"Target not found in any TESS sectors"
+            assert len(all_sectors) > 0, msg
+            self.sector = all_sectors[0]  # get first sector by default
             print(f"Available sectors: {self.get_all_sectors()}")
             print(f"Using sector={self.sector}.")
+
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius
@@ -264,9 +268,7 @@ class LongCadence(Target):
             gaia_sources = self.query_gaia_dr2_catalog(radius=120)
         else:
             gaia_sources = self.gaia_sources
-        fluxes = compute_fluxes_within_mask(
-            tpf_tesscut, aper_mask, gaia_sources
-        )
+        fluxes = get_fluxes_within_mask(tpf_tesscut, aper_mask, gaia_sources)
         self.contratio = sum(fluxes) - 1
         return lc
 
@@ -441,6 +443,15 @@ class ShortCadence(LongCadence):
         Returns
         -------
         tpf and/or df: lk.targetpixelfile, pd.DataFrame
+
+        Note: find a way to compress the logic below
+        if tpf is None:
+            - download_tpf
+        else:
+            if tpf.sector==sector
+                - load tpf
+        else:
+            - download_tpf
         """
         # if self.verbose:
         #     print(f'Searching targetpixelfile using lightkurve')
@@ -450,30 +461,49 @@ class ShortCadence(LongCadence):
             quality_bitmask if quality_bitmask else self.quality_bitmask
         )
         if self.tpf is None:
-            tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
+            if self.verbose:
+                print("Searching targetpixelfile using lightkurve")
+            if self.ticid:
+                ticstr = f"TIC {self.ticid}"
+                if self.verbose:
+                    print(f"\nSearching mast for {ticstr}\n")
+                res = lk.search_targetpixelfile(
+                    ticstr, mission=MISSION, sector=None
+                )
+            else:
+                if self.verbose:
+                    print(
+                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
+                    )
+                res = lk.search_targetpixelfile(
+                    self.target_coord,
+                    mission=MISSION,
+                    sector=None,  # search all if sector=None
+                )
         else:
             if self.tpf.sector == sector:
                 tpf = self.tpf
             else:
-                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
-
-        if self.ticid:
-            ticstr = f"TIC {self.ticid}"
-            if self.verbose:
-                print(f"\nSearching mast for {ticstr}\n")
-            res = lk.search_targetpixelfile(
-                ticstr, mission=MISSION, sector=None
-            )
-        else:
-            if self.verbose:
-                print(
-                    f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
-                )
-            res = lk.search_targetpixelfile(
-                self.target_coord,
-                mission=MISSION,
-                sector=None,  # search all if sector=None
-            )
+                if self.verbose:
+                    print("Searching targetpixelfile using lightkurve")
+                if self.ticid:
+                    ticstr = f"TIC {self.ticid}"
+                    if self.verbose:
+                        print(f"\nSearching mast for {ticstr}\n")
+                    res = lk.search_targetpixelfile(
+                        ticstr, mission=MISSION, sector=None
+                    )
+                else:
+                    if self.verbose:
+                        print(
+                            f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
+                        )
+                    res = lk.search_targetpixelfile(
+                        self.target_coord,
+                        mission=MISSION,
+                        sector=None,  # search all if sector=None
+                    )
+        assert res is not None, "No results from lightkurve search."
         df = res.table.to_pandas()
 
         if len(df) > 0:
@@ -664,7 +694,7 @@ class ShortCadence(LongCadence):
             gaia_sources = self.query_gaia_dr2_catalog(radius=120)
         else:
             gaia_sources = self.gaia_sources
-        fluxes = compute_fluxes_within_mask(tpf, aper_mask, gaia_sources)
+        fluxes = get_fluxes_within_mask(tpf, aper_mask, gaia_sources)
         self.contratio = sum(fluxes) - 1
         return lc
 
