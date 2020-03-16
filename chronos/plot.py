@@ -635,6 +635,8 @@ def plot_lomb_scargle(
     best_freq = frequencies[np.argmax(powers)]
     best_period = 1.0 / best_freq
     periods = 1.0 / frequencies
+
+    # periodogram
     n = 0
     ax[n].plot(periods, powers, "k-")
     ax[n].axvline(

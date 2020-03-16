@@ -21,6 +21,8 @@ import pandas as pd
 import matplotlib.pyplot as pl
 from astropy import units as u
 from astropy import constants as c
+from astropy.timeseries import LombScargle
+from astropy.modeling import models, fitting
 from astropy.io import ascii
 from scipy.ndimage import zoom
 
@@ -62,6 +64,8 @@ __all__ = [
     "get_fluxes_within_mask",
     "get_harps_RV",
     "get_specs_from_tfop",
+    "get_rotation_period",
+    "get_transit_mask",
 ]
 
 TESS_TIME_OFFSET = 2457000.0  # TBJD = BJD - 2457000.0
@@ -80,6 +84,84 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_rotation_period(
+    lc,
+    func=None,
+    min_per=0.5,
+    max_per=None,
+    npoints=15,
+    plot=True,
+    verbose=True,
+):
+    """
+    lc : lk.LightCurve
+        lightcurve that contains time and flux properties
+    func : function
+        a function that operations on lightcurve
+        e.g. lambda lc : lc.remove_nans().remove_outliers().normalize()
+    max_period : float
+        maxmimum period (default=half baseline e.g. ~13 days)
+    npoints : int
+        datapoints around which to fit a Gaussian
+
+    The period and uncertainty were determined from the mean and the
+    half-width at half-maximum of a Gaussian fit to the periodogram peak, respectively
+    """
+    baseline = int(lc.time[-1] - lc.time[0])
+    max_per = max_per if max_per is not None else baseline / 2
+
+    if func is None:
+        lc = lc.remove_nans().remove_outliers().normalize()
+    else:
+        lc = func(lc)
+    t, f = lc.time, lc.flux
+    ls = LombScargle(t, f)
+    frequencies, powers = ls.autopower(
+        minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
+    )
+    idx = np.argmax(powers)
+    while npoints > idx:
+        npoints -= 1
+
+    best_freq = frequencies[idx]
+    best_period = 1.0 / best_freq
+
+    x = (1 / frequencies)[idx - npoints : idx + npoints]
+    y = powers[idx - npoints : idx + npoints]
+
+    # Fit the data using a Gaussian
+    g_init = models.Gaussian1D(amplitude=0.5, mean=best_period, stddev=1)
+    fit_g = fitting.LevMarLSQFitter()
+    g = fit_g(g_init, x, y)
+
+    if plot:
+        # Plot the data with the best-fit model
+        pl.plot(x, y, "ko", label="_nolegend_")
+        pl.plot(x, g(x), label="_nolegend_")
+        pl.ylabel("Lomb-Scargle Power")
+        pl.xlabel("Period [days]")
+        text = f"P={g.mean.value:.2f}+/-{g.stddev.value:.2f} d"
+        pl.axvline(g.mean, 0, 1, ls="--", c="r", label=text)
+        pl.legend()
+
+    if verbose:
+        print(text)
+
+    return g.mean.value, g.stddev.value
+
+
+def get_transit_mask(lc, period, t0, t14_hours):
+    """
+    lc : lk.LightCurve
+        lightcurve that contains time and flux properties
+    """
+    temp_fold = lc.fold(period, t0=t0)
+    fractional_duration = (t14_hours / 24.0) / period
+    phase_mask = np.abs(temp_fold.phase) < (fractional_duration * 1.5)
+    transit_mask = np.in1d(lc.time, temp_fold.time_original[phase_mask])
+    return transit_mask
 
 
 def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
@@ -662,9 +744,7 @@ def get_toi(toi, clobber=True, outdir=DATA_PATH, add_FPP=False, verbose=True):
     return q.sort_values(by="TOI", ascending=True)
 
 
-def get_specs_from_tfop(
-    tic=None, clobber=True, outdir=DATA_PATH, verbose=True
-):
+def get_specs_from_tfop(ticid, clobber=True, outdir=DATA_PATH, verbose=True):
     """
     html:
     https://exofop.ipac.caltech.edu/tess/view_spect.php?sort=id&ipp1=1000
@@ -672,9 +752,10 @@ def get_specs_from_tfop(
     plot notes:
     https://exofop.ipac.caltech.edu/tess/classification_plots.php
     """
+    base = "https://exofop.ipac.caltech.edu/tess/"
     fp = os.path.join(outdir, "tfop_sg2_spec_table.csv")
     if not os.path.exists(fp) or clobber:
-        url = "https://exofop.ipac.caltech.edu/tess/download_spect.php?sort=id&output=csv"
+        url = base + "download_spect.php?sort=id&output=csv"
         df = pd.read_csv(url)
         df.to_csv(fp, index=False)
         if verbose:
@@ -684,10 +765,12 @@ def get_specs_from_tfop(
         if verbose:
             print(f"Loaded: {fp}")
 
-    if tic is not None:
-        idx = df["TIC ID"].isin([tic])
+    if ticid is not None:
+        idx = df["TIC ID"].isin([ticid])
         if verbose:
-            print(f"There are {idx.sum()} spectra")
+            print(
+                f"There are {idx.sum()} spectra in {base}target.php?id={ticid}\n"
+            )
         return df[idx]
     else:
         return df

@@ -14,6 +14,7 @@ import logging
 import numpy as np
 import astropy.units as u
 from lightkurve import TessLightCurve
+from astropy.timeseries import LombScargle
 from astropy.io import fits
 import lightkurve as lk
 
@@ -669,7 +670,6 @@ class ShortCadence(LongCadence):
         self.lc_custom_raw = raw_lc
         # Make a design matrix and pass it to a linear regression corrector
         regressors = tpf.flux[~idx][:, ~aper_mask]
-        self.lc_custom_raw = raw_lc
         dm = (
             lk.DesignMatrix(regressors, name="pixels")
             .pca(pca_nterms)

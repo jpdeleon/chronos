@@ -7,6 +7,7 @@ from .target import *
 from .cluster import *
 from .lightcurve import *
 from .cdips import *
+from .star import *
 from .k2 import *
 from .plot import *
 from .transit import *

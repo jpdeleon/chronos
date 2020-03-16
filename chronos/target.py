@@ -359,7 +359,7 @@ class Target:
 
         msg = "Gaia and TIC catalog cross-match succeeded."
         print(msg)
-        # return None
+        return True
 
     # def plot_nearby_gaia_sources(self,separation=60):
     #     """
@@ -377,9 +377,9 @@ class Target:
     #             );
     #     return fig
 
-    def get_nearby_gaia_sources(self, radius=60.0, add_column=None):
+    def get_nearby_gaia_sources(self, radius=60, add_column=None):
         """
-        get information about stars within 60 arcsec and
+        get information about stars within radius [arcsec] and
         dilution factor from delta Gmag
 
         Parameters
@@ -389,8 +389,10 @@ class Target:
         add_column : str
             additional Gaia column name to show (e.g. radial_velocity)
         """
+        radius = radius if radius is not None else 60
+
         if self.gaia_sources is None:
-            d = self.query_gaia_dr2_catalog(radius=60)
+            d = self.query_gaia_dr2_catalog(radius=radius)
         else:
             d = self.gaia_sources.copy()
 
@@ -399,6 +401,9 @@ class Target:
             gaiaid = int(d.iloc[0]["source_id"])
         else:
             gaiaid = self.gaiaid
+        msg = f"Only 1 gaia source found within r={radius} arcsec"
+        assert isinstance(d, pd.DataFrame), msg
+
         idx = d.source_id == gaiaid
         target_gmag = d.loc[idx, "phot_g_mean_mag"]
         d["distance"] = d["distance"].apply(
@@ -580,7 +585,7 @@ class Target:
             self.nearest_cluster_members = df.loc[idx]
         return nearest_star
 
-    def get_spec_type(
+    def get_spectral_type(
         self,
         columns="Teff B-V J-H H-Ks".split(),
         nsamples=int(1e5),
