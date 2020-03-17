@@ -8,4 +8,5 @@ transitleastsquares
 # wotan
 scikit-image==0.16.2
 gitpython
+# pprint==3.8.2
 deepdish==0.3.6

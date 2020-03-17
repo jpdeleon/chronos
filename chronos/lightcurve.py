@@ -380,6 +380,14 @@ class ShortCadence(LongCadence):
                 q = lk.search_lightcurvefile(
                     query_str, sector=sector, mission=MISSION
                 )
+                if len(q) == 0:
+                    if self.verbose:
+                        print(
+                            f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})"
+                        )
+                    q = lk.search_lightcurvefile(
+                        self.target_coord, sector=sector, mission=MISSION
+                    )
                 assert q is not None, "Empty result. Check long cadence."
                 if (sector == "all") & (len(self.all_sectors) > 1):
                     lcf = q.download_all(quality_bitmask=quality_bitmask)
@@ -397,6 +405,14 @@ class ShortCadence(LongCadence):
             q = lk.search_lightcurvefile(
                 query_str, sector=sector, mission=MISSION
             )
+            if len(q) == 0:
+                if self.verbose:
+                    print(
+                        f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})"
+                    )
+                q = lk.search_lightcurvefile(
+                    self.target_coord, sector=sector, mission=MISSION
+                )
             if (sector == "all") & (len(self.all_sectors) > 1):
                 lcf = q.download_all(quality_bitmask=quality_bitmask)
             else:

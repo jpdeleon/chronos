@@ -6,6 +6,7 @@ classes for searching object
 
 # Import standard library
 from os.path import join, exists
+import warnings
 
 # from typing import Tuple
 import logging
@@ -34,6 +35,7 @@ from chronos.utils import (
     get_target_coord,
     get_target_coord_3d,
     get_mamajek_table,
+    get_harps_RV,
 )
 
 log = logging.getLogger(__name__)
@@ -327,7 +329,7 @@ class Target:
         self.tic_params = tab
         return tab
 
-    def validate_gaia_tic_xmatch(self, Rtol=0.3):
+    def validate_gaia_tic_xmatch(self, Rtol=0.3, mtol=0.5):
         """
         check if Rstar and parallax from 2 catalogs match,
         raises error otherwise
@@ -345,13 +347,33 @@ class Target:
             raise ValueError(msg)
         t = self.tic_params
 
+        # check magnitude
+        if np.any(np.isnan([g.phot_g_mean_mag, t.Tmag])):
+            msg = f"Gmag={g.phot_g_mean_mag}; Tmag={t.Tmag}"
+            warnings.warn(msg)
+            print(msg)
+        else:
+            assert np.allclose(g.phot_g_mean_mag, t.Tmag, rtol=mtol)
+
         # check parallax
-        assert np.allclose(t.plx, g.parallax, rtol=1e-3)
+
+        if np.any(np.isnan([g.parallax, t.plx])):
+            msg = f"Gaia parallax={g.parallax}; TIC parallax={t.plx}"
+            warnings.warn(msg)
+            print(msg)
+        else:
+            assert np.allclose(g.parallax, t.plx, rtol=1e-3)
 
         # check Rstar
-        dradius = g.radius_val - t.rad
-        msg = f"Rgaia-Rtic={g.radius_val:.2f}-{t.rad:.2f}={dradius:.2f}"
-        assert dradius <= Rtol, msg
+        if np.any(np.isnan([g.radius_val, t.rad])):
+            msg = f"Gaia radius={g.radius_val}; TIC radius={t.rad}"
+            warnings.warn(msg)
+            print(msg)
+        else:
+            # dradius = g.radius_val - t.rad
+            # msg = f"Rgaia-Rtic={g.radius_val:.2f}-{t.rad:.2f}={dradius:.2f}"
+            # assert dradius <= Rtol, msg
+            assert np.allclose(g.radius_val, t.rad, rtol=Rtol)
 
         # check gaia ID
         if self.gaiaid is not None:
@@ -360,6 +382,18 @@ class Target:
         msg = "Gaia and TIC catalog cross-match succeeded."
         print(msg)
         return True
+
+    @property
+    def toi_period(self):
+        return self.toi_params["Period (days)"]
+
+    @property
+    def toi_epoch(self):
+        return self.toi_params["Epoch (BJD)"]
+
+    @property
+    def toi_duration(self):
+        return self.toi_params["Duration (hours)"]
 
     # def plot_nearby_gaia_sources(self,separation=60):
     #     """
@@ -851,6 +885,10 @@ class Target:
             #           "em_min", "em_max", "SPECRP", "SNR", "t_min", "t_max"]].head())
         else:
             raise ValueError("\nNo data that matches the given criteria.")
+
+    def query_harps_rv(self, **kwargs):
+        df = get_harps_RV(self.target_coord, **kwargs)
+        return df
 
     # def run_stardate(self):
     #     try:

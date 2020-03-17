@@ -66,6 +66,9 @@ __all__ = [
     "get_specs_from_tfop",
     "get_rotation_period",
     "get_transit_mask",
+    "get_mag_err_from_flux",
+    "get_err_quadrature",
+    "map_float",
 ]
 
 TESS_TIME_OFFSET = 2457000.0  # TBJD = BJD - 2457000.0
@@ -258,6 +261,17 @@ def get_mamajek_table(clobber=False, verbose=True, data_loc=DATA_PATH):
         if verbose:
             print(f"Loaded: {fp}")
     return df
+
+
+def get_mag_err_from_flux(flux, flux_err):
+    """
+    equal to 1.086/(S/N)
+    """
+    return 2.5 * np.log10(1 + flux_err / flux)
+
+
+def get_err_quadrature(err1, err2):
+    return np.sqrt(err1 ** 2 + err2 ** 2)
 
 
 def get_absolute_gmag(gmag, distance, a_g):
@@ -1187,3 +1201,7 @@ def get_limbdark(band, tic_params, teff=None, logg=None, feh=None, **kwargs):
         **kwargs,
     )
     return coeffs
+
+
+def map_float(x):
+    return list(map(float, x))
