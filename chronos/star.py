@@ -6,6 +6,8 @@ from os.path import join
 from pprint import pprint
 import numpy as np
 import matplotlib.pyplot as pl
+import lightkurve as lk
+from scipy.ndimage import gaussian_filter
 import astropy.units as u
 
 from chronos.target import Target
@@ -69,8 +71,11 @@ class Star(Target):
 
     def get_age(
         self,
+        lc=None,
         prot=None,
         amp=None,
+        sigma_blur=3,
+        nsamples=1e4,
         method="isochrones",
         return_samples=True,
         burnin=None,
@@ -79,76 +84,115 @@ class Star(Target):
         method : str
             (default) isochrones
         """
+        nsamples = int(nsamples)
         burnin = burnin if burnin is not None else self.burnin
         method = method if method is not None else "isochrones"
         if method == "isochrones":
-            age, errp, errm, samples = self.get_isochrone_age(
+            age, errp, errm, samples = self.get_age_from_color(
                 return_samples=True, burnin=burnin
             )
-        elif method == "gyro":
-            age, errp, errm, samples = self.get_gyro_age(
-                prot=prot, return_samples=True
+        elif method == "prot":
+            age, errp, errm, samples = self.get_age_from_rotation_period(
+                prot=prot, nsamples=nsamples, return_samples=True
             )
-        elif method == "spot":
-            age, errp, errm, samples = self.get_spot_age(
-                amp=amp, return_samples=True
+        elif method == "amp":
+            age, errp, errm, samples = self.get_age_from_rotation_amplitude(
+                lc=lc,
+                prot=prot,
+                amp=amp,
+                sigma_blur=sigma_blur,
+                nsamples=nsamples,
+                return_samples=True,
             )
         else:
-            msg = "Use method=[isochrones,gyro,spot]"
+            msg = "Use method=[isochrones,prot,amp]"
             raise ValueError(msg)
         if return_samples:
             return age, errp, errm, samples
         else:
             return age, errp, errm
 
-    def get_spot_age(
+    def get_age_from_rotation_amplitude(
         self,
-        amp,
+        lc,
+        prot,
+        amp=None,
+        sigma_blur=3,
         nsamples=1e4,
-        a=(0.56, 0.5),
-        m=(-0.5, 0.17),
+        alpha=(0.56, 0.3),
+        slope=(-0.5, 0.17),
         return_samples=True,
     ):
         """
-        A=a*t**m, where
+        lc : lk.lightcurve
+            lightcurve to be folded
+        prot : tuple
+            rotation period
+        amp : tuple
+            rotation amplitude; will be estimated if None
+        Notes:
+        ------
+        Based on Morris+2020:
+        A[%]=a*t[Byr]**m, where
         a = (0.56,+1,-0.3)
         m = (-0.5+/-0.17)
-        t time in Gyr
         """
+        nsamples = int(nsamples)
+        assert (lc is not None) & isinstance(lc, lk.LightCurve)
+        errmsg = "prot should be a tuple (value,error)"
+        assert (prot is not None) & isinstance(prot, tuple), errmsg
+
         if amp is not None:
             errmsg = "amp should be a tuple (value,error)"
+            amp = (amp[0] * 100, amp[1] * 100)
             assert isinstance(amp, tuple), errmsg
         else:
-            raise ValueError("Supply amp")
+            # estimate rotation period amplitude
+            amps = []
+            prot_s = prot[0] + np.random.randn(nsamples) * prot[1]
+            for p in prot_s:
+                fold = lc.fold(period=p)
+                # smooth the phase-folded lightcurve
+                lc_blur = gaussian_filter(fold.flux, sigma=sigma_blur)
+                amps.append(max(lc_blur) - min(lc_blur))
+            amp = (np.median(amps) * 100, np.std(amps) * 100)
 
-        nsamples = int(nsamples)
-        t = np.linspace(1e-2, 14, nsamples)  # Gyr
-        a_s = a[0] + np.random.randn(nsamples) * a[1]
-        m_s = m[0] + np.random.randn(nsamples) * m[1]
+        # estimate age from amp based on Morris+2020
+        t = np.linspace(1e-2, 13.5, nsamples)  # Gyr
+        alpha_s = alpha[0] + np.random.randn(nsamples) * alpha[1]
+        slope_s = slope[0] + np.random.randn(nsamples) * slope[1]
 
-        age = lambda a, m, A: np.log10(A / a) / m
+        age_Byr = lambda a, m, A: (A / a) ** (1 / m)
         A_s = amp[0] + np.random.randn(nsamples) * amp[1]
-        ages = age(a_s, m_s, A_s)
-        age_samples = ages[(ages > 0) & (ages < t[-1])]
+        ages = []
+        for A in A_s:
+            x = np.random.choice(alpha_s)
+            y = np.random.choice(slope_s)
+            ages.append(age_Byr(x, y, A))
+        ages = np.array(ages)
 
-        age_samples = 10 ** age_samples
+        age_samples = ages[(ages > 0) & ~np.isnan(ages) & (ages < t[-1])]
+        age_samples = age_samples * 1e9  # in yr
         mid, siglo, sighi = np.percentile(age_samples, [50, 16, 84])
         errm = mid - siglo
         errp = sighi - mid
         if self.verbose:
             print(
-                f"gyro (spot) age = {mid/1e6:.2f} + {errp/1e6:.2f} - {errm/1e6:.2f} Myr"
+                f"gyro age = {mid/1e6:.2f} + {errp/1e6:.2f} - {errm/1e6:.2f} Myr using rotation amplitude {amp[0]:.2f}+/-{amp[1]:.2f}%"
             )
         if return_samples:
             return (mid, errp, errm, age_samples)
         else:
             return (mid, errp, errm)
 
-    def get_gyro_age(self, prot=None, nsamples=1e4, return_samples=False):
+    def get_age_from_rotation_period(
+        self, prot=None, nsamples=1e4, return_samples=False
+    ):
         """
         See https://ui.adsabs.harvard.edu/abs/2019AJ....158..173A/abstract
 
-        FIXME: Implement Monte Carlo
+        prot : tuple
+            stellar rotation period
         """
         prot = prot if prot is not None else self.prot
         if self.gaia_params is None:
@@ -165,7 +209,7 @@ class Star(Target):
             assert isinstance(prot, tuple), errmsg
 
         if self.verbose:
-            print(f"Estimating age using gyrochronology")
+            print(f"Estimating age using gyrochronology\n")
 
         prot_samples = prot[0] + np.random.randn(int(nsamples)) * prot[1]
         log10_period_samples = np.log10(prot_samples)
@@ -186,7 +230,7 @@ class Star(Target):
         errp = sighi - mid
         if self.verbose:
             print(
-                f"gyro age = {mid/1e6:.2f} + {errp/1e6:.2f} - {errm/1e6:.2f} Myr"
+                f"gyro age = {mid/1e6:.2f} + {errp/1e6:.2f} - {errm/1e6:.2f} Myr using rotation period {prot[1]:.2f}+/-{prot[1]:.2f}d"
             )
         if return_samples:
             return (mid, errp, errm, age_samples)
@@ -200,6 +244,7 @@ class Star(Target):
         feh=None,
         min_mag_err=0.01,
         add_jhk=True,
+        inflate_plx_err=True,
         # phot_bands='G bp rp J H K'.split(),
         # star_params='teff logg parallax'.split()
     ):
@@ -217,16 +262,23 @@ class Star(Target):
         if not self.validate_gaia_tic_xmatch():
             msg = f"TIC {self.ticid} does not match Gaia DR2 {self.gaiaid} properties"
             raise Exception(msg)
-        # Use Teff from Gaia by default
-        teff = gp["teff_val"]
-        teff_err = get_err_quadrature(
-            gp["teff_percentile_lower"], gp["teff_percentile_lower"]
-        )
-        if not np.any(np.isnan(map_float((tp["Teff"], tp["e_Teff"])))):
-            if teff_err > tp["e_Teff"]:
-                # use Teff from TIC if Teff error is smaller
-                teff = tp["Teff"]
-                teff_err = tp["e_Teff"]
+
+        if teff is None:
+            # Use Teff from Gaia by default
+            teff = gp["teff_val"]
+            teff_err = get_err_quadrature(
+                gp["teff_percentile_lower"], gp["teff_percentile_lower"]
+            )
+            if not np.any(np.isnan(map_float((tp["Teff"], tp["e_Teff"])))):
+                if teff_err > tp["e_Teff"]:
+                    # use Teff from TIC if Teff error is smaller
+                    teff = tp["Teff"]
+                    teff_err = tp["e_Teff"]
+        else:
+            assert isinstance(
+                teff, tuple
+            ), "teff must be a tuple (value,error)"
+            teff, teff_err = teff[0], teff[1]
 
         gmag = gp["phot_g_mean_mag"]
         gmag_err = get_mag_err_from_flux(
@@ -246,21 +298,32 @@ class Star(Target):
         )
         rpmag_err = rpmag_err if rpmag_err > min_mag_err else min_mag_err
 
+        plx = gp["parallax"]
+        if inflate_plx_err:
+            # inflate error based on Luri+2018
+            plx_err = get_err_quadrature(gp["parallax_error"], 0.1)
+        else:
+            plx_err = gp["parallax_error"]
+
         params = {
             "teff": (teff, teff_err),
             "G": (gmag, gmag_err),
             # "T": (tp['Tmag'], tp['e_Tmag']),
             "bp": (bpmag, bpmag_err),
             "rp": (rpmag, rpmag_err),
-            "parallax": (gp["parallax"], gp["parallax_error"]),
+            "parallax": (plx, plx_err),
             # 'AV': self.estimate_Av()
         }
         if feh is not None:
             # params.update({"feh": (tp["MH"], tp["e_MH"])})
+            assert isinstance(feh, tuple), "feh must be a tuple (value,error)"
             params.update({"feh": (feh[0], feh[1])})
 
         if logg is not None:
             # params.update({"logg": (tp["logg"], tp["e_logg"])})
+            assert isinstance(
+                logg, tuple
+            ), "logg must be a tuple (value,error)"
             params.update({"logg": (logg[0], logg[1])})
 
         if add_jhk:
@@ -331,7 +394,7 @@ class Star(Target):
         self.star = star
         return star
 
-    def get_isochrone_age(self, burnin=None, return_samples=False):
+    def get_age_from_color(self, burnin=None, return_samples=False):
         """
         See https://ui.adsabs.harvard.edu/abs/2019AJ....158..173A/abstract
 

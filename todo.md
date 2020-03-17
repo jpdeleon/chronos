@@ -8,6 +8,8 @@
 - [] configure documentation using [just-the-docs](https://github.com/pmarsceill/just-the-docs)
 - [] standardize docstrings
 - [] add binder, badges
+- [] implement [typing](https://docs.python.org/3/library/typing.html) (> Python 3.8)
+
 
 ## Functions
 - [] incorporate [triceratops](https://github.com/stevengiacalone/triceratops/tree/master/triceratops) in workflow
