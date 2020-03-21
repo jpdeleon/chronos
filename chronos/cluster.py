@@ -162,6 +162,13 @@ class ClusterCatalog:
         """
         Bouma et al. 2019:
         https://ui.adsabs.harvard.edu/abs/2019arXiv191001133B/abstract
+
+        Source:
+        iopscience.iop.org/0067-0049/245/1/13/suppdata/apjsab4a7et1_mrt.txt
+
+        To produce master_list.csv used here, the original file is read into memory
+        using `astropy.io.ascii.read` with specified formatting, then turned into
+        `pd.DataFrame` and saved as csv.
         """
         fp = join(
             self.data_loc, "TablesBouma2019/OC_MG_FINAL_v0.3_publishable.csv"
@@ -170,6 +177,30 @@ class ClusterCatalog:
         df = df.rename(
             columns={"cluster": "clusters", "unique_cluster_name": "Cluster"}
         )
+        # fp = join(self.data_loc, "TablesBouma2019/master_list.csv")
+        # df = pd.read_csv(fp)
+        # df = df.rename(
+        #     columns={
+        #         "Cluster": "clusters",
+        #         "Ref": "reference",
+        #         "CName": "ext_catalog_name",
+        #         "RAdeg": "ra",
+        #         "DEdeg": "dec",
+        #         "pmRA": "pmra",
+        #         "pmDE": "pmdec",
+        #         "plx": "parallax",
+        #         "Gmag": "phot_g_mean_mag",
+        #         "GBp": "phot_bp_mean_mag",
+        #         "GRp": "phot_rp_mean_mag",
+        #         "K13": "k13_name_match",
+        #         "Unique": "Cluster",
+        #         "How": "how_match",
+        #         "inK13": "in_k13",
+        #         "Com": "comment",
+        #         "logt": "k13_logt",
+        #         "e_logt": "k13_e_logt",
+        #     }
+        # )
         if np.any(df["parallax"] > 0):
             # df = df[df["parallax"] > 0] #this drops NaNs too
             df = df[(df["parallax"] >= 0) | (df["parallax"].isnull())]

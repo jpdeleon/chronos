@@ -28,6 +28,20 @@ CDIPS_SECTORS = [6, 7, 8, 9, 10, 11]
 CDIPS_APER_PIX = [1, 1.5, 2.25]
 
 
+class _TessLightCurve(TessLightCurve):
+    """augments parent class by adding convenience methods"""
+
+    def detrend(self, break_tolerance=None):
+        lc = self.copy()
+        half = lc.time.shape[0] // 2
+        if half % 2 == 0:
+            # add 1 if even
+            half += 1
+        return lc.flatten(
+            window_length=half, polyorder=1, break_tolerance=break_tolerance
+        )
+
+
 class CDIPS(Target):
     """
     The primary header contains information about the target star, including the
@@ -119,7 +133,7 @@ class CDIPS(Target):
         time, flux, err = self.get_cdips_lc()
         self.quality_bitmask = quality_bitmask
         # hack tess lightkurve
-        self.lc = TessLightCurve(
+        self.lc = _TessLightCurve(
             time=time,
             flux=flux,
             flux_err=err,
@@ -134,7 +148,9 @@ class CDIPS(Target):
             sector=self.sector,
             camera=self.cam,
             ccd=self.ccd,
-            targetid=self.ticid,
+            targetid=self.toi_params["TIC ID"]
+            if self.toi_params is not None
+            else self.ticid,
             ra=self.target_coord.ra.deg,
             dec=self.target_coord.dec.deg,
             label=None,

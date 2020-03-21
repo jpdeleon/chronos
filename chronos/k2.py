@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for searching k2 lightcurves produced by EVEREST and K2SFF pipelines
+classes for k2 lightcurves produced by EVEREST and K2SFF pipelines
 """
 # Import standard library
 from os.path import join, exists
@@ -17,16 +17,30 @@ from astropy.io import fits
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
+from chronos.constants import K2_TIME_OFFSET
 
 log = logging.getLogger(__name__)
 
 __all__ = ["Everest", "K2SFF"]
 
-K2_TIME_OFFSET = 2454833
+
+class _KeplerLightCurve(KeplerLightCurve):
+    """augments parent class by adding convenience methods"""
+
+    def detrend(self, break_tolerance=None):
+        lc = self.copy()
+        half = lc.time.shape[0] // 2
+        if half % 2 == 0:
+            # add 1 if even
+            half += 1
+        return lc.flatten(
+            window_length=half, polyorder=1, break_tolerance=break_tolerance
+        )
 
 
 class Everest(Target):
     """
+    everest pipeline
     """
 
     def __init__(
@@ -65,7 +79,7 @@ class Everest(Target):
         self.cadenceno = None
         time, flux, err = self.get_everest_lc()
         # hack
-        self.lc = KeplerLightCurve(
+        self.lc = _KeplerLightCurve(
             time=time,
             flux=flux,
             flux_err=err,
@@ -220,7 +234,7 @@ class K2SFF(Target):
         self.cadenceno = None
         time, flux = self.get_k2sff_lc()
         # hack
-        self.lc = KeplerLightCurve(
+        self.lc = _KeplerLightCurve(
             time=time,
             flux=flux,
             # flux_err=err,

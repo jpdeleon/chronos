@@ -16,6 +16,7 @@ import traceback
 # from loguru import logger
 import numpy as np
 import matplotlib.pyplot as pl
+import pandas as pd
 import lightkurve as lk
 from scipy.ndimage import zoom
 from transitleastsquares import transitleastsquares as tls
@@ -43,6 +44,7 @@ from chronos.utils import (
     parse_aperture_mask,
     is_point_inside_mask,
     get_fluxes_within_mask,
+    get_rotation_period,
 )
 
 TESS_pix_scale = 21 * u.arcsec  # /pix
@@ -58,7 +60,7 @@ __all__ = [
     "plot_odd_even",
     "plot_hrd_spectral_types",
     "plot_pdc_sap_comparison",
-    "plot_lomb_scargle",
+    "plot_rotation_period",
     "plot_possible_NEBs",
     "plot_interactive",
     "plot_aperture_outline",
@@ -297,7 +299,10 @@ def make_tql(
         ax.axis("off")
 
         ticid = tic_params["ID"]
-        fig.suptitle(f"TIC {ticid} (sector {l.sector})")
+        if toiid is not None:
+            fig.suptitle(f"TOI {toiid} | TIC {ticid} (sector {l.sector})")
+        else:
+            fig.suptitle(f"TIC {ticid} (sector {l.sector})")
         fig.tight_layout()
 
         msg = ""
@@ -325,7 +330,7 @@ def make_tql(
         # Format stacktrace
         for trace in trace_back:
             print(f"File : {trace[0]}")
-            print(f"Line. : {trace[1]}")
+            print(f"Line : {trace[1]}")
             print(f"Func : {trace[2]}")
             print(f"Message : {trace[3]}")
 
@@ -617,50 +622,75 @@ def plot_possible_NEBs(gaia_sources, depth, gaiaid=None, kmax=1.0, ax=None):
     return ax
 
 
-def plot_lomb_scargle(
-    t,
-    f,
+def plot_rotation_period(
+    time,
+    flux,
+    method="lombscargle",
     min_per=0.5,
     max_per=30,
+    npoints=20,
     xlims=None,
     ylims=None,
     figsize=(10, 5),
     title=None,
 ):
+    """
+    method : str
+        lombscargle or acf (autocorrelation function)
+    """
     fig, ax = pl.subplots(1, 2, figsize=figsize, constrained_layout=True)
-    ls = LombScargle(t, f)
-    frequencies, powers = ls.autopower(
-        minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
+    if method == "lombscargle":
+        ls = LombScargle(time, flux)
+        frequencies, powers = ls.autopower(
+            minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
+        )
+        best_freq = frequencies[np.argmax(powers)]
+        peak_period = 1.0 / best_freq
+        periods = 1.0 / frequencies
+    elif method == "acf":
+        NotImplementedError("Method not yet available")
+    else:
+        raise ValueError("Use method='lombscargle'")
+    # fit a gaussian to lombscargle power
+    prot, prot_err = get_rotation_period(
+        time,
+        flux,
+        min_per=min_per,
+        max_per=max_per,
+        npoints=npoints,
+        plot=False,
     )
-    best_freq = frequencies[np.argmax(powers)]
-    best_period = 1.0 / best_freq
-    periods = 1.0 / frequencies
 
-    # periodogram
+    # left: periodogram
     n = 0
     ax[n].plot(periods, powers, "k-")
     ax[n].axvline(
-        best_period, 0, 1, ls="--", c="r", label=f"P_ls={best_period:.2f}"
+        peak_period, 0, 1, ls="--", c="r", label=f"peak={peak_period:.2f}"
     )
-    ax[n].legend()
+    ax[n].axvline(
+        prot, 0, 1, ls="-", c="r", label=f"fit={prot:.2f}+/-{prot_err:.2f}"
+    )
+    ax[n].legend(title="Best period [d]")
     ax[n].set_xscale("log")
     ax[n].set_xlabel("Period [days]")
     ax[n].set_ylabel("Lomb-Scargle Power")
 
-    # model
+    # right: phase-folded lc and sinusoidal model
     n = 1
     offset = 0.5
     t_fit = np.linspace(0, 1, 100) - offset
-    y_fit = ls.model(t_fit * best_period - best_period / 2, best_freq)
-    ax[n].plot(t_fit * best_period, y_fit, "r-", lw=3, label="model", zorder=3)
+    y_fit = ls.model(t_fit * peak_period - peak_period / 2, best_freq)
+    ax[n].plot(t_fit * peak_period, y_fit, "r-", lw=3, label="model", zorder=3)
     # fold data
-    phase = ((t / best_period) % 1) - offset
+    phase = ((time / peak_period) % 1) - offset
 
-    a = ax[n].scatter(phase * best_period, f, c=t, cmap=pl.get_cmap("Blues"))
+    a = ax[n].scatter(
+        phase * peak_period, flux, c=time, cmap=pl.get_cmap("Blues")
+    )
     pl.colorbar(a, ax=ax[n], label=f"Time [BTJD]")
     ax[n].legend()
     if xlims is None:
-        ax[n].set_xlim(-best_period / 2, best_period / 2)
+        ax[n].set_xlim(-peak_period / 2, peak_period / 2)
     else:
         ax[n].set_xlim(*xlims)
     if ylims is not None:
@@ -921,7 +951,10 @@ def plot_xyz_uvw(
 
     if not np.all(df.columns.isin("X Y Z U V W".split())):
         df = get_transformed_coord(df, frame="galactocentric", verbose=verbose)
-
+    if df_target is not None:
+        df_target = get_transformed_coord(
+            pd.DataFrame(df_target).T, frame="galactocentric"
+        )
     n = 0
     for (i, j) in itertools.combinations(["X", "Y", "Z"], r=2):
         if target_gaia_id is not None:
@@ -1018,6 +1051,11 @@ def plot_cmd(
     ax : axis
     """
     assert len(df) > 0, "df is empty"
+    df["parallax"] = df["parallax"].astype(float)
+    idx = ~np.isnan(df["parallax"]) & (df["parallax"] > 0)
+    df = df[idx]
+    if sum(~idx) > 0:
+        print(f"{sum(~idx)} removed NaN or negative parallaxes")
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=figsize, constrained_layout=True)
 

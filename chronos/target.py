@@ -18,7 +18,6 @@ import re
 # from loguru import logger
 import numpy as np
 import pandas as pd
-from scipy.interpolate import NearestNDInterpolator
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs, Observations, tesscut
@@ -34,8 +33,8 @@ from chronos.utils import (
     get_tois,
     get_target_coord,
     get_target_coord_3d,
-    get_mamajek_table,
     get_harps_RV,
+    get_specs_table_from_tfop,
 )
 
 log = logging.getLogger(__name__)
@@ -118,9 +117,10 @@ class Target:
             gaiaid=self.gaiaid,
             name=self.target_name,
         )
-        self.ccd_info = tesscut.Tesscut.get_sectors(
-            self.target_coord
-        ).to_pandas()
+        ccd_info = tesscut.Tesscut.get_sectors(self.target_coord)
+        errmsg = f"Target not found in any TESS sectors"
+        assert len(ccd_info) > 0, errmsg
+        self.ccd_info = ccd_info.to_pandas()
 
     def get_all_sectors(self):
         """
@@ -148,38 +148,6 @@ class Target:
             cam = str(df.iloc[sector_idx]["camera"])
             ccd = str(df.iloc[sector_idx]["ccd"])
         return sector, cam, ccd
-
-    def estimate_Av(self, map="sfd", constant=3.1):
-        """
-        compute the extinction Av from color index E(B-V)
-        estimated from dustmaps via Av=constant*E(B-V)
-
-        Parameters
-        ----------
-        map : str
-            dust map; see https://dustmaps.readthedocs.io/en/latest/maps.html
-        """
-        try:
-            import dustmaps
-        except Exception:
-            raise ModuleNotFoundError("pip install dustmaps")
-
-        if map == "sfd":
-            from dustmaps import sfd
-
-            # sfd.fetch()
-            dust_map = sfd.SFDQuery()
-        elif map == "planck":
-            from dustmaps import planck
-
-            # planck.fetch()
-            dust_map = planck.PlanckQuery()
-        else:
-            raise ValueError(f"Available maps: (sfd,planck)")
-
-        ebv = dust_map(self.target_coord)
-        Av = constant * ebv
-        return Av
 
     def query_gaia_dr2_catalog(self, radius=None, return_nearest_xmatch=False):
         """
@@ -215,7 +183,7 @@ class Target:
         radius = self.search_radius if radius is None else radius * u.arcsec
         if self.verbose:
             print(
-                f"""Querying Gaia DR2 catalog for {self.target_coord.to_string()} within {radius}.\n"""
+                f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius}.\n"""
             )
         # load gaia params for all TOIs
         tab = Catalogs.query_region(
@@ -303,8 +271,7 @@ class Target:
         radius = self.search_radius if radius is None else radius * u.arcsec
         if self.verbose:
             print(
-                f"""Querying TIC catalog for {self.target_coord.to_string()}
-            within {radius}.\n"""
+                f"Querying TIC catalog for ra,dec=({self.target_coord.to_string()}) within {radius}.\n"
             )
         # NOTE: check tic version
         tab = Catalogs.query_region(
@@ -382,34 +349,6 @@ class Target:
         msg = "Gaia and TIC catalog cross-match succeeded."
         print(msg)
         return True
-
-    @property
-    def toi_period(self):
-        return self.toi_params["Period (days)"]
-
-    @property
-    def toi_epoch(self):
-        return self.toi_params["Epoch (BJD)"]
-
-    @property
-    def toi_duration(self):
-        return self.toi_params["Duration (hours)"]
-
-    # def plot_nearby_gaia_sources(self,separation=60):
-    #     """
-    #     separation : float [arcsec]
-    #     """
-    #     lc = LongCadence()
-    #     gaia_sources = l.query_gaia_dr2_catalog(radius=separation)
-    #     gaiaid = gaia_sources.iloc[0]['source_id']
-    #     sap_mask = 'round'
-    #     kwargs = {'aper_radius': 1, 'percentile': 80}
-    #
-    #     fig = cr.plot_gaia_sources(tpf, gaiaid, gaia_sources, fov_rad=separation*u.arcsec,
-    #              survey='DSS2 Red', sap_mask=sap_mask, verbose=True,
-    #              **kwargs
-    #             );
-    #     return fig
 
     def get_nearby_gaia_sources(self, radius=60, add_column=None):
         """
@@ -619,102 +558,6 @@ class Target:
             self.nearest_cluster_members = df.loc[idx]
         return nearest_star
 
-    def get_spectral_type(
-        self,
-        columns="Teff B-V J-H H-Ks".split(),
-        nsamples=int(1e5),
-        return_samples=False,
-        clobber=False,
-    ):
-        """
-        Interpolate spectral type from Mamajek table from
-        http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
-        based on observables Teff and color indices.
-
-        Parameters
-        ----------
-        columns : list
-            column names of input parameters
-        nsamples : int
-            number of Monte Carlo samples (default=1e4)
-        clobber : bool (default=False)
-            re-download Mamajek table
-
-        Returns
-        -------
-        interpolated spectral type
-
-        Notes:
-        It may be good to check which color index yields most accurate result
-
-        Check sptype from self.query_simbad()
-        """
-        df = get_mamajek_table(clobber=clobber, verbose=self.verbose)
-        if self.gaia_params is None:
-            self.gaia_params = self.query_gaia_dr2_catalog(
-                return_nearest_xmatch=True
-            )
-        if self.tic_params is None:
-            self.tic_params = self.query_tic_catalog(
-                return_nearest_xmatch=True
-            )
-
-        # effective temperature
-        col = "teff"
-        teff = self.gaia_params[f"{col}_val"]
-        siglo = (
-            self.gaia_params[f"{col}_val"]
-            - self.gaia_params[f"{col}_percentile_lower"]
-        )
-        sighi = (
-            self.gaia_params[f"{col}_percentile_upper"]
-            - self.gaia_params[f"{col}_val"]
-        )
-        uteff = np.sqrt(sighi ** 2 + siglo ** 2)
-        s_teff = (
-            teff + np.random.randn(nsamples) * uteff
-        )  # Monte Carlo samples
-
-        # B-V color index
-        bv_color = self.tic_params["Bmag"] - self.tic_params["Vmag"]
-        ubv_color = (
-            self.tic_params["e_Bmag"] + self.tic_params["e_Vmag"]
-        )  # uncertainties add
-        s_bv_color = (
-            bv_color + np.random.randn(nsamples) * ubv_color
-        )  # Monte Carlo samples
-
-        # J-H color index
-        jh_color = self.tic_params["Jmag"] - self.tic_params["Hmag"]
-        ujh_color = (
-            self.tic_params["e_Jmag"] + self.tic_params["e_Hmag"]
-        )  # uncertainties add
-        s_jh_color = (
-            jh_color + np.random.randn(nsamples) * ujh_color
-        )  # Monte Carlo samples
-
-        # H-K color index
-        hk_color = self.tic_params["Hmag"] - self.tic_params["Kmag"]
-        uhk_color = (
-            self.tic_params["e_Hmag"] + self.tic_params["e_Kmag"]
-        )  # uncertainties add
-        s_hk_color = (
-            hk_color + np.random.randn(nsamples) * uhk_color
-        )  # Monte Carlo samples
-
-        # Interpolate
-        interp = NearestNDInterpolator(
-            df[columns].values, df["#SpT"].values, rescale=False
-        )
-        samples = interp(s_teff, s_bv_color, s_jh_color, s_hk_color)
-        # encode category
-        spt_cats = pd.Series(samples, dtype="category")  # .cat.codes
-        spt = spt_cats.mode().values[0]
-        if return_samples:
-            return spt, samples
-        else:
-            return spt
-
     def query_mast(self, radius=3):
         """
         https://astroquery.readthedocs.io/en/latest/mast/mast.html
@@ -890,22 +733,50 @@ class Target:
         df = get_harps_RV(self.target_coord, **kwargs)
         return df
 
-    # def run_stardate(self):
-    #     try:
-    #         import stardate as sd
-    #     except Exception:
-    #         command = 'pip install git+https://github.com/RuthAngus/stardate.git'
-    #         raise ModuleNotFoundError(command)
-    #
-    #     if self.tic_params is None:
-    #         tic_params = self.query_tic_catalog(return_nearest_xmatch=True)
-    #     else:
-    #         tic_params = self.tic_params
-    #
-    #     iso_params = {"G": (df.phot_g_mean_mag[ind], .05),  # We'll just estimate the uncertainties for now.
-    #           "bp": (df.phot_bp_mean_mag[ind], .05),
-    #           "rp": (df.phot_rp_mean_mag[ind], .05),
-    #           "J": (df.jmag[ind], .05),
-    #           "H": (df.hmag[ind], .05),
-    #           "K": (df.kmag[ind], .05),
-    #           "parallax": (df.parallax[ind], df.parallax_error[ind])}
+    def query_specs_from_tfop(self, clobber=None):
+        """
+        """
+        base = "https://exofop.ipac.caltech.edu/tess/"
+        clobber = clobber if clobber is not None else self.clobber
+        specs_table = get_specs_table_from_tfop(
+            clobber=clobber, verbose=self.verbose
+        )
+        if self.ticid is None:
+            ticid = self.query_tic_catalog(return_nearest_xmatch=True)
+        else:
+            ticid = self.ticid
+
+        idx = specs_table["TIC ID"].isin([ticid])
+        if self.verbose:
+            print(
+                f"There are {idx.sum()} spectra in {base}target.php?id={ticid}\n"
+            )
+        return specs_table[idx]
+
+    @property
+    def toi_period(self):
+        return self.toi_params["Period (days)"]
+
+    @property
+    def toi_epoch(self):
+        return self.toi_params["Epoch (BJD)"]
+
+    @property
+    def toi_duration(self):
+        return self.toi_params["Duration (hours)"]
+
+    @property
+    def toi_period_err(self):
+        return self.toi_params["Period (days) err"]
+
+    @property
+    def toi_epoch_err(self):
+        return self.toi_params["Epoch (BJD) err"]
+
+    @property
+    def toi_duration_err(self):
+        return self.toi_params["Duration (hours) err"]
+
+    @property
+    def toi_depth(self):
+        return self.toi_params["Depth (ppm)"] * 1e-6

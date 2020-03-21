@@ -4,15 +4,17 @@ import warnings
 
 # Import from package
 from .target import *
+from .star import *
 from .cluster import *
+from .tpf import *
 from .lightcurve import *
 from .cdips import *
-from .star import *
 from .k2 import *
 from .plot import *
 from .transit import *
 from .utils import *
 from .config import *
+from .constants import *
 
 warnings.simplefilter("ignore")
 

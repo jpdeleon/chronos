@@ -1,6 +1,8 @@
 # To do
 
 ## Basic
+- [] check if caching works in get_lc(), get_tpf(), etc.
+- [x] migrate constants to constants.py
 - [] make setup.py work in fresh conda environment
 - [] remove redundant large files in /data; see [this repo](https://github.com/ideasrule/platon)
 - [] make sure access to /data after installation works
@@ -12,6 +14,9 @@
 
 
 ## Functions
+- [x] resolve make_custom_lc in LongCadence and ShortCadence (using tpf.py)
+- [x] add detrend method; see https://stackoverflow.com/a/24865663/1910174
+- [] check optimum [break_tolerance](https://github.com/KeplerGO/lightkurve/blob/master/lightkurve/lightcurve.py#L428) given cadence
 - [] incorporate [triceratops](https://github.com/stevengiacalone/triceratops/tree/master/triceratops) in workflow
 - [] fix HR diagram
 - [] add isochrone fitting in CM diagram

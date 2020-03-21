@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for creating lightcurve
+classes for manipulating lightcurve
 """
 # Import standard library
 from os.path import join, exists
@@ -11,23 +11,25 @@ import logging
 # from matplotlib.figure import Figure
 # from matplotlib.image import AxesImage
 # from loguru import logger
+import getpass
 import numpy as np
 import astropy.units as u
-from lightkurve import TessLightCurve
+
+# from scipy.signal import detrend
 from astropy.timeseries import LombScargle
 from astropy.io import fits
 import lightkurve as lk
 
 # Import from package
 from chronos.config import DATA_PATH
-from chronos.target import Target
+from chronos.tpf import Tpf, Tpf_cutout
 from chronos.cdips import CDIPS
 from chronos.utils import (
     remove_bad_data,
     parse_aperture_mask,
     get_fluxes_within_mask,
+    detrend,
 )
-import getpass
 
 user = getpass.getuser()
 MISSION = "TESS"
@@ -38,7 +40,7 @@ log = logging.getLogger(__name__)
 __all__ = ["ShortCadence", "LongCadence", "LightCurve"]
 
 
-class LongCadence(Target):
+class LongCadence(Tpf_cutout):
     """
     """
 
@@ -59,7 +61,7 @@ class LongCadence(Target):
         percentile=95,
         cutout_size=(15, 15),
         quality_bitmask="default",
-        apply_data_quality_mask=True,
+        apply_data_quality_mask=False,
         clobber=True,
         verbose=True,
         # mission="TESS",
@@ -76,107 +78,23 @@ class LongCadence(Target):
             gaiaDR2id=gaiaDR2id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
+            sector=sector,
             search_radius=search_radius,
+            sap_mask=sap_mask,
+            aper_radius=aper_radius,
+            threshold_sigma=threshold_sigma,
+            percentile=percentile,
+            cutout_size=cutout_size,
+            quality_bitmask=quality_bitmask,
+            apply_data_quality_mask=apply_data_quality_mask,
             verbose=verbose,
             clobber=clobber,
         )
-
-        # self.mission = mission
-        self.sector = sector
-        if self.sector is None:
-            all_sectors = self.get_all_sectors()
-            msg = f"Target not found in any TESS sectors"
-            assert len(all_sectors) > 0, msg
-            self.sector = all_sectors[0]  # get first sector by default
-            print(f"Available sectors: {self.get_all_sectors()}")
-            print(f"Using sector={self.sector}.")
-
-        self.sap_mask = sap_mask
-        self.aper_mask = None
-        self.aper_radius = aper_radius
-        self.percentile = percentile
-        self.threshold_sigma = threshold_sigma
-        self.cutout_size = cutout_size
-        self.search_radius = search_radius
-        self.quality_bitmask = quality_bitmask
-        self.apply_data_quality_mask = apply_data_quality_mask
-        self.tpf_tesscut = None
         self.corrector = None
         self.lc_custom = None
         self.lc_custom_raw = None
         self.lc_cdips = None
         self.contratio = None
-
-    def get_tpf_tesscut(self, sector=None, cutout_size=None, verbose=True):
-        """
-        """
-        cutout_size = cutout_size if cutout_size else self.cutout_size
-        sector = sector if sector else self.sector
-        if self.tpf_tesscut is None:
-            if verbose:
-                print("Searching targetpixelfile using Tesscut")
-            tpf = lk.search_tesscut(self.target_coord, sector=sector).download(
-                quality_bitmask=self.quality_bitmask, cutout_size=cutout_size
-            )
-        else:
-            if (self.tpf_tesscut.sector == sector) & (
-                self.cutout_size == cutout_size
-            ):
-                tpf = self.tpf_tesscut
-            else:
-                if verbose:
-                    print("Searching targetpixelfile using Tesscut")
-                tpf = lk.search_tesscut(
-                    self.target_coord, sector=sector
-                ).download(
-                    quality_bitmask=self.quality_bitmask,
-                    cutout_size=cutout_size,
-                )
-        assert tpf is not None, "No results from Tesscut search."
-        # remove zeros
-        zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
-        if zero_mask.sum() > 0:
-            tpf = tpf[~zero_mask]
-        if self.apply_data_quality_mask:
-            tpf = remove_bad_data(tpf, sector=sector, verbose=verbose)
-        self.tpf_tesscut = tpf
-        return tpf
-
-    def get_aper_mask(
-        self,
-        sector=None,
-        sap_mask=None,
-        aper_radius=None,
-        percentile=None,
-        threshold_sigma=None,
-        tpf_size=None,
-        verbose=True,
-    ):
-        """
-        """
-        sector = sector if sector else self.sector
-        sap_mask = sap_mask if sap_mask else self.sap_mask
-        aper_radius = aper_radius if aper_radius else self.aper_radius
-        percentile = percentile if percentile else self.percentile
-        threshold_sigma = (
-            threshold_sigma if threshold_sigma else self.threshold_sigma
-        )
-        cutout_size = tpf_size if tpf_size else self.cutout_size
-
-        tpf = self.get_tpf_tesscut(
-            sector=sector, cutout_size=cutout_size, verbose=verbose
-        )
-
-        aper_mask = parse_aperture_mask(
-            tpf,
-            sap_mask=sap_mask,
-            aper_radius=aper_radius,
-            percentile=percentile,
-            threshold_sigma=threshold_sigma,
-            verbose=verbose,
-        )
-        self.aper_mask = aper_mask
-        return aper_mask
 
     def make_custom_lc(
         self,
@@ -212,7 +130,7 @@ class LongCadence(Target):
         -------
         corrected_lc : lightkurve object
         """
-        sector = sector if sector else self.sector
+        sector = sector if sector is not None else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius
         percentile = percentile if percentile else self.percentile
@@ -277,7 +195,7 @@ class LongCadence(Target):
         self, sector=None, aper_idx=3, lctype="flux", verbose=False
     ):
         verbose = verbose if verbose is not None else self.verbose
-        sector = sector if sector else self.sector
+        sector = sector if sector is not None else self.sector
         if self.gaiaid is None:
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
             self.gaiaid = int(d.source_id)
@@ -293,7 +211,7 @@ class LongCadence(Target):
         return cdips.lc
 
 
-class ShortCadence(LongCadence):
+class ShortCadence(Tpf):
     """
     """
 
@@ -307,16 +225,16 @@ class ShortCadence(LongCadence):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        sap_mask="pipeline",
         search_radius=3 * u.arcsec,
+        sap_mask="square",
         aper_radius=1,
         threshold_sigma=5,
         percentile=95,
-        apphot_method="sap",  # prf
         quality_bitmask="default",
         apply_data_quality_mask=True,
-        verbose=True,
+        apphot_method="aperture",  # or prf
         clobber=True,
+        verbose=True,
         # mission="TESS",
         # quarter=None,
         # month=None,
@@ -324,7 +242,6 @@ class ShortCadence(LongCadence):
         # limit=None,
     ):
         super().__init__(
-            sector=sector,
             name=name,
             toiid=toiid,
             ticid=ticid,
@@ -332,25 +249,18 @@ class ShortCadence(LongCadence):
             gaiaDR2id=gaiaDR2id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
+            sector=sector,
             search_radius=search_radius,
+            sap_mask=sap_mask,
+            aper_radius=aper_radius,
+            threshold_sigma=threshold_sigma,
+            percentile=percentile,
+            quality_bitmask=quality_bitmask,
+            apply_data_quality_mask=apply_data_quality_mask,
             verbose=verbose,
             clobber=clobber,
-            # sap_mask='threshold',
-            # cutout_size = (50,50),
-            # mission=mission
         )
         self.apphot_method = apphot_method
-        self.sap_mask = sap_mask
-        self.aper_mask = None
-        self.aper_radius = aper_radius
-        self.threshold_sigma = threshold_sigma
-        self.percentile = percentile
-        self.quality_bitmask = quality_bitmask
-        self.search_radius = search_radius
-        self.data_quality_mask = None
-        self.quality_bitmask = quality_bitmask
-        self.apply_data_quality_mask = apply_data_quality_mask
-        self.tpf = None
         self.lc_custom = None
         self.lc_custom_raw = None
         self.lcf = None
@@ -361,12 +271,12 @@ class ShortCadence(LongCadence):
     def get_lc(self, lctype="pdcsap", sector=None, quality_bitmask=None):
         """
         """
-        sector = sector if sector else self.sector
+        sector = sector if sector is not None else self.sector
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
         )
-        self.all_sectors = self.get_all_sectors()
         if self.lcf is not None:
+            # reload lcf if already in memory
             if self.lcf.sector == sector:
                 lcf = self.lcf
             else:
@@ -389,6 +299,8 @@ class ShortCadence(LongCadence):
                         self.target_coord, sector=sector, mission=MISSION
                     )
                 assert q is not None, "Empty result. Check long cadence."
+                if self.verbose:
+                    print(f"Found {len(q)} lightcurves")
                 if (sector == "all") & (len(self.all_sectors) > 1):
                     lcf = q.download_all(quality_bitmask=quality_bitmask)
                 else:
@@ -413,6 +325,9 @@ class ShortCadence(LongCadence):
                 q = lk.search_lightcurvefile(
                     self.target_coord, sector=sector, mission=MISSION
                 )
+            assert q is not None, "Empty result. Check long cadence."
+            if self.verbose:
+                print(f"Found {len(q)} lightcurves")
             if (sector == "all") & (len(self.all_sectors) > 1):
                 lcf = q.download_all(quality_bitmask=quality_bitmask)
             else:
@@ -422,6 +337,7 @@ class ShortCadence(LongCadence):
         sap = lcf.SAP_FLUX
         pdcsap = lcf.PDCSAP_FLUX
         if isinstance(lcf, lk.LightCurveFileCollection):
+            # merge multi-sector into one lc
             if len(lcf) > 1:
                 sap0 = sap[0].normalize()
                 sap = [sap0.append(l.normalize()) for l in sap[1:]][0]
@@ -434,191 +350,12 @@ class ShortCadence(LongCadence):
         self.lc_sap = sap
         self.lc_pdcsap = pdcsap
         if lctype == "pdcsap":
+            # add detrend method to lc instance
+            pdcsap.detrend = lambda: detrend(pdcsap)
             return pdcsap.remove_nans().normalize()
         else:
+            sap.detrend = lambda: detrend(sap)
             return sap.remove_nans().normalize()
-
-    def get_tpf(
-        self,
-        sector=None,
-        apphot_method=None,
-        quality_bitmask=None,
-        return_df=True,
-    ):
-        """Download tpf from MAST given coordinates
-           though using TIC id yields unique match.
-
-        Parameters
-        ----------
-        sector : int
-            TESS sector
-        apphot_method : str
-            aperture photometry method
-        fitsoutdir : str
-            fits output directory
-
-        Returns
-        -------
-        tpf and/or df: lk.targetpixelfile, pd.DataFrame
-
-        Note: find a way to compress the logic below
-        if tpf is None:
-            - download_tpf
-        else:
-            if tpf.sector==sector
-                - load tpf
-        else:
-            - download_tpf
-        """
-        # if self.verbose:
-        #     print(f'Searching targetpixelfile using lightkurve')
-        sector = sector if sector else self.sector
-        apphot_method = apphot_method if apphot_method else self.apphot_method
-        quality_bitmask = (
-            quality_bitmask if quality_bitmask else self.quality_bitmask
-        )
-        if self.tpf is None:
-            if self.verbose:
-                print("Searching targetpixelfile using lightkurve")
-            if self.ticid:
-                ticstr = f"TIC {self.ticid}"
-                if self.verbose:
-                    print(f"\nSearching mast for {ticstr}\n")
-                res = lk.search_targetpixelfile(
-                    ticstr, mission=MISSION, sector=None
-                )
-            else:
-                if self.verbose:
-                    print(
-                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
-                    )
-                res = lk.search_targetpixelfile(
-                    self.target_coord,
-                    mission=MISSION,
-                    sector=None,  # search all if sector=None
-                )
-        else:
-            if self.tpf.sector == sector:
-                tpf = self.tpf
-            else:
-                if self.verbose:
-                    print("Searching targetpixelfile using lightkurve")
-                if self.ticid:
-                    ticstr = f"TIC {self.ticid}"
-                    if self.verbose:
-                        print(f"\nSearching mast for {ticstr}\n")
-                    res = lk.search_targetpixelfile(
-                        ticstr, mission=MISSION, sector=None
-                    )
-                else:
-                    if self.verbose:
-                        print(
-                            f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
-                        )
-                    res = lk.search_targetpixelfile(
-                        self.target_coord,
-                        mission=MISSION,
-                        sector=None,  # search all if sector=None
-                    )
-        assert res is not None, "No results from lightkurve search."
-        df = res.table.to_pandas()
-
-        if len(df) > 0:
-            all_sectors = [int(i) for i in df["sequence_number"].values]
-            if sector:
-                sector_idx = df["sequence_number"][
-                    df["sequence_number"].isin([sector])
-                ].index.tolist()
-                if len(sector_idx) == 0:
-                    raise ValueError(
-                        "sector {} data is unavailable".format(sector)
-                    )
-                obsid = df.iloc[sector_idx]["obs_id"].values[0]
-                # ticid = int(df.iloc[sector_idx]["target_name"].values[0])
-                fitsfilename = df.iloc[sector_idx]["productFilename"].values[0]
-            else:
-                sector_idx = 0
-                sector = int(df.iloc[sector_idx]["sequence_number"])
-                obsid = df.iloc[sector_idx]["obs_id"]
-                # ticid = int(df.iloc[sector_idx]["target_name"])
-                fitsfilename = df.iloc[sector_idx]["productFilename"]
-
-            msg = f"{len(df)} tpf(s) found in sector(s) {all_sectors}\n"
-            msg += f"Using data from sector {sector} only\n"
-            if self.verbose:
-                logging.info(msg)
-                print(msg)
-
-            filepath = join(
-                fitsoutdir, "mastDownload/TESS", obsid, fitsfilename
-            )
-            if not exists(filepath) or self.clobber:
-                if self.verbose:
-                    print(f"Downloading TIC {self.ticid} ...\n")
-                ticstr = f"TIC {self.ticid}"
-                res = lk.search_targetpixelfile(
-                    ticstr, mission=MISSION, sector=sector
-                )
-                tpf = res.download(
-                    quality_bitmask=quality_bitmask, download_dir=fitsoutdir
-                )
-            else:
-                if self.verbose:
-                    print(
-                        "Loading TIC {} from {}/...\n".format(
-                            self.ticid, fitsoutdir
-                        )
-                    )
-                tpf = lk.TessTargetPixelFile(filepath)
-            if self.apply_data_quality_mask:
-                tpf = remove_bad_data(tpf, sector=sector, verbose=self.verbose)
-            self.tpf = tpf
-            if return_df:
-                return tpf, df
-            else:
-                return tpf
-        else:
-            msg = "No tpf file found! Check FFI data using --cadence=long\n"
-            logging.info(msg)
-            raise FileNotFoundError(msg)
-
-    def get_aper_mask(
-        self,
-        sector=None,
-        sap_mask=None,
-        aper_radius=None,
-        percentile=None,
-        threshold_sigma=None,
-        verbose=True,
-    ):
-        """
-        """
-        sector = sector if sector else self.sector
-        sap_mask = sap_mask if sap_mask else self.sap_mask
-        aper_radius = aper_radius if aper_radius else self.aper_radius
-        percentile = percentile if percentile else self.percentile
-        threshold_sigma = (
-            threshold_sigma if threshold_sigma else self.threshold_sigma
-        )
-
-        if self.tpf is None:
-            tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
-        else:
-            if self.tpf.sector == sector:
-                tpf = self.tpf
-            else:
-                tpf, tpf_info = self.get_tpf(sector=sector, return_df=True)
-
-        aper_mask = parse_aperture_mask(
-            tpf,
-            sap_mask=sap_mask,
-            aper_radius=aper_radius,
-            percentile=percentile,
-            threshold_sigma=threshold_sigma,
-            verbose=verbose,
-        )
-        self.aper_mask = aper_mask
-        return aper_mask
 
     def make_custom_lc(
         self,
@@ -651,7 +388,7 @@ class ShortCadence(LongCadence):
         -------
         corrected_lc : lightkurve object
         """
-        sector = sector if sector else self.sector
+        sector = sector if sector is not None else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius
         percentile = percentile if percentile else self.percentile
@@ -677,6 +414,8 @@ class ShortCadence(LongCadence):
         self.aper_mask = aper_mask
 
         raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
+        # add method
+        raw_lc.detrend = lambda: detrend(raw_lc)
         idx = (
             np.isnan(raw_lc.time)
             | np.isnan(raw_lc.flux)

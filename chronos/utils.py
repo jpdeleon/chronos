@@ -7,6 +7,8 @@ general helper functions
 # Import standard library
 import logging
 from glob import glob
+from operator import concat
+from functools import reduce
 
 # Import from standard package
 from os.path import join, exists
@@ -19,8 +21,8 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
+import lightkurve as lk
 from astropy import units as u
-from astropy import constants as c
 from astropy.timeseries import LombScargle
 from astropy.modeling import models, fitting
 from astropy.io import ascii
@@ -30,6 +32,7 @@ from scipy.ndimage import zoom
 from astropy.coordinates import (
     SkyCoord,
     Distance,
+    sky_coordinate,
     Galactocentric,
     match_coordinates_3d,
 )
@@ -40,7 +43,7 @@ from tqdm import tqdm
 import deepdish as dd
 
 # Import from package
-from chronos import target
+from chronos import target, cluster
 from chronos.config import DATA_PATH
 
 log = logging.getLogger(__name__)
@@ -63,15 +66,18 @@ __all__ = [
     "is_point_inside_mask",
     "get_fluxes_within_mask",
     "get_harps_RV",
-    "get_specs_from_tfop",
+    "get_specs_table_from_tfop",
     "get_rotation_period",
     "get_transit_mask",
     "get_mag_err_from_flux",
     "get_err_quadrature",
     "map_float",
+    "map_int",
+    "detrend",
+    "query_tpf",
+    "query_tpf_tesscut",
+    "is_gaiaid_in_cluster",
 ]
-
-TESS_TIME_OFFSET = 2457000.0  # TBJD = BJD - 2457000.0
 
 # Ax/Av
 extinction_ratios = {
@@ -89,21 +95,88 @@ extinction_ratios = {
 }
 
 
-def get_rotation_period(
-    lc,
-    func=None,
-    min_per=0.5,
-    max_per=None,
-    npoints=15,
-    plot=True,
+def is_gaiaid_in_cluster(gaiaid, cluster_name, catalog_name="Bouma2019"):
+    # reduce the redundant names above
+    c = cluster.Cluster(
+        catalog_name=catalog_name, cluster_name=cluster_name, verbose=False
+    )
+    df_mem = c.query_cluster_members()
+    if df_mem.source_id.isin([gaiaid]).sum() > 0:
+        return True
+    else:
+        return False
+
+
+def query_tpf(
+    query_str,
+    sector=None,
+    campaign=None,
+    quality_bitmask="default",
+    apply_data_quality_mask=False,
+    mission="TESS",
     verbose=True,
 ):
     """
-    lc : lk.LightCurve
-        lightcurve that contains time and flux properties
-    func : function
-        a function that operations on lightcurve
-        e.g. lambda lc : lc.remove_nans().remove_outliers().normalize()
+    """
+    if verbose:
+        print(f"Searching targetpixelfile for {query_str} using lightkurve")
+
+    tpf = lk.search_targetpixelfile(
+        query_str, mission=mission, sector=sector, campaign=campaign
+    ).download()
+    if apply_data_quality_mask:
+        tpf = remove_bad_data(tpf, sector=sector, verbose=verbose)
+    return tpf
+
+
+def query_tpf_tesscut(
+    query_str,
+    sector=None,
+    quality_bitmask="default",
+    cutout_size=(15, 15),
+    apply_data_quality_mask=False,
+    verbose=True,
+):
+    """
+        """
+    if verbose:
+        if isinstance(query_str, sky_coordinate.SkyCoord):
+            query = f"ra,dec=({query_str.to_string()})"
+        else:
+            query = query_str
+        print(f"Searching targetpixelfile for {query} using Tesscut")
+    tpf = lk.search_tesscut(query_str, sector=sector).download(
+        quality_bitmask=quality_bitmask, cutout_size=cutout_size
+    )
+    assert tpf is not None, "No results from Tesscut search."
+    # remove zeros
+    zero_mask = (tpf.flux_err == 0).all(axis=(1, 2))
+    if zero_mask.sum() > 0:
+        tpf = tpf[~zero_mask]
+    if apply_data_quality_mask:
+        tpf = remove_bad_data(tpf, sector=sector, verbose=verbose)
+    return tpf
+
+
+def detrend(self, break_tolerance=10):
+    """mainly to be added as method to lk.LightCurve
+    """
+    lc = self.copy()
+    half = lc.time.shape[0] // 2
+    if half % 2 == 0:
+        # add 1 if even
+        half += 1
+    return lc.flatten(
+        window_length=half, polyorder=1, break_tolerance=break_tolerance
+    )
+
+
+def get_rotation_period(
+    time, flux, min_per=0.5, max_per=None, npoints=20, plot=True, verbose=True
+):
+    """
+    time, flux : array
+        time and flux
     max_period : float
         maxmimum period (default=half baseline e.g. ~13 days)
     npoints : int
@@ -112,15 +185,10 @@ def get_rotation_period(
     The period and uncertainty were determined from the mean and the
     half-width at half-maximum of a Gaussian fit to the periodogram peak, respectively
     """
-    baseline = int(lc.time[-1] - lc.time[0])
+    baseline = int(time[-1] - time[0])
     max_per = max_per if max_per is not None else baseline / 2
 
-    if func is None:
-        lc = lc.remove_nans().remove_outliers().normalize()
-    else:
-        lc = func(lc)
-    t, f = lc.time, lc.flux
-    ls = LombScargle(t, f)
+    ls = LombScargle(time, flux)
     frequencies, powers = ls.autopower(
         minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
     )
@@ -130,38 +198,39 @@ def get_rotation_period(
 
     best_freq = frequencies[idx]
     best_period = 1.0 / best_freq
-
+    # specify which points to fit a gaussian
     x = (1 / frequencies)[idx - npoints : idx + npoints]
     y = powers[idx - npoints : idx + npoints]
 
-    # Fit the data using a Gaussian
+    # Fit the data using a 1-D Gaussian
     g_init = models.Gaussian1D(amplitude=0.5, mean=best_period, stddev=1)
     fit_g = fitting.LevMarLSQFitter()
     g = fit_g(g_init, x, y)
 
+    label = f"P={g.mean.value:.2f}+/-{g.stddev.value:.2f} d"
     if plot:
         # Plot the data with the best-fit model
         pl.plot(x, y, "ko", label="_nolegend_")
         pl.plot(x, g(x), label="_nolegend_")
         pl.ylabel("Lomb-Scargle Power")
         pl.xlabel("Period [days]")
-        text = f"P={g.mean.value:.2f}+/-{g.stddev.value:.2f} d"
-        pl.axvline(g.mean, 0, 1, ls="--", c="r", label=text)
+        pl.axvline(g.mean, 0, 1, ls="--", c="r", label=label)
         pl.legend()
 
     if verbose:
-        print(text)
+        print(label)
 
-    return g.mean.value, g.stddev.value
+    return (g.mean.value, g.stddev.value)
 
 
-def get_transit_mask(lc, period, t0, t14_hours):
+def get_transit_mask(lc, period, epoch, duration_hours):
     """
     lc : lk.LightCurve
         lightcurve that contains time and flux properties
     """
-    temp_fold = lc.fold(period, t0=t0)
-    fractional_duration = (t14_hours / 24.0) / period
+    assert isinstance(lc, lk.LightCurve)
+    temp_fold = lc.fold(period, t0=epoch)
+    fractional_duration = (duration_hours / 24.0) / period
     phase_mask = np.abs(temp_fold.phase) < (fractional_duration * 1.5)
     transit_mask = np.in1d(lc.time, temp_fold.time_original[phase_mask])
     return transit_mask
@@ -758,7 +827,7 @@ def get_toi(toi, clobber=True, outdir=DATA_PATH, add_FPP=False, verbose=True):
     return q.sort_values(by="TOI", ascending=True)
 
 
-def get_specs_from_tfop(ticid, clobber=True, outdir=DATA_PATH, verbose=True):
+def get_specs_table_from_tfop(clobber=True, outdir=DATA_PATH, verbose=True):
     """
     html:
     https://exofop.ipac.caltech.edu/tess/view_spect.php?sort=id&ipp1=1000
@@ -778,16 +847,7 @@ def get_specs_from_tfop(ticid, clobber=True, outdir=DATA_PATH, verbose=True):
         df = pd.read_csv(fp)
         if verbose:
             print(f"Loaded: {fp}")
-
-    if ticid is not None:
-        idx = df["TIC ID"].isin([ticid])
-        if verbose:
-            print(
-                f"There are {idx.sum()} spectra in {base}target.php?id={ticid}\n"
-            )
-        return df[idx]
-    else:
-        return df
+    return df
 
 
 def get_target_coord(
@@ -1205,3 +1265,16 @@ def get_limbdark(band, tic_params, teff=None, logg=None, feh=None, **kwargs):
 
 def map_float(x):
     return list(map(float, x))
+
+
+def map_int(x):
+    return list(map(int, x))
+
+
+def reduce_list(l):
+    rl = np.unique(reduce(concat, l))
+    return rl
+
+
+def split_func(x):
+    return x.replace(" ", "").replace("_", "").split(",")
