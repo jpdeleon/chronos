@@ -1029,8 +1029,12 @@ def plot_cmd(
     match_id=True,
     df_target=None,
     target_label=None,
+    xaxis="bp_rp0",
+    yaxis="abs_gmag",
+    color="radius_val",
     figsize=(8, 8),
     estimate_color=False,
+    cmap="viridis",
     ax=None,
 ):
     """Plot color-magnitude diagram using absolute G magnitude and dereddened Bp-Rp from Gaia photometry
@@ -1077,14 +1081,7 @@ def plot_cmd(
         if match_id:
             errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaia_id}]"
             assert sum(idx) > 0, errmsg
-            ax.plot(
-                df.loc[idx, "bp_rp0"],
-                df.loc[idx, "abs_gmag"],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-                label=target_label,
-            )
+            x, y = df.loc[idx, "bp_rp0"], df.loc[idx, "abs_gmag"]
         else:
             assert df_target is not None, "provide df_target"
             df_target["distance"] = Distance(
@@ -1107,18 +1104,17 @@ def plot_cmd(
                 df_target["bp_rp0"] = (
                     df_target["bp_rp"] - df_target["e_bp_min_rp_val"]
                 )
-            ax.plot(
-                df_target["bp_rp0"],
-                df_target["abs_gmag"],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-                label=target_label,
-            )
+            x, y = df_target["bp_rp0"], df_target["abs_gmag"]
         if target_label is not None:
             ax.legend(loc="best")
+    ax.plot(x, y, marker=r"$\star$", c="r", ms="25", label=target_label)
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
-    ax.scatter(df["bp_rp0"], df["abs_gmag"], marker=".")
+    if color == "radius_val":
+        rstar = np.log10(df[color].astype(float))
+        c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
+        fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
+    else:
+        ax.scatter(df[xaxis], df[yaxis], marker=".")
     ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
     ax.invert_yaxis()
     ax.set_ylabel(r"$G$ [mag]", fontsize=16)
@@ -1137,6 +1133,8 @@ def plot_hrd(
     figsize=(8, 8),
     yaxis="lum_val",
     xaxis="teff_val",
+    color="radius_val",
+    cmap="viridis",
     ax=None,
 ):
     """Plot HR diagram using luminosity and Teff
@@ -1164,33 +1162,31 @@ def plot_hrd(
         if match_id:
             errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaia_id}]"
             assert sum(idx) > 0, errmsg
-            ax.plot(
-                df.loc[idx, xaxis],
-                df.loc[idx, yaxis],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-                label=target_label,
-            )
+            x, y = df.loc[idx, xaxis], df.loc[idx, yaxis]
         else:
             assert df_target is not None, "provide df_target"
             df_target["distance"] = Distance(
                 parallax=df_target["parallax"] * u.mas
             ).pc
-            ax.loglog(
-                df_target[xaxis],
-                df_target[yaxis],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-                label=target_label,
-            )
+            x, y = df_target[xaxis], df_target[yaxis]
         if target_label is not None:
             ax.legend(loc="best")
+    ax.plot(x, y, marker=r"$\star$", c="r", ms="25", label=target_label)
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
-    ax.scatter(df[xaxis], df[yaxis], marker=".")
+    rstar = np.log10(df[color].astype(float))
+    # luminosity can be computed from abs mag; note Mag_sun = 4.85
+    # df["abs_gmag"] = get_absolute_gmag(
+    #     df["phot_g_mean_mag"], df["distance"], df["a_g_val"])
+    # df["lum_val"] = 10**(0.4*(4.85-df["abs_gmag"])
+    if color == "radius_val":
+        c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
+        fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
+    else:
+        ax.scatter(df[xaxis], df[yaxis], marker=".")
     ax.set_ylabel(r"$\log(L/L_{\odot})$", fontsize=16)
     ax.invert_xaxis()
+    ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.set_xlabel(r"$\log(T_{\rm{eff}}$/K)", fontsize=16)
     text = len(df[[xaxis, yaxis]].dropna())
     ax.text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax.transAxes)

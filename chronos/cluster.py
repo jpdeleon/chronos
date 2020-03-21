@@ -218,7 +218,7 @@ class ClusterCatalog:
             pm_ra_cosdec=df["pmra"].values * u.mas / u.yr,
             pm_dec=df["pmdec"].values * u.mas / u.yr,
             frame="fk5",
-            equinox="J2000.0",
+            equinox="J2000.0",  # or 2015.5?
         )
         # compute absolute G magnitude
         df["distance"] = icrs.distance

@@ -59,6 +59,7 @@ __all__ = [
     "get_distance",
     "get_excess_from_extiction",
     "get_absolute_color_index",
+    "get_absolute_gmag",
     "parse_aperture_mask",
     "make_round_mask",
     "make_square_mask",

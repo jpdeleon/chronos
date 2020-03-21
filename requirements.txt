@@ -1,5 +1,5 @@
 astroquery==0.4
-lightkurve==1.8.0
+lightkurve==1.9.0
 astropy==4.0
 pandas==1.0.1
 tqdm
