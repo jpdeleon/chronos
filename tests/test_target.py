@@ -50,3 +50,15 @@ def test_target_xmatch():
     _ = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
     _ = t.query_tic_catalog(return_nearest_xmatch=True)
     assert t.validate_gaia_tic_xmatch()
+
+
+def test_tic_match():
+    """test tic match using query_tic_catalog & native vizier search
+    TIC v8: https://vizier.u-strasbg.fr/viz-bin/VizieR-3?-source=IV/38/tic
+    """
+    t = Target(toiid=837)
+    tab = t.query_vizier()
+    df = tab["IV/38/tic"].to_pandas()
+    d1 = df.iloc[0]
+    d2 = t.query_tic_catalog(return_nearest_xmatch=True)
+    assert int(d1["TIC"]) == int(d2["ID"])

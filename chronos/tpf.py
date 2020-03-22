@@ -111,15 +111,13 @@ class Tpf(Target):
         else:
             - download_tpf
         """
-        # if self.verbose:
-        #     print(f'Searching targetpixelfile using lightkurve')
+        if self.verbose:
+            print(f"Searching targetpixelfile using lightkurve")
         sector = sector if sector else self.sector
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
         )
         if self.tpf is None:
-            if self.verbose:
-                print("Searching targetpixelfile using lightkurve")
             if self.ticid is not None:
                 # search by TICID
                 ticstr = f"TIC {self.ticid}"

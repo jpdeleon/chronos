@@ -1193,25 +1193,27 @@ def plot_hrd(
     return ax
 
 
-def plot_pdc_sap_comparison(toiid):
+def plot_pdc_sap_comparison(toiid, sector=None):
     toi = get_toi(toi=toiid, verbose=False)
     period = toi["Period (days)"].values[0]
     t0 = toi["Epoch (BJD)"].values[0]
     tic = toi["TIC ID"].values[0]
 
-    lcf = lk.search_lightcurvefile(f"TIC {tic}", mission="TESS").download()
+    lcf = lk.search_lightcurvefile(
+        f"TIC {tic}", sector=sector, mission="TESS"
+    ).download()
     if lcf is not None:
-        sap = lcf.SAP_FLUX.normalize()
-        pdcsap = lcf.PDCSAP_FLUX.normalize()
+        sap = lcf.SAP_FLUX.remove_nans().normalize()
+        pdcsap = lcf.PDCSAP_FLUX.remove_nans().normalize()
 
         ax = sap.bin(11).fold(period=period, t0=t0).scatter(label="SAP")
-        ax = (
+        _ = (
             pdcsap.bin(11)
             .fold(period=period, t0=t0)
             .scatter(ax=ax, label="PDCSAP")
         )
         # ax.set_xlim(-0.1,0.1)
-        ax.set_title(f"TOI {toiid}")
+        ax.set_title(f"TOI {toiid} (sector {sap.sector})")
     return lcf, ax
 
 

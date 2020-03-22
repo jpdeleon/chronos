@@ -49,6 +49,7 @@ from chronos.config import DATA_PATH
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "get_ctois",
     "get_tois",
     "get_toi",
     "get_target_coord",
@@ -777,6 +778,62 @@ def get_tois(
     if verbose:
         print(msg)
     return d.sort_values("TOI")
+
+
+def get_ctois(clobber=True, outdir=DATA_PATH, verbose=False, remove_FP=True):
+    """Download Community TOI list from exofop/TESS.
+
+    Parameters
+    ----------
+    clobber : bool
+        re-download table and save as csv file
+    outdir : str
+        download directory location
+    verbose : bool
+        print texts
+
+    Returns
+    -------
+    d : pandas.DataFrame
+        CTOI table as dataframe
+
+    See interface: https://exofop.ipac.caltech.edu/tess/view_ctoi.php
+    See also: https://exofop.ipac.caltech.edu/tess/ctoi_help.php
+    """
+    dl_link = "https://exofop.ipac.caltech.edu/tess/download_ctoi.php?sort=ctoi&output=csv"
+    fp = join(outdir, "CTOIs.csv")
+    if not exists(outdir):
+        os.makedirs(outdir)
+
+    if not exists(fp) or clobber:
+        d = pd.read_csv(dl_link)  # , dtype={'RA': float, 'Dec': float})
+        msg = f"Downloading {dl_link}\n"
+        # if add_FPP:
+        #     fp2 = join(outdir, "Giacalone2020/tab4.txt")
+        #     classified = ascii.read(fp2).to_pandas()
+        #     fp3 = join(outdir, "Giacalone2020/tab5.txt")
+        #     unclassified = ascii.read(fp3).to_pandas()
+        #     fpp = pd.concat(
+        #         [
+        #             classified[["TOI", "FPP-2m", "FPP-30m"]],
+        #             unclassified[["TOI", "FPP"]],
+        #         ],
+        #         sort=True,
+        #     )
+        #     d = pd.merge(d, fpp, how="outer").drop_duplicates()
+    else:
+        d = pd.read_csv(fp).drop_duplicates()
+        msg = f"Loaded: {fp}\n"
+    d.to_csv(fp, index=False)
+
+    # remove False Positives
+    if remove_FP:
+        d = d[d["User Disposition"] != "FP"]
+        msg += "CTOIs with user disposition==FP are removed.\n"
+    msg += f"Saved: {fp}\n"
+    if verbose:
+        print(msg)
+    return d.sort_values("CTOI")
 
 
 def get_toi(toi, clobber=True, outdir=DATA_PATH, add_FPP=False, verbose=True):

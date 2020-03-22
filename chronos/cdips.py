@@ -19,6 +19,7 @@ from astropy.io import fits
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
+from chronos.utils import get_ctois
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +27,12 @@ __all__ = ["CDIPS", "get_cdips_inventory", "get_url_in_cdips_inventory"]
 
 CDIPS_SECTORS = [6, 7, 8, 9, 10, 11]
 CDIPS_APER_PIX = [1, 1.5, 2.25]
+CDIPS_PAPER = "https://ui.adsabs.harvard.edu/abs/2019ApJS..245...13B/abstract"
+CDIPS_REPORT = "http://lgbouma.com/cdips_documentation/20191127_vetting_report_description_document.pdf"
+CDIPS_MAST_README = "https://archive.stsci.edu/hlsps/cdips/hlsp_cdips_tess_ffi_all_tess_v01_readme.md"
+CDIPS_PIPELINE_CODE = "https://github.com/waqasbhatti/cdips-pipeline"
+CDIPS_CODE = "https://github.com/lgbouma/cdips"
+CDIPS_CANDIDATES = "https://github.com/lgbouma/cdips_followup/blob/master/data/candidate_database/candidates.csv"
 
 
 class _TessLightCurve(TessLightCurve):
@@ -164,7 +171,8 @@ class CDIPS(Target):
         if self.lctype not in self.lctypes:
             raise ValueError(f"Type not among {self.lctypes}")
         self.fits_url = None
-        self.readme_url = "https://archive.stsci.edu/hlsps/cdips/hlsp_cdips_tess_ffi_all_tess_v01_readme.md"
+        ctois = get_ctois()
+        self.candidates = ctois[ctois["User"] == "bouma"]
 
     def get_cdips_url(self):
         """

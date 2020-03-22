@@ -11,9 +11,11 @@
 - [] standardize docstrings
 - [] add binder, badges
 - [] implement [typing](https://docs.python.org/3/library/typing.html) (> Python 3.8)
-
+- [] include an environment.yml file, like [this](https://github.com/lgbouma/cdips_followup/blob/master/environment.yml)
 
 ## Functions
+- [] check [cdips-pipeline](https://github.com/waqasbhatti/cdips-pipeline)
+- [] add [astrobase](https://github.com/waqasbhatti/astrobase) specifically the [astrotess module](https://astrobase.readthedocs.io/en/latest/astrobase.astrotess.html); see also [notebooks](https://github.com/waqasbhatti/astrobase-notebooks)
 - [x] resolve make_custom_lc in LongCadence and ShortCadence (using tpf.py)
 - [x] add detrend method; see https://stackoverflow.com/a/24865663/1910174
 - [] check optimum [break_tolerance](https://github.com/KeplerGO/lightkurve/blob/master/lightkurve/lightcurve.py#L428) given cadence
