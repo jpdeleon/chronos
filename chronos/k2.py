@@ -11,20 +11,21 @@ import logging
 import numpy as np
 import pandas as pd
 import astropy.units as u
-from lightkurve import KeplerLightCurve, KeplerQualityFlags
+import lightkurve as lk
 from astropy.io import fits
 
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
 from chronos.constants import K2_TIME_OFFSET
+from chronos.utils import detrend
 
 log = logging.getLogger(__name__)
 
-__all__ = ["Everest", "K2SFF"]
+__all__ = ["K2", "Everest", "K2sff"]
 
 
-class _KeplerLightCurve(KeplerLightCurve):
+class _KeplerLightCurve(lk.KeplerLightCurve):
     """augments parent class by adding convenience methods"""
 
     def detrend(self, break_tolerance=None):
@@ -38,17 +39,178 @@ class _KeplerLightCurve(KeplerLightCurve):
         )
 
 
-class Everest(Target):
+class K2(Target):
+    """
+    sap and pdcsap
+    """
+
+    def __init__(
+        self,
+        epicid=None,
+        campaign=None,
+        gaiaDR2id=None,
+        name=None,
+        ra_deg=None,
+        dec_deg=None,
+        quality_bitmask="default",
+        verbose=True,
+        clobber=True,
+    ):
+        super().__init__(
+            epicid=epicid,
+            gaiaDR2id=gaiaDR2id,
+            name=name,
+            ra_deg=ra_deg,
+            dec_deg=dec_deg,
+            verbose=verbose,
+            clobber=clobber,
+            mission="k2",
+        )
+        if self.epicid is not None:
+            # epicid is initialized in Target if name has EPIC
+            self.epicid = epicid
+        self.quality_bitmask = quality_bitmask
+        assert campaign is not None
+        self.campaign = campaign
+        self.tpf = None
+        self.lc_raw = None
+        self.lc_custom = None
+        self.lcf = None
+        self.all_campaigns = self.get_all_campaigns()
+
+    def get_all_campaigns(self):
+        res = lk.search_targetpixelfile(
+            f"K2 {self.epicid}", campaign=None, mission="K2"
+        )
+        df = res.table.to_pandas()
+        campaigns = df["observation"].apply(lambda x: x.split()[-1]).values
+        return campaigns
+
+    def get_tpf(self):
+        """
+        FIXME: refactor to tpf.py?
+        """
+        res = lk.search_targetpixelfile(
+            f"EPIC {self.epicid}", campaign=self.campaign, mission="K2"
+        )
+        tpf = res.download()
+        self.tpf = tpf
+        return tpf
+
+    def get_lc(self, lctype="pdcsap", campaign=None, quality_bitmask=None):
+        """
+        FIXME: refactor to lightcurve.py?
+        """
+        campaign = campaign if campaign is not None else self.campaign
+        quality_bitmask = (
+            quality_bitmask if quality_bitmask else self.quality_bitmask
+        )
+        if self.lcf is not None:
+            # reload lcf if already in memory
+            if self.lcf.campaign == campaign:
+                lcf = self.lcf
+            else:
+                query_str = (
+                    f"EPIC {self.epicid}" if self.epicid else self.target_coord
+                )
+                if self.verbose:
+                    print(
+                        f"Searching lightcurvefile for {query_str} (campaign {campaign})"
+                    )
+                q = lk.search_lightcurvefile(
+                    query_str, campaign=campaign, mission="K2"
+                )
+                if len(q) == 0:
+                    if self.verbose:
+                        print(
+                            f"Searching lightcurvefile for {self.target_coord.to_string()} (campaign {campaign})"
+                        )
+                    q = lk.search_lightcurvefile(
+                        self.target_coord, campaign=campaign, mission="K2"
+                    )
+                assert q is not None, "Empty result. Check long cadence."
+                if self.verbose:
+                    print(f"Found {len(q)} lightcurves")
+                if (campaign == "all") & (len(self.all_campaigns) > 1):
+                    NotImplementedError
+                    # lcf = q.download_all(quality_bitmask=quality_bitmask)
+                else:
+                    lcf = q.download(quality_bitmask=quality_bitmask)
+                self.lcf = lcf
+        else:
+            query_str = (
+                f"EPIC {self.epicid}" if self.epicid else self.target_coord
+            )
+            if self.verbose:
+                print(
+                    f"Searching lightcurvefile for {query_str} (campaign {campaign})"
+                )
+            q = lk.search_lightcurvefile(
+                query_str, campaign=campaign, mission="K2"
+            )
+            if len(q) == 0:
+                if self.verbose:
+                    print(
+                        f"Searching lightcurvefile for ra,dec=({self.target_coord.to_string()}) (campaign {campaign})"
+                    )
+                q = lk.search_lightcurvefile(
+                    self.target_coord, campaign=campaign, mission="K2"
+                )
+            assert q is not None, "Empty result. Check long cadence."
+            if self.verbose:
+                print(f"Found {len(q)} lightcurves")
+            if (campaign == "all") & (len(self.all_campaigns) > 1):
+                NotImplementedError
+                # lcf = q.download_all(quality_bitmask=quality_bitmask)
+            else:
+                lcf = q.download(quality_bitmask=quality_bitmask)
+            self.lcf = lcf
+        assert lcf is not None, "Empty result. Check long cadence."
+        sap = lcf.SAP_FLUX
+        pdcsap = lcf.PDCSAP_FLUX
+        if isinstance(lcf, lk.LightCurveFileCollection):
+            # merge multi-campaign into one lc
+            if len(lcf) > 1:
+                sap0 = sap[0].normalize()
+                sap = [sap0.append(l.normalize()) for l in sap[1:]][0]
+                pdcsap0 = pdcsap[0].normalize()
+                pdcsap = [pdcsap0.append(l.normalize()) for l in pdcsap[1:]][0]
+            else:
+                raise ValueError(
+                    f"Only campaign {lcf[0].campaign} (in {self.all_campaigns}) is available"
+                )
+        self.lc_sap = sap
+        self.lc_pdcsap = pdcsap
+        if lctype == "pdcsap":
+            # add detrend method to lc instance
+            pdcsap.detrend = lambda: detrend(pdcsap)
+            return pdcsap.remove_nans().normalize()
+        else:
+            sap.detrend = lambda: detrend(sap)
+            return sap.remove_nans().normalize()
+
+    def make_custom_lc(
+        sap_mask=None,
+        aper_radius=None,
+        percentile=None,
+        threshold_sigma=None,
+        use_pld=True,
+    ):
+        NotImplementedError
+        # lc = tpf.to_lightcurve()
+
+
+class Everest(K2):
     """
     everest pipeline
     """
 
     def __init__(
         self,
-        campaign=None,
-        name=None,
         epicid=None,
+        campaign=None,
         gaiaDR2id=None,
+        name=None,
         ra_deg=None,
         dec_deg=None,
         quality_bitmask="default",
@@ -56,9 +218,10 @@ class Everest(Target):
         flux_type="flux",  # or fcor
     ):
         super().__init__(
-            name=name,
             epicid=epicid,
+            campaign=campaign,
             gaiaDR2id=gaiaDR2id,
+            name=name,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             verbose=verbose,
@@ -69,9 +232,7 @@ class Everest(Target):
         ----------
 
         """
-        self.campaign = campaign
         self.flux_type = flux_type.upper()
-        self.quality_bitmask = quality_bitmask
         url, filename = self.get_everest_url_and_fn()
         self.url = url
         self.filename = filename
@@ -79,7 +240,7 @@ class Everest(Target):
         self.cadenceno = None
         time, flux, err = self.get_everest_lc()
         # hack
-        self.lc = _KeplerLightCurve(
+        self.lc_everest = _KeplerLightCurve(
             time=time,
             flux=flux,
             flux_err=err,
@@ -194,29 +355,32 @@ class Everest(Target):
             print(e)
 
 
-class K2SFF(Target):
+class K2sff(K2):
     """
     """
 
     def __init__(
         self,
-        campaign=None,
-        name=None,
         epicid=None,
+        campaign=None,
         gaiaDR2id=None,
+        name=None,
         ra_deg=None,
         dec_deg=None,
         quality_bitmask="default",
         verbose=True,
+        clobber=True,
         flux_type="flux",  # or fcor
     ):
         super().__init__(
-            name=name,
             epicid=epicid,
+            campaign=campaign,
             gaiaDR2id=gaiaDR2id,
+            name=name,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             verbose=verbose,
+            clobber=clobber,
         )
         """Initialize Everest
 
@@ -224,9 +388,7 @@ class K2SFF(Target):
         ----------
 
         """
-        self.campaign = campaign
         self.flux_type = flux_type.upper()
-        self.quality_bitmask = quality_bitmask
         url, filename = self.get_k2sff_url_and_fn()
         self.url = url
         self.filename = filename
@@ -234,7 +396,7 @@ class K2SFF(Target):
         self.cadenceno = None
         time, flux = self.get_k2sff_lc()
         # hack
-        self.lc = _KeplerLightCurve(
+        self.lc_k2sff = _KeplerLightCurve(
             time=time,
             flux=flux,
             # flux_err=err,

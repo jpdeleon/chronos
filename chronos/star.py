@@ -29,7 +29,7 @@ from chronos.utils import (
 try:
     import stardate as sd
 except Exception:
-    raise ValueError("pip install stardate")
+    raise ModuleNotFoundError("pip install stardate")
 
 __all__ = ["Star"]
 

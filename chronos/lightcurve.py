@@ -104,9 +104,13 @@ class LongCadence(Tpf_cutout):
         aper_radius=None,
         percentile=None,
         threshold_sigma=None,
-        method="pld",
-        # pca_nterms=5,
-        # with_offset=True,
+        use_pld=True,
+        pixel_components=3,
+        spline_n_knots=100,
+        spline_degree=3,
+        background_mask=None,
+        pca_nterms=5,
+        with_offset=True,
     ):
         """
         create a custom lightcurve based on this tutorial:
@@ -164,34 +168,41 @@ class LongCadence(Tpf_cutout):
         )
         self.tpf_tesscut = tpf_tesscut[~idx]
         self.lc_custom_raw = raw_lc[~idx]
-        if method == "pld":
+
+        if use_pld:
+            if self.verbose:
+                print("Removing scattered light + applying PLD")
             pld = lk.TessPLDCorrector(
                 self.tpf_tesscut, aperture_mask=self.aper_mask
             )
+            if background_mask is None:
+                background_mask = ~self.aper_mask
             corrected_lc = pld.correct(
-                pixel_components=3,
-                spline_n_knots=100,
-                spline_degree=3,
-                background_mask=~self.aper_mask,
+                pixel_components=pixel_components,
+                spline_n_knots=spline_n_knots,
+                spline_degree=spline_degree,
+                background_mask=background_mask,
             )
             self.corrector = pld
-        # else:
-        # # Make a design matrix and pass it to a linear regression corrector
-        # regressors = tpf_tesscut.flux[~idx][:, ~aper_mask]
-        # dm = (
-        #     lk.DesignMatrix(regressors, name="regressors")
-        #     .pca(nterms=pca_nterms)
-        #     .append_constant()
-        # )
-        # rc = lk.RegressionCorrector(raw_lc)
-        # self.corrector = rc
-        # corrected_lc = rc.correct(dm)
-        #
-        # # Optional: Remove the scattered light, allowing for the large offset from scattered light
-        # if with_offset:
-        #     corrected_lc = (
-        #         raw_lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
-        #     )
+        else:
+            if self.verbose:
+                print("Removing scattered light")
+            # Make a design matrix and pass it to a linear regression corrector
+            regressors = tpf_tesscut.flux[~idx][:, ~self.aper_mask]
+            dm = (
+                lk.DesignMatrix(regressors, name="regressors")
+                .pca(nterms=pca_nterms)
+                .append_constant()
+            )
+            rc = lk.RegressionCorrector(raw_lc)
+            self.corrector = rc
+            corrected_lc = rc.correct(dm)
+
+            # Optional: Remove the scattered light, allowing for the large offset from scattered light
+            if with_offset:
+                corrected_lc = (
+                    raw_lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
+                )
         lc = corrected_lc.normalize()
         self.lc_custom = lc
 
@@ -379,13 +390,13 @@ class ShortCadence(Tpf):
         aper_radius=None,
         percentile=None,
         threshold_sigma=None,
-        method="pld",
+        use_pld=True,
         pixel_components=3,
-        # spline_n_knots=100,
-        # spline_degree=3,
-        # background_mask=None
-        # pca_nterms=5,
-        # with_offset=True,
+        spline_n_knots=100,
+        spline_degree=3,
+        background_mask=None,
+        pca_nterms=5,
+        with_offset=True,
     ):
         """
         create a custom lightcurve with background subtraction, based on this tutorial:
@@ -442,46 +453,47 @@ class ShortCadence(Tpf):
         )
         self.tpf = tpf[~idx]
         self.raw_lc = raw_lc[~idx]
-        if method == "pld":
+        # add method
+        raw_lc.detrend = lambda: detrend(raw_lc)
+
+        if use_pld:
+            if self.verbose:
+                print("Removing scattered light + applying PLD")
             pld = lk.TessPLDCorrector(self.tpf, aperture_mask=self.aper_mask)
+            if background_mask is None:
+                background_mask = ~self.aper_mask
             corrected_lc = pld.correct(
-                spline_n_knots=100,
-                spline_degree=3,
-                background_mask=~self.aper_mask,
+                pixel_components=pixel_components,
+                spline_n_knots=spline_n_knots,
+                spline_degree=spline_degree,
+                background_mask=background_mask,
             )
             self.corrector = pld
+        else:
+            if self.verbose:
+                print("Removing scattered light")
+            # Make a design matrix and pass it to a linear regression corrector
+            regressors = tpf.flux[~idx][:, ~self.aper_mask]
+            dm = (
+                lk.DesignMatrix(regressors, name="pixels")
+                .pca(pca_nterms)
+                .append_constant()
+            )
 
-        # raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
-        # # add method
-        # raw_lc.detrend = lambda: detrend(raw_lc)
-        # idx = (
-        #     np.isnan(raw_lc.time)
-        #     | np.isnan(raw_lc.flux)
-        #     | np.isnan(raw_lc.flux_err)
-        # )
-        # raw_lc = raw_lc[~idx]
-        # self.lc_custom_raw = raw_lc
-        # # Make a design matrix and pass it to a linear regression corrector
-        # regressors = tpf.flux[~idx][:, ~aper_mask]
-        # dm = (
-        #     lk.DesignMatrix(regressors, name="pixels")
-        #     .pca(pca_nterms)
-        #     .append_constant()
-        # )
-        #
-        # # Regression Corrector Object
-        # rc = lk.RegressionCorrector(raw_lc)
-        # self.corrector = rc
-        # corrected_lc = rc.correct(dm)
-        #
-        # # Optional: Remove the scattered light, allowing for the large offset from scattered light
-        # if with_offset:
-        #     corrected_lc = (
-        #         raw_lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
-        #     )
+            # Regression Corrector Object
+            rc = lk.RegressionCorrector(self.raw_lc)
+            self.corrector = rc
+            corrected_lc = rc.correct(dm)
+
+            # Optional: Remove the scattered light, allowing for the large offset from scattered light
+            if with_offset:
+                corrected_lc = (
+                    self.raw_lc
+                    - rc.model_lc
+                    + np.percentile(rc.model_lc.flux, q=5)
+                )
         lc = corrected_lc.normalize()
         self.lc_custom = lc
-
         # compute Contamination
         if self.gaia_sources is None:
             gaia_sources = self.query_gaia_dr2_catalog(radius=120)

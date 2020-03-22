@@ -56,6 +56,7 @@ class Target:
         sector=None,
         verbose=True,
         clobber=False,
+        mission="tess",
     ):
         self.toiid = toiid  # e.g. 837
         self.ticid = ticid  # e.g. 364107753
@@ -79,6 +80,7 @@ class Target:
         self.nearest_cluster_name = None
         self.clobber = clobber
         self.verbose = verbose
+        self.mission = mission.lower()
 
         if name:
             if name[:4].lower() == "epic":
@@ -117,10 +119,11 @@ class Target:
             gaiaid=self.gaiaid,
             name=self.target_name,
         )
-        ccd_info = tesscut.Tesscut.get_sectors(self.target_coord)
-        errmsg = f"Target not found in any TESS sectors"
-        assert len(ccd_info) > 0, errmsg
-        self.ccd_info = ccd_info.to_pandas()
+        if self.mission == "tess":
+            ccd_info = tesscut.Tesscut.get_sectors(self.target_coord)
+            errmsg = f"Target not found in any TESS sectors"
+            assert len(ccd_info) > 0, errmsg
+            self.ccd_info = ccd_info.to_pandas()
 
     def get_all_sectors(self):
         """
