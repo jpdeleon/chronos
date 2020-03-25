@@ -70,13 +70,16 @@ class K2(Target):
             # epicid is initialized in Target if name has EPIC
             self.epicid = epicid
         self.quality_bitmask = quality_bitmask
-        assert campaign is not None
         self.campaign = campaign
         self.tpf = None
         self.lc_raw = None
         self.lc_custom = None
         self.lcf = None
         self.all_campaigns = self.get_all_campaigns()
+        if self.campaign is None:
+            self.campaign = self.all_campaigns[0]
+            print(f"Available sectors: {self.all_campaigns}")
+            print(f"Using campaign={self.campaign}.")
 
     def get_all_campaigns(self):
         res = lk.search_targetpixelfile(
@@ -84,7 +87,7 @@ class K2(Target):
         )
         df = res.table.to_pandas()
         campaigns = df["observation"].apply(lambda x: x.split()[-1]).values
-        return campaigns
+        return np.array(campaigns)
 
     def get_tpf(self):
         """

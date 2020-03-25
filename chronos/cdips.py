@@ -14,12 +14,13 @@ import numpy as np
 import pandas as pd
 import astropy.units as u
 from lightkurve import TessLightCurve
+from astroquery.mast import Observations
 from astropy.io import fits
 
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
-from chronos.utils import get_ctois
+from chronos.utils import get_ctois, get_sector_cam_ccd
 
 log = logging.getLogger(__name__)
 
@@ -103,25 +104,44 @@ class CDIPS(Target):
             CDIPS lc types: ["flux", "mag", "tfa", "pca"]
         """
         self.sector = sector
-        self.all_sectors = self.get_all_sectors()
-
         if self.sector is None:
-            self.sector = self.all_sectors[0]
             print(f"Available sectors: {self.all_sectors}")
+            if len(self.all_sectors) == 1:
+                self.sector = self.all_sectors[0]
+            else:
+                idx = [
+                    True if s in CDIPS_SECTORS else False
+                    for s in self.all_sectors
+                ]
+                if sum(idx) == 0:
+                    msg = f"CDIPS lc is currently available for sectors={CDIPS_SECTORS}\n"
+                    raise ValueError(msg)
+                if sum(idx) == 1:
+                    self.sector = self.all_sectors[idx][0]
+                else:
+                    self.sector = self.all_sectors[idx]
+                    # get first available
+                    print(
+                        f"CDIPS lc may be available for sectors {self.all_sectors[idx]}"
+                    )
             print(f"Using sector={self.sector}.")
-        msg = f"CDIPS lc is currently available for sectors={CDIPS_SECTORS}\n"
-        assert self.sector in CDIPS_SECTORS, msg
-
+        self.mast_table = self.get_mast_table()
         self.cam = cam
         self.ccd = ccd
+        if (self.sector is None) | (self.cam is None) | (self.ccd is None):
+            # overwrite
+            sector0, cam0, ccd0 = get_sector_cam_ccd(
+                self.target_coord, self.sector
+            )
+            self.cam = cam0
+            self.ccd = ccd0
+        else:
+            assert self.cam == cam0
+            assert self.ccd == ccd
+
         if self.gaiaid is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-        if not np.all([self.sector, self.cam, self.ccd]):
-            # overwrite
-            sector, cam, ccd = self.get_sector_cam_ccd()
-            self.sector = sector if self.sector is None else str(self.sector)
-            self.cam = cam if self.cam is None else str(self.cam)
-            self.ccd = ccd if self.ccd is None else str(self.ccd)
+
         # self.mission = mission
         self.lctype = lctype
         self.lctypes = ["flux", "mag", "tfa", "pca"]
@@ -174,6 +194,24 @@ class CDIPS(Target):
         ctois = get_ctois()
         self.candidates = ctois[ctois["User"] == "bouma"]
 
+    def get_mast_table(self):
+        """https://archive.stsci.edu/hlsp/cdips
+        """
+        if self.gaia_params is None:
+            _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+        if self.tic_params is None:
+            _ = self.query_tic_catalog(return_nearest_xmatch=True)
+        if not self.validate_gaia_tic_xmatch():
+            raise ValueError("Gaia and Tic Catalog match failed")
+        mast_table = Observations.query_criteria(
+            target_name=self.ticid, provenance_name="CDIPS"
+        )
+        if len(mast_table) == 0:
+            raise ValueError("No CDIPS lightcurve in MAST.")
+        else:
+            print(f"Found {len(mast_table)} CDIPS lightcurves.")
+        return mast_table.to_pandas()
+
     def get_cdips_url(self):
         """
         Each target is stored in a sub-directory based on the Sector it was observed in
@@ -196,7 +234,7 @@ class CDIPS(Target):
         assert self.cam is not None
         assert self.ccd is not None
         assert self.gaiaid is not None
-        sec = self.sector.zfill(4)
+        sec = str(self.sector).zfill(4)
         fp = (
             base
             + f"s{sec}/cam{self.cam}_ccd{self.ccd}"
@@ -230,7 +268,7 @@ class CDIPS(Target):
 
         except Exception:
             msg = f"File not found:\n{fp}\n"
-            msg += f"Using sector={self.sector} in {self.all_sectors}.\n"
+            # msg += f"Using sector={self.sector} in {self.all_sectors}.\n"
             raise ValueError(msg)
 
     def validate_target_header(self):

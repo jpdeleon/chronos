@@ -648,7 +648,7 @@ def plot_rotation_period(
         peak_period = 1.0 / best_freq
         periods = 1.0 / frequencies
     elif method == "acf":
-        NotImplementedError("Method not yet available")
+        raise NotImplementedError("Method not yet available")
     else:
         raise ValueError("Use method='lombscargle'")
     # fit a gaussian to lombscargle power

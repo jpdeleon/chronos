@@ -71,7 +71,7 @@ class Tpf(Target):
         )
         # self.mission = mission
         self.sector = sector
-        self.all_sectors = self.get_all_sectors()
+        # self.all_sectors = self.get_all_sectors()
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius
@@ -303,7 +303,7 @@ class Tpf_cutout(Target):
         )
         # self.mission = mission
         self.sector = sector
-        self.all_sectors = self.get_all_sectors()
+        # self.all_sectors = self.get_all_sectors()
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius

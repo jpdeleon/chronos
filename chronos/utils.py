@@ -37,7 +37,7 @@ from astropy.coordinates import (
     match_coordinates_3d,
 )
 from skimage import measure
-from astroquery.mast import Catalogs
+from astroquery.mast import Catalogs, tesscut
 from astroquery.gaia import Gaia
 from tqdm import tqdm
 import deepdish as dd
@@ -49,6 +49,9 @@ from chronos.config import DATA_PATH
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "get_tess_ccd_info",
+    "get_all_sectors",
+    "get_sector_cam_ccd",
     "get_ctois",
     "get_tois",
     "get_toi",
@@ -95,6 +98,40 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_tess_ccd_info(target_coord):
+    """ """
+    ccd_info = tesscut.Tesscut.get_sectors(target_coord)
+    errmsg = f"Target not found in any TESS sectors"
+    assert len(ccd_info) > 0, errmsg
+    return ccd_info.to_pandas()
+
+
+def get_all_sectors(target_coord):
+    """ """
+    ccd_info = get_tess_ccd_info(target_coord)
+    all_sectors = [int(i) for i in ccd_info["sector"].values]
+    return np.array(all_sectors)
+
+
+def get_sector_cam_ccd(target_coord, sector=None):
+    """get TESS sector, camera, and ccd numbers using Tesscut
+    """
+    df = get_tess_ccd_info(target_coord)
+    all_sectors = [int(i) for i in df["sector"].values]
+    if sector is not None:
+        sector_idx = df["sector"][df["sector"].isin([sector])].index.tolist()
+        if len(sector_idx) == 0:
+            raise ValueError(f"Available sector(s): {all_sectors}")
+        cam = str(df.iloc[sector_idx]["camera"].values[0])
+        ccd = str(df.iloc[sector_idx]["ccd"].values[0])
+    else:
+        sector_idx = 0
+        sector = str(df.iloc[sector_idx]["sector"])
+        cam = str(df.iloc[sector_idx]["camera"])
+        ccd = str(df.iloc[sector_idx]["ccd"])
+    return sector, cam, ccd
 
 
 def is_gaiaid_in_cluster(gaiaid, cluster_name, catalog_name="Bouma2019"):
@@ -284,9 +321,8 @@ def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
         nearest_obj = df.iloc[idx]["Target"]
         ra, dec = df.iloc[idx][["RA", "DEC"]]
         print(
-            f"Nearest HARPS obj to target is\n{nearest_obj}: ra,dec=({ra},{dec})\n"
+            f"Nearest HARPS obj is\n{nearest_obj}: ra,dec=({ra},{dec}) @ d={sep2d.arcsec:.2f}\n"
         )
-        print(f'Try angular distance larger than d={sep2d.arcsec:.4f}"\n')
         return None
 
 
@@ -1123,14 +1159,12 @@ def query_gaia_params_of_all_tois(
     return df
 
 
-# def get_K2_targetlist(campaign, verbose=True):
+# def get_K2_targetlist(campaign, outdir=DATA_PATH, verbose=True):
 #     """
 #     campaign: K2 campaign number [0-18]
 #     """
 #     if verbose:
 #         print("Retrieving K2 campaign {} target list...\n".format(campaign))
-#
-#     outdir = "../data/K2targetlist/"
 #
 #     file_list = sorted(glob(os.path.join(outdir, "*csv")))
 #
@@ -1164,64 +1198,6 @@ def query_gaia_params_of_all_tois(
 #
 #     # targets = targets.replace(r'^\s+$', np.nan, regex=True)
 #     return targets
-#
-#
-# def get_DR2_cluster_members(clustername, verbose=True):
-#     """
-#     cluster (row, column)
-#     Hyades (515, 7)
-#     IC2391 (327, 7)
-#     IC2602 (494, 7)
-#     Blanco1 (489, 7)
-#     ComaBer (153, 7)
-#     NGC2451 (404, 7)
-#     Pleiades (1332, 7)
-#     Praesepe (946, 7)
-#     alphaPer (743, 7)
-#     "all": get all cluster member
-#     Table source: https://www.cosmos.esa.int/web/gaia/dr2-papers
-#     """
-#     cluster = clustername.strip().lower()
-#     link = "../data/TablesGaiaDR2HRDpaper/TableA1a.csv"
-#     cluster_members = pd.read_csv(link, delimiter=",")
-#     # remove redundant spaces in column
-#     cols = ["".join(col.split()) for col in cluster_members.columns]
-#     cluster_members.columns = cols
-#
-#     clusters = {}
-#     for c, df in cluster_members.groupby(by="Cluster"):
-#         c = c.strip().lower()
-#         cols = ["".join(col.split()) for col in df.columns]
-#         clusters[c] = df
-#
-#     if cluster == "all":
-#         if verbose:
-#             print(
-#                 "Retrieving {} known DR2 cluster members...\n".format(cluster)
-#             )
-#         # print(c,df.shape)
-#         return clusters
-#     else:
-#         if verbose:
-#             print("Retrieving {} cluster members...\n".format(cluster))
-#         return clusters[cluster]
-#
-#
-# def get_ra_dec_mag(epicnum, verbose=False):
-#     if verbose:
-#         print("\nquerying RA and DEC...\n")
-#     epic = client.k2_star(int(epicnum))
-#     ra = float(epic.k2_ra)
-#     dec = float(epic.k2_dec)
-#     mag = float(epic.kp)
-#     return ra, dec, mag
-#
-#
-# def get_cluster_centroid(clustername):
-#     cluster = get_DR2_cluster_members(clustername)
-#     ra = np.nanmedian(cluster["ra"])
-#     dec = np.nanmedian(cluster["dec"])
-#     return ra, dec
 
 
 def get_cartersian_distance(x1, y1, x2, y2):

@@ -707,7 +707,7 @@ class Star(Target):
                 mass, mass_errp, mass_errm
             )
         )
-        NotImplementedError
+        raise NotImplementedError
 
     def get_feh(self, burnin=None):
         if self.stardate is None:
@@ -719,7 +719,7 @@ class Star(Target):
         print(
             "feh = {0:.2f} + {1:.2f} - {2:.2f}".format(feh, feh_errp, feh_errm)
         )
-        NotImplementedError
+        raise NotImplementedError
 
     def get_distance(self, burnin=None):
         if self.stardate is None:
@@ -738,7 +738,7 @@ class Star(Target):
                 lndistance, lndistance_errp, lndistance_errm
             )
         )
-        NotImplementedError
+        raise NotImplementedError
 
     def get_Av(self, burnin=None):
         if self.stardate is None:
@@ -748,7 +748,7 @@ class Star(Target):
         burnin = burnin if burnin is not None else self.burnin
         Av, Av_errp, Av_errm, Av_samples = star.Av_results(burnin=burnin)
         print("Av = {0:.2f} + {1:.2f} - {2:.2f}".format(Av, Av_errp, Av_errm))
-        NotImplementedError
+        raise NotImplementedError
 
     def plot_flatchain(self, burnin=None):
         """

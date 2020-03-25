@@ -29,6 +29,8 @@ import lightkurve as lk
 # Import from package
 from chronos import cluster
 from chronos.utils import (
+    get_all_sectors,
+    get_tess_ccd_info,
     get_toi,
     get_tois,
     get_target_coord,
@@ -53,7 +55,6 @@ class Target:
         ra_deg=None,
         dec_deg=None,
         search_radius=3 * u.arcsec,
-        sector=None,
         verbose=True,
         clobber=False,
         mission="tess",
@@ -120,37 +121,10 @@ class Target:
             name=self.target_name,
         )
         if self.mission == "tess":
-            ccd_info = tesscut.Tesscut.get_sectors(self.target_coord)
-            errmsg = f"Target not found in any TESS sectors"
-            assert len(ccd_info) > 0, errmsg
-            self.ccd_info = ccd_info.to_pandas()
-
-    def get_all_sectors(self):
-        """
-        """
-        df = self.ccd_info
-        all_sectors = [int(i) for i in df["sector"].values]
-        return all_sectors
-
-    def get_sector_cam_ccd(self, sector=None):
-        """get TESS sector, camera, and ccd numbers using Tesscut
-        """
-        all_sectors = self.get_all_sectors()
-        df = self.ccd_info
-        if sector:
-            sector_idx = df["sector"][
-                df["sector"].isin([sector])
-            ].index.tolist()
-            if len(sector_idx) == 0:
-                raise ValueError(f"Available sector(s): {all_sectors}")
-            cam = str(df.iloc[sector_idx]["camera"].values[0])
-            ccd = str(df.iloc[sector_idx]["ccd"].values[0])
-        else:
-            sector_idx = 0
-            sector = str(df.iloc[sector_idx]["sector"])
-            cam = str(df.iloc[sector_idx]["camera"])
-            ccd = str(df.iloc[sector_idx]["ccd"])
-        return sector, cam, ccd
+            self.all_sectors = get_all_sectors(self.target_coord)
+            self.tess_ccd_info = get_tess_ccd_info(self.target_coord)
+        elif self.mission == "k2":
+            raise NotImplementedError
 
     def query_gaia_dr2_catalog(self, radius=None, return_nearest_xmatch=False):
         """
