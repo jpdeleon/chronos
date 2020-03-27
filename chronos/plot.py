@@ -91,7 +91,7 @@ def make_tql(
     cutout_size=(15, 15),
     quality_bitmask="default",
     apply_data_quality_mask=False,
-    #window_length=31,
+    # window_length=31,
     savefig=False,
     savetls=False,
     outdir=".",
@@ -185,17 +185,17 @@ def make_tql(
         ax = axs[7]
         if cadence == "short":
             if l.tpf is None:
-                #e.g. pdcsap, sap
+                # e.g. pdcsap, sap
                 tpf = l.get_tpf()
             else:
-                #e.g. custom
+                # e.g. custom
                 tpf = l.tpf
         else:
             if l.tpf_tesscut is None:
-                #e.g. cdips
+                # e.g. cdips
                 tpf = l.get_tpf_tesscut()
             else:
-                #e.g. custom
+                # e.g. custom
                 tpf = l.tpf_tesscut
 
         if star.gaia_sources is None:
@@ -217,21 +217,21 @@ def make_tql(
         lc = lc.normalize().remove_nans().remove_outliers()
         flat, trend = lc.flatten(
             window_length=101, return_trend=True
-        ) #flat and trend here are just place-holder
-        time, flux, err = lc.time, lc.flux, lc.flux_err
+        )  # flat and trend here are just place-holder
+        time, flux = lc.time, lc.flux
         wflat, wtrend = flatten(
-                time,                 # Array of time values
-                flux,                 # Array of flux values
-                method='biweight',
-                window_length=0.5,    # The length of the filter window in units of ``time``
-                edge_cutoff=0.5,      # length (in units of time) to be cut off each edge.
-                break_tolerance=0.5,  # Split into segments at breaks longer than that
-                return_trend=True,    # Return trend and flattened light curve
-                cval=5.0              # Tuning parameter for the robust estimators
-                )
-        #f > np.median(f) + 5 * np.std(f)
+            time,  # Array of time values
+            flux,  # Array of flux values
+            method="biweight",
+            window_length=0.5,  # The length of the filter window in units of ``time``
+            edge_cutoff=0.5,  # length (in units of time) to be cut off each edge.
+            break_tolerance=0.5,  # Split into segments at breaks longer than that
+            return_trend=True,  # Return trend and flattened light curve
+            cval=5.0,  # Tuning parameter for the robust estimators
+        )
+        # f > np.median(f) + 5 * np.std(f)
         idx = sigma_clip(wflat, sigma_lower=np.inf, sigma_upper=3).mask
-        #replace flux values with that from wotan
+        # replace flux values with that from wotan
         flat = flat[~idx]
         trend = trend[~idx]
         trend.flux = wtrend[~idx]
@@ -247,10 +247,9 @@ def make_tql(
 
         ls = LombScargle(time, flux)
         frequencies, powers = ls.autopower(
-            minimum_frequency=1.0 / max_per,
-            maximum_frequency=1.0 # 1 day
+            minimum_frequency=1.0 / max_per, maximum_frequency=1.0  # 1 day
         )
-        periods = 1./frequencies
+        periods = 1.0 / frequencies
         idx = np.argmax(powers)
         best_freq = frequencies[idx]
         best_period = 1.0 / best_freq
@@ -268,7 +267,9 @@ def make_tql(
         offset = 0.5
         t_fit = np.linspace(0, 1, 100) - offset
         y_fit = ls.model(t_fit * best_period - best_period / 2, best_freq)
-        ax.plot(t_fit * best_period, y_fit, "r-", lw=3, label="model", zorder=3)
+        ax.plot(
+            t_fit * best_period, y_fit, "r-", lw=3, label="model", zorder=3
+        )
         # fold data
         phase = ((time / best_period) % 1) - offset
 
@@ -301,30 +302,36 @@ def make_tql(
         ax.set_xlabel("Period (days)")
         ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
         ax.set_xlim(0, max(tls_results.periods))
-        #ax.set_title("TLS Periodogram")
+        # ax.set_title("TLS Periodogram")
         ax.legend(title="Orbital period [d]")
 
         # +++++++++++++++++++++++ax4 : flattened lc
         ax = axs[3]
         flat.scatter(ax=ax, label="flat", zorder=1)
         # ax.scatter(time, flat, label="flat")
-        #binned phase folded lc
+        # binned phase folded lc
         cadence = np.median(np.diff(time))
-        nbins=int(round(bin_hr/24/cadence))
-        flat.bin(nbins).scatter(ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3)
-        #transit mask
-        tmask = get_transit_mask(flat, tls_results.period, tls_results.T0, tls_results.duration*24)
-        flat[tmask].scatter(ax=ax, label="transit", c='r', alpha=0.5, zorder=1)
+        nbins = int(round(bin_hr / 24 / cadence))
+        flat.bin(nbins).scatter(
+            ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3
+        )
+        # transit mask
+        tmask = get_transit_mask(
+            flat, tls_results.period, tls_results.T0, tls_results.duration * 24
+        )
+        flat[tmask].scatter(ax=ax, label="transit", c="r", alpha=0.5, zorder=1)
         # ax.scatter(bin_data(time, binsize=nbins),
         #             bin_data(flat, binsize=nbins),
         #             label=f"{bin_hr}-hr bin")
 
         # +++++++++++++++++++++ax6: phase-folded at orbital period
         ax = axs[5]
-        #binned phase folded lc
+        # binned phase folded lc
         fold = flat.fold(period=tls_results.period, t0=tls_results.T0)
-        fold.scatter(ax=ax, c='k', alpha=0.1, label="folded", zorder=1)
-        fold.bin(nbins).scatter(ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=2)
+        fold.scatter(ax=ax, c="k", alpha=0.1, label="folded", zorder=1)
+        fold.bin(nbins).scatter(
+            ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=2
+        )
         # ax.scatter(bin_data(tls_results.folded_phase, binsize=nbins),
         #             bin_data(tls_results.folded_y, binsize=nbins),
         #             color="C1", label=f"{bin_hr}-hr bin")
@@ -338,22 +345,28 @@ def make_tql(
 
         # TLS transit model
         ax.plot(
-            tls_results.model_folded_phase-offset,
+            tls_results.model_folded_phase - offset,
             tls_results.model_folded_model,
-            color="red", zorder=3, label='TLS model'
-            )
+            color="red",
+            zorder=3,
+            label="TLS model",
+        )
         ax.set_xlabel("Phase")
         ax.set_ylabel("Relative flux")
-        width = tls_results.duration/tls_results.period
+        width = tls_results.duration / tls_results.period
         ax.set_xlim(-width, width)
 
         # +++++++++++++++++++++ax: odd-even
         ax = axs[6]
         yline = tls_results.depth
-        fold.scatter(ax=ax, c='C0', alpha=0.1, label="_nolegend_", zorder=1)
-        fold[fold.even_mask].bin(nbins).scatter(label="even", s=30, ax=ax, zorder=2)
+        fold.scatter(ax=ax, c="C0", alpha=0.1, label="_nolegend_", zorder=1)
+        fold[fold.even_mask].bin(nbins).scatter(
+            label="even", s=30, ax=ax, zorder=2
+        )
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
-        fold[fold.odd_mask].bin(nbins).scatter(label="odd", s=30, ax=ax, zorder=3)
+        fold[fold.odd_mask].bin(nbins).scatter(
+            label="odd", s=30, ax=ax, zorder=3
+        )
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
 
         # +++++++++++++++++++++summary

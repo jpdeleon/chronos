@@ -106,17 +106,19 @@ extinction_ratios = {
 def get_phase(time, period, epoch, offset=0.5):
     """phase offset -0.5,0.5
     """
-    phase = (((((time-epoch)/period)+offset)%1)/offset)-1
+    phase = (((((time - epoch) / period) + offset) % 1) / offset) - 1
     return phase
+
 
 def bin_data(array, binsize, func=np.mean):
     """
     """
     a_b = []
     for i in range(0, array.shape[0], binsize):
-        a_b.append(func(array[i:i+binsize], axis=0))
+        a_b.append(func(array[i : i + binsize], axis=0))
 
     return a_b
+
 
 def get_tess_ccd_info(target_coord):
     """use search_targetpixelfile like get_all_sectors?"""
@@ -1430,6 +1432,7 @@ def compute_cdpp(time, flux, window, cadence=0.5, robust=False):
 
     # Normalize by the window size.
     return 1e6 * np.median(std) / np.sqrt(window / cadence)
+
 
 def map_float(x):
     return list(map(float, x))

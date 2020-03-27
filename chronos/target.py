@@ -632,7 +632,7 @@ class Target:
         tables = v.query_region(self.target_coord, radius=radius)
         if verbose:
             print(f"{len(tables)} tables found.")
-            print({k:v.description for k,v in tables.items()})
+            print({k: v.description for k, v in tables.items()})
         self.vizier_tables = tables
         return tables
 
