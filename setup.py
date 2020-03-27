@@ -34,7 +34,7 @@ setup(
         "tqdm",
         "astroplan==0.6",
         "transitleastsquares",
-        # wotan
+        "wotan",
         "scikit-image==0.16.2",  # just for measure.find_contours
         # pprint==3.8.2
         "deepdish==0.3.6",

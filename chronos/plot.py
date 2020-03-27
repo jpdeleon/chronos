@@ -25,10 +25,12 @@ from astropy.visualization import ZScaleInterval
 from astroquery.mast import Catalogs
 from astropy.wcs import WCS
 import astropy.units as u
+from astropy.stats import sigma_clip
 from astroplan.plots import plot_finder_image
 from astropy.timeseries import LombScargle
 from mpl_toolkits.mplot3d import Axes3D
 from skimage import measure
+from wotan import flatten
 import deepdish as dd
 
 # Import from package
@@ -46,6 +48,9 @@ from chronos.utils import (
     is_point_inside_mask,
     get_fluxes_within_mask,
     get_rotation_period,
+    get_transit_mask,
+    bin_data,
+    get_phase,
 )
 
 TESS_pix_scale = 21 * u.arcsec  # /pix
@@ -77,8 +82,8 @@ def make_tql(
     ticid=None,
     name=None,
     sector=None,
-    cadence="long",
-    lctype="custom",  # pdcsap, sap
+    cadence="short",
+    lctype="pdcsap",  # pdcsap, sap, custom
     sap_mask=None,
     aper_radius=1,
     threshold_sigma=5,
@@ -86,13 +91,22 @@ def make_tql(
     cutout_size=(15, 15),
     quality_bitmask="default",
     apply_data_quality_mask=False,
-    window_length=31,
+    #window_length=31,
     savefig=False,
     savetls=False,
     outdir=".",
+    bin_hr=4,
     verbose=False,
     clobber=False,
 ):
+    """
+    cadence : short, long
+    lctype : short=(pdcsap, sap, custom); long=(custom, cdips)
+    sap_mask : short=pipeline; long=square,round,threshold,percentile
+    aper_radius : used for square or round sap_mask
+    percentile : used for percentile sap_mask
+    quality_bitmask : none, default, hard, hardest
+    """
     star = Star(
         gaiaDR2id=gaiaid,
         toiid=toiid,
@@ -145,6 +159,7 @@ def make_tql(
             )
         else:
             raise ValueError("Use cadence=(long, short).")
+        print(f"Analyzing {cadence} cadence data with {sap_mask} mask")
 
         l = star.lc
         # +++++++++++++++++++++ raw lc
@@ -163,17 +178,29 @@ def make_tql(
         if (outdir is not None) & (not os.path.exists(outdir)):
             os.makedirs(outdir)
 
-        fig, axs = pl.subplots(2, 3, figsize=(12, 8))
+        fig, axs = pl.subplots(3, 3, figsize=(15, 15))
         axs = axs.flatten()
 
-        # +++++++++++++++++++++ax0: tpf
-        ax = axs[0]
+        # +++++++++++++++++++++ax7: tpf
+        ax = axs[7]
         if cadence == "short":
-            tpf = l.tpf
+            if l.tpf is None:
+                #e.g. pdcsap, sap
+                tpf = l.get_tpf()
+            else:
+                #e.g. custom
+                tpf = l.tpf
         else:
-            tpf = l.tpf_tesscut
+            if l.tpf_tesscut is None:
+                #e.g. cdips
+                tpf = l.get_tpf_tesscut()
+            else:
+                #e.g. custom
+                tpf = l.tpf_tesscut
+
         if star.gaia_sources is None:
             _ = l.query_gaia_dr2_catalog(radius=120)
+
         _ = plot_gaia_sources_on_tpf(
             tpf=tpf,
             target_gaiaid=l.gaiaid,
@@ -185,14 +212,14 @@ def make_tql(
             ax=ax,
         )
 
-        # +++++++++++++++++++++ax1: Detrending/ Flattening
-        ax = axs[1]
+        # +++++++++++++++++++++ax: Raw + trend
+        ax = axs[0]
         lc = lc.normalize().remove_nans().remove_outliers()
-        # flat, trend = lc.flatten(
-        #     window_length=window_length, return_trend=True
-        # )
-        time, flux = lc.time, lc.flux
-        flat, trend = flatten(
+        flat, trend = lc.flatten(
+            window_length=101, return_trend=True
+        ) #flat and trend here are just place-holder
+        time, flux, err = lc.time, lc.flux, lc.flux_err
+        wflat, wtrend = flatten(
                 time,                 # Array of time values
                 flux,                 # Array of flux values
                 method='biweight',
@@ -202,21 +229,64 @@ def make_tql(
                 return_trend=True,    # Return trend and flattened light curve
                 cval=5.0              # Tuning parameter for the robust estimators
                 )
-        _ = lc.scatter(ax=ax, label="bkg_sub")
-        # trend.plot(ax=ax, label="trend", lw=1, c="r")
-        ax.plot(time, trend, label="trend", lw=1, c='r')
+        #f > np.median(f) + 5 * np.std(f)
+        idx = sigma_clip(wflat, sigma_lower=np.inf, sigma_upper=3).mask
+        #replace flux values with that from wotan
+        flat = flat[~idx]
+        trend = trend[~idx]
+        trend.flux = wtrend[~idx]
+        flat.flux = wflat[~idx]
+        _ = lc.scatter(ax=ax, label="raw")
+        trend.plot(ax=ax, label="trend", lw=1, c="r")
+        # ax.plot(time, wtrend, label="trend", lw=1, c='r')
 
+        # +++++++++++++++++++++ax2 Lomb-scargle periodogram
+        ax = axs[1]
+        baseline = int(time[-1] - time[0])
+        max_per = baseline / 2
+
+        ls = LombScargle(time, flux)
+        frequencies, powers = ls.autopower(
+            minimum_frequency=1.0 / max_per,
+            maximum_frequency=1.0 # 1 day
+        )
+        periods = 1./frequencies
+        idx = np.argmax(powers)
+        best_freq = frequencies[idx]
+        best_period = 1.0 / best_freq
+        ax.plot(periods, powers, "k-")
+        ax.axvline(
+            best_period, 0, 1, ls="--", c="r", label=f"peak={best_period:.2f}"
+        )
+        ax.legend(title="Rotation period [d]")
+        ax.set_xscale("log")
+        ax.set_xlabel("Period [days]")
+        ax.set_ylabel("Lomb-Scargle Power")
+
+        # +++++++++++++++++++++ax phase-folded at rotation period + sinusoidal model
         ax = axs[2]
-        # flat.scatter(ax=ax, label="flat")
-        ax.scatter(time, flat, label="flat")
-        flat.bin(10).scatter(ax=ax, label="flat (bin=10)")
+        offset = 0.5
+        t_fit = np.linspace(0, 1, 100) - offset
+        y_fit = ls.model(t_fit * best_period - best_period / 2, best_freq)
+        ax.plot(t_fit * best_period, y_fit, "r-", lw=3, label="model", zorder=3)
+        # fold data
+        phase = ((time / best_period) % 1) - offset
 
-        # +++++++++++++++++++++ax3: TLS periodogram
-        ax = axs[3]
-        # lc = flat
-        tls_results = tls(time, flat).power()
+        a = ax.scatter(
+            phase * best_period, flux, c=time, cmap=pl.get_cmap("Blues")
+        )
+        pl.colorbar(a, ax=ax, label=f"Time [BTJD]")
+        ax.legend()
+        ax.set_xlim(-best_period / 2, best_period / 2)
+        ax.set_ylabel("Normalized Flux")
+        ax.set_xlabel("Phase [days]")
+        # fig.suptitle(title)
 
-        label = f"Best period={tls_results.period:.3}"
+        # +++++++++++++++++++++ax5: TLS periodogram
+        ax = axs[4]
+        tls_results = tls(flat.time, flat.flux).power()
+
+        label = f"peak={tls_results.period:.3}"
         ax.axvline(tls_results.period, alpha=0.4, lw=3, label=label)
         ax.set_xlim(np.min(tls_results.periods), np.max(tls_results.periods))
 
@@ -227,37 +297,68 @@ def make_tql(
             ax.axvline(
                 tls_results.period / i, alpha=0.4, lw=1, linestyle="dashed"
             )
-        ax.set_ylabel(r"SDE")
+        ax.set_ylabel(r"Transit Least Squares SDE")
         ax.set_xlabel("Period (days)")
         ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
         ax.set_xlim(0, max(tls_results.periods))
-        ax.set_title("TLS Periodogram")
-        ax.legend()
+        #ax.set_title("TLS Periodogram")
+        ax.legend(title="Orbital period [d]")
 
-        # +++++++++++++++++++++ax4: phase-folded
-        ax = axs[4]
-        phase = get_phase(time, tls_results.period, tls_results.T0)
+        # +++++++++++++++++++++++ax4 : flattened lc
+        ax = axs[3]
+        flat.scatter(ax=ax, label="flat", zorder=1)
+        # ax.scatter(time, flat, label="flat")
+        #binned phase folded lc
+        cadence = np.median(np.diff(time))
+        nbins=int(round(bin_hr/24/cadence))
+        flat.bin(nbins).scatter(ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3)
+        #transit mask
+        tmask = get_transit_mask(flat, tls_results.period, tls_results.T0, tls_results.duration*24)
+        flat[tmask].scatter(ax=ax, label="transit", c='r', alpha=0.5, zorder=1)
+        # ax.scatter(bin_data(time, binsize=nbins),
+        #             bin_data(flat, binsize=nbins),
+        #             label=f"{bin_hr}-hr bin")
+
+        # +++++++++++++++++++++ax6: phase-folded at orbital period
+        ax = axs[5]
+        #binned phase folded lc
+        fold = flat.fold(period=tls_results.period, t0=tls_results.T0)
+        fold.scatter(ax=ax, c='k', alpha=0.1, label="folded", zorder=1)
+        fold.bin(nbins).scatter(ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=2)
+        # ax.scatter(bin_data(tls_results.folded_phase, binsize=nbins),
+        #             bin_data(tls_results.folded_y, binsize=nbins),
+        #             color="C1", label=f"{bin_hr}-hr bin")
+        # phase = get_phase(time, tls_results.period, tls_results.T0)
+        # ax.scatter(
+        #     tls_results.folded_phase-offset,
+        #     tls_results.folded_y,
+        #     color="C0", s=5,
+        #     zorder=1, label='phase-folded'
+        #     )
+
+        # TLS transit model
         ax.plot(
-            # tls_results.model_folded_phase,
-            phase,
+            tls_results.model_folded_phase-offset,
             tls_results.model_folded_model,
-            color="red",
-        )
-        ax.scatter(
-            tls_results.folded_phase,
-            tls_results.folded_y,
-            color="blue",
-            s=10,
-            alpha=0.5,
-            zorder=2,
-        )
+            color="red", zorder=3, label='TLS model'
+            )
         ax.set_xlabel("Phase")
         ax.set_ylabel("Relative flux")
-        ax.set_xlim(0.4, 0.6)
+        width = tls_results.duration/tls_results.period
+        ax.set_xlim(-width, width)
+
+        # +++++++++++++++++++++ax: odd-even
+        ax = axs[6]
+        yline = tls_results.depth
+        fold.scatter(ax=ax, c='C0', alpha=0.1, label="_nolegend_", zorder=1)
+        fold[fold.even_mask].bin(nbins).scatter(label="even", s=30, ax=ax, zorder=2)
+        ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
+        fold[fold.odd_mask].bin(nbins).scatter(label="odd", s=30, ax=ax, zorder=3)
+        ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
 
         # +++++++++++++++++++++summary
         tp = star.tic_params
-        ax = axs[5]
+        ax = axs[8]
         Rp = tls_results["rp_rs"] * tp["rad"] * u.Rsun.to(u.Rearth)
 
         msg = "Candidate Properties\n"
