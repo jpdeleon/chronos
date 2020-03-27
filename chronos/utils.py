@@ -128,6 +128,8 @@ def get_all_campaigns(epicid):
     res = lk.search_targetpixelfile(
         f"K2 {epicid}", campaign=None, mission="K2"
     )
+    errmsg = "No data found"
+    assert len(res) > 0, errmsg
     df = res.table.to_pandas()
     campaigns = df["observation"].apply(lambda x: x.split()[-1]).values
     return np.array([int(c) for c in campaigns])
