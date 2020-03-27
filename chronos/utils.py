@@ -231,9 +231,11 @@ def get_rotation_period(
         maxmimum period (default=half baseline e.g. ~13 days)
     npoints : int
         datapoints around which to fit a Gaussian
-
+    Note:
     The period and uncertainty were determined from the mean and the
     half-width at half-maximum of a Gaussian fit to the periodogram peak, respectively
+    See also:
+    https://arxiv.org/abs/1702.03885
     """
     baseline = int(time[-1] - time[0])
     max_per = max_per if max_per is not None else baseline / 2

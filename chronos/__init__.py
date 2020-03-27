@@ -13,6 +13,7 @@ from .k2 import *
 from .plot import *
 from .transit import *
 from .utils import *
+from .gls import *
 from .config import *
 from .constants import *
 
