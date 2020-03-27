@@ -18,7 +18,7 @@ from astropy.io import fits
 from chronos.config import DATA_PATH
 from chronos.target import Target
 from chronos.constants import K2_TIME_OFFSET
-from chronos.utils import detrend
+from chronos.utils import detrend, get_all_campaigns
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ class K2(Target):
         name=None,
         ra_deg=None,
         dec_deg=None,
+        search_radius=3,
         quality_bitmask="default",
         verbose=True,
         clobber=True,
@@ -62,6 +63,7 @@ class K2(Target):
             name=name,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
+            search_radius=search_radius,
             verbose=verbose,
             clobber=clobber,
             mission="k2",
@@ -75,19 +77,11 @@ class K2(Target):
         self.lc_raw = None
         self.lc_custom = None
         self.lcf = None
-        self.all_campaigns = self.get_all_campaigns()
+        self.all_campaigns = get_all_campaigns(self.epicid)
         if self.campaign is None:
             self.campaign = self.all_campaigns[0]
-            print(f"Available sectors: {self.all_campaigns}")
+            print(f"Available campaigns: {self.all_campaigns}")
             print(f"Using campaign={self.campaign}.")
-
-    def get_all_campaigns(self):
-        res = lk.search_targetpixelfile(
-            f"K2 {self.epicid}", campaign=None, mission="K2"
-        )
-        df = res.table.to_pandas()
-        campaigns = df["observation"].apply(lambda x: x.split()[-1]).values
-        return np.array(campaigns)
 
     def get_tpf(self):
         """

@@ -50,6 +50,7 @@ log = logging.getLogger(__name__)
 
 __all__ = [
     "get_tess_ccd_info",
+    "get_all_campaigns",
     "get_all_sectors",
     "get_sector_cam_ccd",
     "get_ctois",
@@ -101,7 +102,7 @@ extinction_ratios = {
 
 
 def get_tess_ccd_info(target_coord):
-    """ """
+    """use search_targetpixelfile like get_all_sectors?"""
     ccd_info = tesscut.Tesscut.get_sectors(target_coord)
     errmsg = f"Target not found in any TESS sectors"
     assert len(ccd_info) > 0, errmsg
@@ -113,6 +114,16 @@ def get_all_sectors(target_coord):
     ccd_info = get_tess_ccd_info(target_coord)
     all_sectors = [int(i) for i in ccd_info["sector"].values]
     return np.array(all_sectors)
+
+
+def get_all_campaigns(epicid):
+    """ """
+    res = lk.search_targetpixelfile(
+        f"K2 {epicid}", campaign=None, mission="K2"
+    )
+    df = res.table.to_pandas()
+    campaigns = df["observation"].apply(lambda x: x.split()[-1]).values
+    return np.array([int(c) for c in campaigns])
 
 
 def get_sector_cam_ccd(target_coord, sector=None):
@@ -321,7 +332,7 @@ def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
         nearest_obj = df.iloc[idx]["Target"]
         ra, dec = df.iloc[idx][["RA", "DEC"]]
         print(
-            f"Nearest HARPS obj is\n{nearest_obj}: ra,dec=({ra},{dec}) @ d={sep2d.arcsec:.2f}\n"
+            f"Nearest HARPS obj is\n{nearest_obj}: ra,dec=({ra},{dec}) @ d={sep2d.arcsec/60:.2f} arcmin\n"
         )
         return None
 
@@ -482,7 +493,9 @@ def parse_aperture_mask(
             print("aperture photometry mask: {}\n".format(sap_mask))
 
     # stacked_img = np.median(tpf.flux,axis=0)
-    if sap_mask == "all":
+    if (sap_mask == "pipeline") or (sap_mask is None):
+        mask = tpf.pipeline_mask  # default
+    elif sap_mask == "all":
         mask = np.ones((tpf.shape[1], tpf.shape[2]), dtype=bool)
     elif sap_mask == "round":
         assert aper_radius is not None, "supply aper_radius"
@@ -499,7 +512,7 @@ def parse_aperture_mask(
         median_img = np.nanmedian(tpf.flux, axis=0)
         mask = median_img > np.nanpercentile(median_img, percentile)
     else:
-        mask = tpf.pipeline_mask  # default
+        raise ValueError("Unknown aperture mask")
     return mask
 
 
@@ -578,7 +591,12 @@ def make_square_mask(img, size, xy_center=None, angle=None):
 
 
 def remove_bad_data(tpf, sector=None, verbose=True):
-    """Remove bad cadences identified in data releae notes
+    """Remove bad cadences identified in data release notes
+
+    https://arxiv.org/pdf/2003.10451.pdf, S4.5:
+    all transiting planets with periods 10.5-17.5 d could be
+    hidden by the masking in the PDC light curves if only
+    observed in Sector 14.
 
     Parameters
     ----------
@@ -677,8 +695,11 @@ def remove_bad_data(tpf, sector=None, verbose=True):
             | (tpf.time > data_colletion_resumed)
         ]
     if sector == 9:
-        # use of Cam1 in attitude control was disabled at the
-        # start of both orbits due to strong scattered light
+        """
+
+
+        use of Cam1 in attitude control was disabled at the
+        start of both orbits due to strong scattered light"""
         cam1_guide_enabled = 1543.75080
         orbit25_end = 1555.54148
         cam1_guide_enabled2 = 1543.75080
@@ -694,8 +715,14 @@ def remove_bad_data(tpf, sector=None, verbose=True):
             | (tpf.time > cam1_guide_enabled2)
         ]
     if sector == 10:
-        # use of Cam1 in attitude control was disabled at the
-        # start of both orbits due to strong scattered light
+        """
+        https://archive.stsci.edu/missions/tess/doc/tess_drn/tess_sector_10_drn14_v02.pdf
+
+        Total of 25.27 days of science data collected
+
+        use of Cam1 in attitude control was disabled at the
+        start of both orbits due to strong scattered light
+        """
         cam1_guide_enabled = 1570.87620
         orbit27_end = 1581.78453
         cam1_guide_enabled2 = 1584.72342
@@ -711,8 +738,14 @@ def remove_bad_data(tpf, sector=None, verbose=True):
             | (tpf.time > cam1_guide_enabled2)
         ]
     if sector == 11:
-        # use of Cam1 in attitude control was disabled at the
-        # start of both orbits due to strong scattered light
+        """
+        https://archive.stsci.edu/missions/tess/doc/tess_drn/tess_sector_11_drn16_v02.pdf
+
+        use of Cam1 in attitude control was disabled at the
+        start of both orbits due to strong scattered light
+
+        Total of 26.04 days of science data collected
+        """
         cam1_guide_enabled = 1599.94148
         orbit29_end = 1609.69425
         cam1_guide_enabled2 = 1614.19842
@@ -727,6 +760,52 @@ def remove_bad_data(tpf, sector=None, verbose=True):
             | (tpf.time <= orbit29_end)
             | (tpf.time > cam1_guide_enabled2)
         ]
+
+    if sector in [12, 13, 14, 15, 16, 17, 19, 20, 21]:
+        """
+        See list of release notes:
+        http://archive.stsci.edu/tess/tess_drn.html
+
+        Total days of science data collected:
+        12: 26.90
+        13: 27.51
+        14: 25.91
+        15: 24.97
+        16: 23.38
+        17: 23.51
+        19: 24.10
+        20: 24.79
+        21: 24.42
+
+        Note on sector 14:
+        * first northern ecliptic hemisphere pointing
+        * first sector to make use of TIC 8 based on Gaia DR2 astrometry+photometry
+        * spacecraft is pointed to a higher ecliptic latitude (+85 degrees rather
+        than +54 degrees) to mitigate issues with scattered light in Cam 1 and Cam 2
+        * first to make use of an updated SPOC data processing
+        pipeline, SPOC Release 4.0
+        * the first to make use of CCD-specific Data Anomaly Flags that mark
+        cadences excluded due to high levels of scattered light. The flags are referred to as
+        “Scattered Light” flags and marked with bit 13, value 4096
+        """
+        print(f"No instrument anomaly in sector {sector}")
+
+    if sector == 18:
+        """
+        * spacecraft passed through the shadow of the Earth at the start of orbit 43
+        during which the instrument was turned off and no data were collected for 6.2 hr
+        * thermal state of the spacecraft changed during this time,
+        and trends in the raw photometry and target positions are apparent after data collection
+        resumed
+
+        Total of 23.12 days of science data collected
+        """
+        instru_restart = 1791.36989
+        orbit43_end = 1802.43999
+        if verbose:
+            print("t>{}|t<{}\n".format(instru_restart, orbit43_end))
+        tpf = tpf[(tpf.time > instru_restart) | (tpf.time <= orbit29_end)]
+
     return tpf
 
 
@@ -843,30 +922,17 @@ def get_ctois(clobber=True, outdir=DATA_PATH, verbose=False, remove_FP=True):
 
     if not exists(fp) or clobber:
         d = pd.read_csv(dl_link)  # , dtype={'RA': float, 'Dec': float})
-        msg = f"Downloading {dl_link}\n"
-        # if add_FPP:
-        #     fp2 = join(outdir, "Giacalone2020/tab4.txt")
-        #     classified = ascii.read(fp2).to_pandas()
-        #     fp3 = join(outdir, "Giacalone2020/tab5.txt")
-        #     unclassified = ascii.read(fp3).to_pandas()
-        #     fpp = pd.concat(
-        #         [
-        #             classified[["TOI", "FPP-2m", "FPP-30m"]],
-        #             unclassified[["TOI", "FPP"]],
-        #         ],
-        #         sort=True,
-        #     )
-        #     d = pd.merge(d, fpp, how="outer").drop_duplicates()
+        msg = "Downloading {}\n".format(dl_link)
     else:
         d = pd.read_csv(fp).drop_duplicates()
-        msg = f"Loaded: {fp}\n"
+        msg = "Loaded: {}\n".format(fp)
     d.to_csv(fp, index=False)
 
     # remove False Positives
     if remove_FP:
         d = d[d["User Disposition"] != "FP"]
         msg += "CTOIs with user disposition==FP are removed.\n"
-    msg += f"Saved: {fp}\n"
+    msg += "Saved: {}\n".format(fp)
     if verbose:
         print(msg)
     return d.sort_values("CTOI")

@@ -22,7 +22,7 @@ import lightkurve as lk
 
 # Import from package
 from chronos.config import DATA_PATH
-from chronos.tpf import Tpf, Tpf_cutout
+from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
 from chronos.utils import (
     remove_bad_data,
@@ -40,7 +40,7 @@ log = logging.getLogger(__name__)
 __all__ = ["ShortCadence", "LongCadence"]
 
 
-class LongCadence(Tpf_cutout):
+class LongCadence(FFI_cutout):
     """
     """
 
@@ -54,7 +54,7 @@ class LongCadence(Tpf_cutout):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3 * u.arcsec,
+        search_radius=3,
         sap_mask="square",
         aper_radius=1,
         threshold_sigma=5,
@@ -70,6 +70,27 @@ class LongCadence(Tpf_cutout):
         # campaign=None,
         # limit=None,
     ):
+        """
+        handles lightcurve creation and manipulation for TESS long cadence data
+        using `FFI_cutout`
+
+        Attributes
+        ----------
+        sap_mask : str
+            aperture mask shape (default=square)
+        aper_radius : int
+            aperture radius
+        threshold_sigma : float
+            threshold sigma above median flux
+        percentile : float
+            percentile of flux
+        quality_bitmask : str
+            (default=default)
+            https://github.com/KeplerGO/lightkurve/blob/master/lightkurve/utils.py#L210
+        apply_data_quality_mask : bool (default=False)
+            remove bad data identified in TESS Data Release notes
+
+        """
         super().__init__(
             name=name,
             toiid=toiid,
@@ -251,13 +272,13 @@ class ShortCadence(Tpf):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3 * u.arcsec,
-        sap_mask="square",
+        search_radius=3,
+        sap_mask="pipeline",
         aper_radius=1,
         threshold_sigma=5,
         percentile=95,
         quality_bitmask="default",
-        apply_data_quality_mask=True,
+        apply_data_quality_mask=False,
         apphot_method="aperture",  # or prf
         clobber=True,
         verbose=True,
@@ -267,6 +288,21 @@ class ShortCadence(Tpf):
         # campaign=None,
         # limit=None,
     ):
+        """
+        sap_mask : str
+            aperture mask shape (default=pipeline)
+        aper_radius : int
+            if aperture radius for mask!=pipeline
+        threshold_sigma : float
+            threshold sigma above median flux for mask!=pipeline
+        percentile : float
+            percentile of flux for mask!=pipeline
+        quality_bitmask : str
+            (default=default)
+            https://github.com/KeplerGO/lightkurve/blob/master/lightkurve/utils.py#L210
+        apply_data_quality_mask : bool (default=False)
+            remove bad data identified in TESS Data Release notes
+        """
         super().__init__(
             name=name,
             toiid=toiid,
@@ -496,7 +532,9 @@ class ShortCadence(Tpf):
         self.lc_custom = lc
         # compute Contamination
         if self.gaia_sources is None:
-            gaia_sources = self.query_gaia_dr2_catalog(radius=120)
+            gaia_sources = self.query_gaia_dr2_catalog(
+                radius=120, verbose=False
+            )
         else:
             gaia_sources = self.gaia_sources
         fluxes = get_fluxes_within_mask(self.tpf, self.aper_mask, gaia_sources)

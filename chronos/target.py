@@ -29,6 +29,7 @@ import lightkurve as lk
 # Import from package
 from chronos import cluster
 from chronos.utils import (
+    get_all_campaigns,
     get_all_sectors,
     get_tess_ccd_info,
     get_toi,
@@ -54,17 +55,25 @@ class Target:
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3 * u.arcsec,
+        search_radius=3,
         verbose=True,
         clobber=False,
         mission="tess",
     ):
+        """
+        handles target resolution and basic catalog queries
+
+        Attributes
+        ----------
+        search_radius : float
+            search radius for matching [arcsec]
+        """
         self.toiid = toiid  # e.g. 837
         self.ticid = ticid  # e.g. 364107753
         self.epicid = epicid  # 201270176
         self.gaiaid = gaiaDR2id  # e.g. Gaia DR2 5251470948229949568
         self.target_name = name  # e.g. Pi Mensae
-        self.search_radius = search_radius
+        self.search_radius = search_radius * u.arcsec
         self.tic_params = None
         self.gaia_params = None
         self.gaia_sources = None
@@ -82,6 +91,7 @@ class Target:
         self.clobber = clobber
         self.verbose = verbose
         self.mission = mission.lower()
+        self.vizier_tables = None
 
         if name:
             if name[:4].lower() == "epic":
@@ -124,9 +134,12 @@ class Target:
             self.all_sectors = get_all_sectors(self.target_coord)
             self.tess_ccd_info = get_tess_ccd_info(self.target_coord)
         elif self.mission == "k2":
-            raise NotImplementedError
+            # raise NotImplementedError
+            self.all_campaigns = get_all_campaigns(self.epicid)
 
-    def query_gaia_dr2_catalog(self, radius=None, return_nearest_xmatch=False):
+    def query_gaia_dr2_catalog(
+        self, radius=None, return_nearest_xmatch=False, verbose=None
+    ):
         """
         Parameter
         ---------
@@ -158,7 +171,9 @@ class Target:
         https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu3ast/sec_cu3ast_cali/ssec_cu3ast_cali_frame.html
         """
         radius = self.search_radius if radius is None else radius * u.arcsec
-        if self.verbose:
+        verbose = verbose if verbose is not None else self.verbose
+        if verbose:
+            # silenced when verbose=False instead of None
             print(
                 f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius}.\n"""
             )
@@ -235,6 +250,8 @@ class Target:
 
     def query_tic_catalog(self, radius=None, return_nearest_xmatch=False):
         """
+        Query TIC v8 catalog from MAST
+
         Parameter
         ---------
         radius : float
@@ -421,7 +438,7 @@ class Target:
         uncleared = d.loc[d.source_id.isin(bad)]
         return uncleared
 
-    def find_nearest_cluster_member(
+    def get_nearest_cluster_member(
         self,
         catalog_name="Bouma2019",
         df=None,
@@ -547,7 +564,7 @@ class Target:
         radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
         if self.verbose:
             print(
-                f"Searching MAST: ({self.target_coord.to_string()}) with radius={radius}"
+                f"Searching MAST for ({self.target_coord.to_string()}) with radius={radius}"
             )
         table = Observations.query_region(self.target_coord, radius=radius)
         msg = "No results from MAST"
@@ -572,7 +589,7 @@ class Target:
         radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
         if self.verbose:
             print(
-                f"Searching MAST: ({self.target_coord}) with radius={radius}"
+                f"Searching MAST for ({self.target_coord}) with radius={radius}"
             )
         simbad = Simbad()
         simbad.add_votable_fields("typed_id", "otype", "sptype", "rot", "mk")
@@ -614,7 +631,22 @@ class Target:
         tables = v.query_region(self.target_coord, radius=radius)
         if self.verbose:
             print(f"{len(tables)} tables found.")
+        self.vizier_tables = tables
         return tables
+
+    def query_vizier_param(self, param, radius=3):
+        if self.vizier_tables is None:
+            tabs = self.query_vizier(radius=radius)
+        else:
+            tabs = self.vizier_tables
+        idx = [param in i.columns for i in tabs]
+        vals = {
+            tabs.keys()[int(i)]: tabs[int(i)][param][0]
+            for i in np.argwhere(idx).flatten()
+        }
+        if self.verbose:
+            print(f"Found {sum(idx)} references with {param}")
+        return vals
 
     def query_eso(self, diameter=3, instru=None, min_snr=1):
         """

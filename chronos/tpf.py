@@ -25,10 +25,11 @@ from chronos.utils import (
 
 user = getpass.getuser()
 MISSION = "TESS"
+# TODO: ~/.astropy/cache/astroquery/*.pickle better default location than below?
 fitsoutdir = join("/home", user, "data/transit")
 log = logging.getLogger(__name__)
 
-__all__ = ["Tpf", "Tpf_cutout"]
+__all__ = ["Tpf", "FFI_cutout"]
 
 
 class Tpf(Target):
@@ -42,7 +43,7 @@ class Tpf(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3 * u.arcsec,
+        search_radius=3,
         sap_mask="pipeline",
         aper_radius=1,
         threshold_sigma=5,
@@ -111,8 +112,6 @@ class Tpf(Target):
         else:
             - download_tpf
         """
-        if self.verbose:
-            print(f"Searching targetpixelfile using lightkurve")
         sector = sector if sector else self.sector
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
@@ -262,7 +261,7 @@ class Tpf(Target):
         return aper_mask
 
 
-class Tpf_cutout(Target):
+class FFI_cutout(Target):
     def __init__(
         self,
         sector=None,
@@ -273,14 +272,14 @@ class Tpf_cutout(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3 * u.arcsec,
+        search_radius=3,
         sap_mask="square",
         aper_radius=1,
         threshold_sigma=5,
         percentile=95,
         cutout_size=(15, 15),
         quality_bitmask="default",
-        apply_data_quality_mask=True,
+        apply_data_quality_mask=False,
         clobber=True,
         verbose=True,
         # mission="TESS",

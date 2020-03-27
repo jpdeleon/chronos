@@ -32,7 +32,8 @@ from skimage import measure
 import deepdish as dd
 
 # Import from package
-from chronos.cluster import ClusterCatalog
+from chronos.star import Star
+from chronos.cluster import ClusterCatalog, Cluster
 from chronos.lightcurve import ShortCadence, LongCadence
 from chronos.utils import (
     get_transformed_coord,
@@ -77,13 +78,14 @@ def make_tql(
     name=None,
     sector=None,
     cadence="long",
+    lctype="custom",  # pdcsap, sap
     sap_mask=None,
     aper_radius=1,
     threshold_sigma=5,
     percentile=90,
     cutout_size=(15, 15),
     quality_bitmask="default",
-    apply_data_quality_mask=True,
+    apply_data_quality_mask=False,
     window_length=31,
     savefig=False,
     savetls=False,
@@ -91,14 +93,27 @@ def make_tql(
     verbose=False,
     clobber=False,
 ):
+    star = Star(
+        gaiaDR2id=gaiaid,
+        toiid=toiid,
+        ticid=ticid,
+        name=name,
+        verbose=verbose,
+        clobber=clobber,
+    )
+    if star.gaia_params is None:
+        _ = star.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+    if star.tic_params is None:
+        _ = star.query_tic_catalog(return_nearest_xmatch=True)
+    if not star.validate_gaia_tic_xmatch():
+        raise ValueError("Gaia TIC cross-match failed")
     try:
         if cadence == "long":
-            if sap_mask is None:
-                sap_mask = "square"
-            l = LongCadence(
-                gaiaDR2id=gaiaid,
-                toiid=toiid,
-                ticid=ticid,
+            sap_mask = "square" if sap_mask is None else sap_mask
+            star.lc = LongCadence(
+                gaiaDR2id=star.gaiaid,
+                toiid=star.toiid,
+                ticid=star.ticid,
                 name=name,
                 sector=sector,
                 sap_mask=sap_mask,
@@ -111,16 +126,12 @@ def make_tql(
                 verbose=verbose,
                 clobber=clobber,
             )
-            if verbose:
-                print("Querying Tesscut\n")
-            tpf = l.get_tpf_tesscut(sector=l.sector)
         elif cadence == "short":
-            if sap_mask is None:
-                sap_mask = "pipeline"
-            l = ShortCadence(
-                gaiaDR2id=gaiaid,
-                toiid=toiid,
-                ticid=ticid,
+            sap_mask = "pipeline" if sap_mask is None else sap_mask
+            star.lc = ShortCadence(
+                gaiaDR2id=star.gaiaid,
+                toiid=star.toiid,
+                ticid=star.ticid,
                 name=name,
                 sector=sector,
                 sap_mask=sap_mask,
@@ -132,11 +143,22 @@ def make_tql(
                 verbose=verbose,
                 clobber=clobber,
             )
-            if verbose:
-                print("Querying Tesscut\n")
-            tpf, tpf_info = l.get_tpf(sector=l.sector, return_df=True)
         else:
             raise ValueError("Use cadence=(long, short).")
+
+        l = star.lc
+        # +++++++++++++++++++++ raw lc
+        if lctype == "custom":
+            lc = l.make_custom_lc()
+        elif lctype == "pdcsap":
+            lc = l.get_lc(lctype)
+        elif lctype == "sap":
+            lc = l.get_lc(lctype)
+        elif lctype == "cdips":
+            lc = l.get_cdips()
+        else:
+            errmsg = "use lctype=[custom,sap,pdcsap,cdips]"
+            raise ValueError(errmsg)
 
         if (outdir is not None) & (not os.path.exists(outdir)):
             os.makedirs(outdir)
@@ -146,9 +168,11 @@ def make_tql(
 
         # +++++++++++++++++++++ax0: tpf
         ax = axs[0]
-        if gaiaid is None:
-            _ = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-        if l.gaia_sources is None:
+        if cadence == "short":
+            tpf = l.tpf
+        else:
+            tpf = l.tpf_tesscut
+        if star.gaia_sources is None:
             _ = l.query_gaia_dr2_catalog(radius=120)
         _ = plot_gaia_sources_on_tpf(
             tpf=tpf,
@@ -157,51 +181,18 @@ def make_tql(
             sap_mask=l.sap_mask,
             aper_radius=l.aper_radius,
             threshold_sigma=l.threshold_sigma,
+            percentile=l.percentile,
             ax=ax,
         )
-        #     #+++++++++++++++++++++ax1: raw lc
-        #     ax = axs[1]
-        aper_mask = parse_aperture_mask(
-            tpf,
-            sap_mask=l.sap_mask,
-            aper_radius=l.aper_radius,
-            # threshold_sigma=l.threshold_sigma
-        )
-        raw_lc = tpf.to_lightcurve(aperture_mask=aper_mask)
-        #     raw_lc.scatter(ax=ax, label='raw')
-        #     ax.legend()
 
-        # +++++++++++++++++++++ax1: bkg-subtracted lc
-        if verbose:
-            print("Performing background subtraction\n")
-        idx = (
-            np.isnan(raw_lc.time)
-            | np.isnan(raw_lc.flux)
-            | np.isnan(raw_lc.flux_err)
-        )
-        raw_lc = raw_lc[~idx]
-        # Make a design matrix and pass it to a linear regression corrector
-        regressors = tpf.flux[~idx][:, ~aper_mask]
-        dm = (
-            lk.DesignMatrix(regressors, name="pixels")
-            .pca(nterms=5)
-            .append_constant()
-        )
-
-        # Regression Corrector Object
-        rc = lk.RegressionCorrector(raw_lc)
-        bkg_sub_lc = rc.correct(dm)
-        #     bkg_sub_lc.normalize().scatter(ax=ax, label='bkg_sub')
-        #     bkg_sub_lc.normalize().bin(10).scatter(ax=ax, marker='o', label='bkg_sub (bin=10)')
-
-        # +++++++++++++++++++++ax2: Detrending/ Flattening
+        # +++++++++++++++++++++ax1: Detrending/ Flattening
         ax = axs[1]
-        lc = bkg_sub_lc.normalize().remove_nans().remove_outliers()
+        lc = lc.normalize().remove_nans().remove_outliers()
         flat, trend = lc.flatten(
             window_length=window_length, return_trend=True
         )
         _ = lc.scatter(ax=ax, label="bkg_sub")
-        trend.plot(ax=ax, label="trend", lw=3, c="r")
+        trend.plot(ax=ax, label="trend", lw=1, c="r")
 
         ax = axs[2]
         flat.scatter(ax=ax, label="flat")
@@ -251,9 +242,9 @@ def make_tql(
         ax.set_xlim(0.4, 0.6)
 
         # +++++++++++++++++++++summary
+        tp = star.tic_params
         ax = axs[5]
-        tic_params = l.query_tic_catalog(return_nearest_xmatch=True)
-        Rp = tls_results["rp_rs"] * tic_params["rad"] * u.Rsun.to(u.Rearth)
+        Rp = tls_results["rp_rs"] * tp["rad"] * u.Rsun.to(u.Rearth)
 
         msg = "Candidate Properties\n"
         msg += "-" * 30 + "\n"
@@ -271,48 +262,43 @@ def make_tql(
         msg += "\n" * 2
         msg += "Stellar Properties\n"
         msg += "-" * 30 + "\n"
-        msg += f"TIC ID={int(tic_params['ID'])}" + " " * 5
-        msg += f"Tmag={tic_params['Tmag']:.2f}\n"
+        msg += f"TIC ID={int(tp['ID'])}" + " " * 5
+        msg += f"Tmag={tp['Tmag']:.2f}\n"
         msg += (
-            f"Rstar={tic_params['rad']:.2f}+/-{tic_params['e_rad']:.2f} "
+            f"Rstar={tp['rad']:.2f}+/-{tp['e_rad']:.2f} "
             + r"R$_{\odot}$"
             + " " * 5
         )
         msg += (
-            f"Mstar={tic_params['mass']:.2f}+/-{tic_params['e_mass']:.2f} "
+            f"Mstar={tp['mass']:.2f}+/-{tp['e_mass']:.2f} "
             + r"M$_{\odot}$"
             + "\n"
         )
-        msg += (
-            f"Teff={int(tic_params['Teff'])}+/-{int(tic_params['e_Teff'])} K"
-            + " " * 5
-        )
-        msg += (
-            f"logg={tic_params['logg']:.2f}+/-{tic_params['e_logg']:.2f} dex\n"
-        )
-        msg += (
-            r"$\rho$"
-            + f"star={tic_params['rho']:.2f}+/-{tic_params['e_rho']:.2f} gcc\n"
-        )
-        msg += f"Contamination ratio={tic_params['contratio']:.2f}\n"
+        msg += f"Teff={int(tp['Teff'])}+/-{int(tp['e_Teff'])} K" + " " * 5
+        msg += f"logg={tp['logg']:.2f}+/-{tp['e_logg']:.2f} dex\n"
+        msg += r"$\rho$" + f"star={tp['rho']:.2f}+/-{tp['e_rho']:.2f} gcc\n"
+        msg += f"Contamination ratio={tp['contratio']:.2f}\n"
         ax.text(0, 0, msg, fontsize=10)
         ax.axis("off")
 
-        ticid = tic_params["ID"]
-        if toiid is not None:
-            fig.suptitle(f"TOI {toiid} | TIC {ticid} (sector {l.sector})")
+        if star.toiid is not None:
+            fig.suptitle(
+                f"TOI {star.toiid} | TIC {star.ticid} (sector {l.sector})"
+            )
         else:
-            fig.suptitle(f"TIC {ticid} (sector {l.sector})")
+            fig.suptitle(f"TIC {star.ticid} (sector {l.sector})")
         fig.tight_layout()
 
         msg = ""
         if savefig:
-            fp = os.path.join(outdir, f"tic{ticid}_s{l.sector}_{cadence[0]}c")
+            fp = os.path.join(
+                outdir, f"tic{star.ticid}_s{l.sector}_{cadence[0]}c"
+            )
             fig.savefig(fp + ".png", bbox_inches="tight")
             msg += f"Saved: {fp}.png\n"
         if savetls:
-            tls_results["gaiaid"] = l.gaiaid
-            tls_results["ticid"] = l.ticid
+            tls_results["gaiaid"] = star.gaiaid
+            tls_results["ticid"] = star.ticid
             dd.io.save(fp + "_tls.h5", tls_results)
             msg += f"Saved: {fp}_tls.h5"
         if verbose:
@@ -333,6 +319,42 @@ def make_tql(
             print(f"Line : {trace[1]}")
             print(f"Func : {trace[2]}")
             print(f"Message : {trace[3]}")
+
+
+def plot_cluster_map(
+    target_coord=None,
+    catalog_name="Bouma2019",
+    cluster_name=None,
+    offset=10,
+    ax=None,
+):
+    tra = target_coord.ra.deg
+    tdec = target_coord.dec.deg
+    if ax is None:
+        fig, ax = pl.subplot(1, 1, figsize=(5, 5))
+    if cluster_name is None:
+        cc = ClusterCatalog(catalog_name)
+        cat = cc.query_catalog()
+        coords = SkyCoord(
+            ra=cat["ra"],
+            dec=cat["dec"],
+            distance=cat["distance"],
+            unit=("deg", "deg", "pc"),
+        )
+        ax.scatter(coords.ra.deg, coords.dec.deg, "ro")
+    else:
+        c = Cluster(catalog_name=catalog_name, cluster_name=cluster_name)
+        mem = c.query_cluster_members()
+        rsig = mem["ra"].std()
+        dsig = mem["dec"].std()
+        r = np.sqrt(rsig ** 2 + dsig ** 2)
+        circle = pl.Circle((tra, tdec), r, color="r")
+        ax.plot(mem["ra"], mem["dec"], "r.", alpha=0.1)
+        ax.add_artist(circle)
+    ax.plot(tra, tdec, "bx")
+    ax.ylim(tdec - offset, tdec + offset)
+    ax.xlim(tra - offset, tra + offset)
+    return fig
 
 
 def plot_gaia_sources_on_tpf(
@@ -1348,8 +1370,10 @@ def plot_interactive(parallax_cut=2):
         import altair as alt
     except ModuleNotFoundError:
         print("pip install altair")
-    cc = ClusterCatalog(verbose=False)
 
+    print("import altair; altair.notebook()")
+
+    cc = ClusterCatalog(verbose=False)
     # get Bouma catalog
     df0 = cc.query_catalog(name="Bouma2019", return_members=False)
     idx = df0.parallax >= parallax_cut

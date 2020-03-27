@@ -587,6 +587,13 @@ class ClusterCatalog:
         df = df.drop(["map", "cmd", "stars", "Simbad"], axis=1)
         return df
 
+    def is_gaiaid_in_catalog(self):
+        df_mem = self.query_catalog(return_members=True)
+        if df_mem.source_id.isin([self.gaiaid]).sum() > 0:
+            return True
+        else:
+            return False
+
 
 class Cluster(ClusterCatalog):
     def __init__(
@@ -617,6 +624,40 @@ class Cluster(ClusterCatalog):
         df = self.all_members.loc[idx]
         self.cluster_members = df
         return df
+
+    def is_gaiaid_in_cluster(self):
+        df_mem = self.query_cluster_members()
+        if df_mem.source_id.isin([self.gaiaid]).sum() > 0:
+            return True
+        else:
+            return False
+
+    def get_nearest_cluster(self, coord):
+        cat = self.all_clusters
+        coords = SkyCoord(
+            ra=cat["ra"],
+            dec=cat["dec"],
+            distance=cat["distance"],
+            unit=("deg", "deg", "pc"),
+        )
+        sep = coords.separation_3d(coord)
+        idx = sep.argmin()
+        return cat.iloc[idx], sep[idx]
+
+    def get_nearest_cluster_members(self, coord, use_3d=False):
+        mem = self.all_cluster_members
+        coords = SkyCoord(
+            ra=mem["ra"],
+            dec=mem["dec"],
+            distance=mem["distance"],
+            unit=("deg", "deg", "pc"),
+        )
+        if use_3d:
+            sep = coords.separation_3d(coord)
+        else:
+            sep = coords.separation(coord)
+        idx = sep.argmin()
+        return mem.iloc[idx], sep[idx]
 
     def query_cluster_members_gaia_params(
         self,

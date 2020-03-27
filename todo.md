@@ -25,3 +25,6 @@
 - [] add size=stellar radius and color=logg from tic catalog in CMD/HRD similar to Hardegree-Ullman+2020 to show if dwarf/giant misclassification
 - [] add lightcurve from ASAS-SN project (Shappee et al. 2014; Kochanek et al. 2017))
 - [] add data from [pathos pipeline](https://archive.stsci.edu/hlsp/pathos)
+
+## Notes
+- [] see [TESS DR14 Notes S4.2](https://archive.stsci.edu/missions/tess/doc/tess_drn/tess_sector_14_drn19_v02.pdf) about transit search improvement in pipeline

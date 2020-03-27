@@ -44,7 +44,8 @@ class Star(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=2 * u.arcsec,
+        search_radius=3,
+        mission="tess",
         prot=None,
         mcmc_steps=1e4,
         burnin=1000,
@@ -68,6 +69,7 @@ class Star(Target):
             search_radius=search_radius,
             verbose=verbose,
             clobber=clobber,
+            mission=mission,
         )
         self.mcmc_steps = mcmc_steps
         self.burnin = burnin
@@ -261,8 +263,11 @@ class Star(Target):
         else:
             return age, errp, errm
 
-    def get_smoothed_rotation_amplitude(self, lc, prot):
+    def get_rotation_amplitude(self, lc, prot):
         """
+        Smoothed rotation amplitude: See Morris+2020
+        and references therein
+
         lc : lk.lightcurve
                 lightcurve to be folded
         prot : tuple
@@ -365,11 +370,11 @@ class Star(Target):
         if amp is not None:
             errmsg = "amp should be a tuple (value,error)"
             assert isinstance(amp, tuple), errmsg
-            if amp > 0.2:
-                print(f"amplitude is {amp:.2f}*100%!")
+            if (amp[0] > 0.2) | (amp[1] > 0.2):
+                print(f"amplitude is {amp[0]:.2f}*100%!")
         else:
             # estimate rotation period amplitude
-            amp = self.get_smoothed_rotation_amplitude(lc=lc, prot=prot)
+            amp = self.get_rotation_amplitude(lc=lc, prot=prot)
         # convert to percent
         amp = (amp[0] * 100, amp[1] * 100)
 
