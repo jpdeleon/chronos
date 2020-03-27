@@ -188,20 +188,33 @@ def make_tql(
         # +++++++++++++++++++++ax1: Detrending/ Flattening
         ax = axs[1]
         lc = lc.normalize().remove_nans().remove_outliers()
-        flat, trend = lc.flatten(
-            window_length=window_length, return_trend=True
-        )
+        # flat, trend = lc.flatten(
+        #     window_length=window_length, return_trend=True
+        # )
+        time, flux = lc.time, lc.flux
+        flat, trend = flatten(
+                time,                 # Array of time values
+                flux,                 # Array of flux values
+                method='biweight',
+                window_length=0.5,    # The length of the filter window in units of ``time``
+                edge_cutoff=0.5,      # length (in units of time) to be cut off each edge.
+                break_tolerance=0.5,  # Split into segments at breaks longer than that
+                return_trend=True,    # Return trend and flattened light curve
+                cval=5.0              # Tuning parameter for the robust estimators
+                )
         _ = lc.scatter(ax=ax, label="bkg_sub")
-        trend.plot(ax=ax, label="trend", lw=1, c="r")
+        # trend.plot(ax=ax, label="trend", lw=1, c="r")
+        ax.plot(time, trend, label="trend", lw=1, c='r')
 
         ax = axs[2]
-        flat.scatter(ax=ax, label="flat")
+        # flat.scatter(ax=ax, label="flat")
+        ax.scatter(time, flat, label="flat")
         flat.bin(10).scatter(ax=ax, label="flat (bin=10)")
 
         # +++++++++++++++++++++ax3: TLS periodogram
         ax = axs[3]
-        lc = flat
-        tls_results = tls(lc.time, lc.flux).power()
+        # lc = flat
+        tls_results = tls(time, flat).power()
 
         label = f"Best period={tls_results.period:.3}"
         ax.axvline(tls_results.period, alpha=0.4, lw=3, label=label)
@@ -223,9 +236,10 @@ def make_tql(
 
         # +++++++++++++++++++++ax4: phase-folded
         ax = axs[4]
-
+        phase = get_phase(time, tls_results.period, tls_results.T0)
         ax.plot(
-            tls_results.model_folded_phase,
+            # tls_results.model_folded_phase,
+            phase,
             tls_results.model_folded_model,
             color="red",
         )

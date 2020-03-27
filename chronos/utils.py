@@ -77,6 +77,7 @@ __all__ = [
     "get_transit_mask",
     "get_mag_err_from_flux",
     "get_err_quadrature",
+    "get_phase",
     "map_float",
     "map_int",
     "detrend",
@@ -100,6 +101,12 @@ extinction_ratios = {
     "Rp": 0.65199,
 }
 
+
+def get_phase(time, period, epoch, offset=0.5):
+    """phase offset -0.5,0.5
+    """
+    phase = (((((time-epoch)/period)+offset)%1)/offset)-1
+    return phase
 
 def get_tess_ccd_info(target_coord):
     """use search_targetpixelfile like get_all_sectors?"""

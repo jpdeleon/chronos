@@ -611,13 +611,14 @@ class Target:
         )
         return df
 
-    def query_vizier(self, radius=3):
+    def query_vizier(self, radius=3, verbose=None):
         """
         Useful to get relevant catalogs from literature
         See:
         https://astroquery.readthedocs.io/en/latest/vizier/vizier.html
         """
-        radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
+        verbose = self.verbose if verbose is None else verbose
+        radius = 3 * u.arcsec if radius is None else radius * u.arcsec
         if self.verbose:
             print(
                 f"Searching Vizier: ({self.target_coord.to_string()}) with radius={radius}"
@@ -629,8 +630,9 @@ class Target:
             # keywords=['stars:white_dwarf']
         )
         tables = v.query_region(self.target_coord, radius=radius)
-        if self.verbose:
+        if verbose:
             print(f"{len(tables)} tables found.")
+            print({k:v.description for k,v in tables.items()})
         self.vizier_tables = tables
         return tables
 
