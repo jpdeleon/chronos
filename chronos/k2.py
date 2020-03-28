@@ -28,14 +28,14 @@ __all__ = ["K2", "Everest", "K2sff"]
 class _KeplerLightCurve(lk.KeplerLightCurve):
     """augments parent class by adding convenience methods"""
 
-    def detrend(self, break_tolerance=None):
+    def detrend(self, polyorder=1, break_tolerance=None):
         lc = self.copy()
         half = lc.time.shape[0] // 2
         if half % 2 == 0:
             # add 1 if even
             half += 1
         return lc.flatten(
-            window_length=half, polyorder=1, break_tolerance=break_tolerance
+            window_length=half, polyorder=polyorder, break_tolerance=break_tolerance
         )
 
 

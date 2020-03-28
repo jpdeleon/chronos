@@ -85,6 +85,7 @@ __all__ = [
     "query_tpf",
     "query_tpf_tesscut",
     "is_gaiaid_in_cluster",
+    "get_pix_area_threshold",
 ]
 
 # Ax/Av
@@ -229,7 +230,7 @@ def query_tpf_tesscut(
     return tpf
 
 
-def detrend(self, break_tolerance=10):
+def detrend(self, polyorder=1, break_tolerance=10):
     """mainly to be added as method to lk.LightCurve
     """
     lc = self.copy()
@@ -238,7 +239,7 @@ def detrend(self, break_tolerance=10):
         # add 1 if even
         half += 1
     return lc.flatten(
-        window_length=half, polyorder=1, break_tolerance=break_tolerance
+        window_length=half, polyorder=polyorder, break_tolerance=break_tolerance
     )
 
 
@@ -1432,6 +1433,66 @@ def compute_cdpp(time, flux, window, cadence=0.5, robust=False):
 
     # Normalize by the window size.
     return 1e6 * np.median(std) / np.sqrt(window / cadence)
+
+
+def get_pix_area_threshold(Tmag):
+    """get pixel area based on Tmag, max=13 pix
+    Taken from vineyard/vinify.py
+    """
+    # set a threshold for the number of pixel by Tmag
+    area_len = 9 - np.fix(Tmag / 2)
+    #最大値を7*7に制限
+    # restrict the maximam as 7*7
+    area_len = min(area_len, 7)
+    #最小値を3*3に制限
+    # restrict the minimum as 3*3
+    area_len = max(area_len, 3)
+    return area_len ** 2
+
+# def determine_aperture(img, center, area_thresh=9):
+#     """determine aperture
+#     Taken from vineyard/aperture.py
+#     """
+#     mid_val = np.nanmedian(img)
+#     img = np.nan_to_num(img)
+#     #統計量を求める。
+#     # calculate statics
+#     flat_img = np.ravel(img)
+#     Q1 = stats.scoreatpercentile(flat_img, 25)
+#     Q3 = stats.scoreatpercentile(flat_img, 75)
+#     Q_std = Q3 - Q1
+#     #星中心を算出
+#     # calculate the center of the star
+#     center_tuple = tuple(np.round(center).astype(np.uint8))
+#     #3Qstd以上の切り出し領域を求める
+#     # calculate the cut area whose flux is larger than 3 Qstd
+#     contours = trim_aperture(img, 3, mid_val, Q_std, area_thresh)
+#     #4Qstd以上の切り出し領域を求める
+#     # calculate the cut area whose flux is larger than 4 Qstd
+#     contours.extend(trim_aperture(img, 4, mid_val, Q_std, area_thresh))
+#     for contour in contours:
+#         #中心が含まれているか確認
+#         # check whether the contour contains the central pixel
+#         has_center = cv2.pointPolygonTest(contour, center_tuple, False)
+#         if has_center >= 0:
+#             #apertureを作成
+#             # make aperture
+#             aperture = np.zeros_like(img).astype(np.uint8)
+#             cv2.fillConvexPoly(aperture, points=contour, color=1)
+#             #近傍星がないか確認
+#             # check whether the aperture is contaminated
+#             if not has_nearby_star(img, aperture):
+#                 break
+#     #決めかねてしまう場合
+#     # if aperture cannot be determined by above process
+#     else:
+#         #中心含む4pixをapertureにする
+#         # aperture is nearest 4 pixels from the center of the star
+#         offset = np.array([[0.5, 0.5], [0.5, -0.5], [-0.5, 0.5], [-0.5, -0.5]])
+#         aperture_contour = np.round(center + offset).astype(np.int32)
+#         aperture = np.zeros_like(img).astype(np.uint8)
+#         cv2.fillConvexPoly(aperture, points=aperture_contour, color=1)
+#     return aperture
 
 
 def map_float(x):

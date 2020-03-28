@@ -102,7 +102,7 @@ def make_tql(
     savetls=False,
     outdir=".",
     bin_hr=4,
-    verbose=False,
+    verbose=True,
     clobber=False,
 ):
     """
@@ -146,6 +146,8 @@ def make_tql(
     else:
         Porb_min, Porb_max = None, None
 
+    # TODO: ShortCadence inherits Tpf and Target which makes Star redundant
+    # Star is used here to first validate tic and gaia match
     star = Star(
         gaiaDR2id=gaiaid,
         toiid=toiid,
@@ -206,15 +208,22 @@ def make_tql(
         print(f"Analyzing {cadence} cadence data with {sap_mask} mask")
 
         l = star.lc
+        l.tic_params = star.tic_params
+        l.gaia_params = star.gaia_params
         # +++++++++++++++++++++ raw lc
         if lctype == "custom":
+            #tpf is also called to make custom lc
             lc = l.make_custom_lc()
         elif lctype == "pdcsap":
+            # just downloads lightcurvefile
             lc = l.get_lc(lctype)
         elif lctype == "sap":
+            # just downloads lightcurvefile;
             lc = l.get_lc(lctype)
         elif lctype == "cdips":
-            lc = l.get_cdips()
+            #  just downloads fits file
+            lc = l.get_cdips_lc()
+            l.aper_mask = l.cdips.get_aper_mask_cdips()
         else:
             errmsg = "use lctype=[custom,sap,pdcsap,cdips]"
             raise ValueError(errmsg)
@@ -223,7 +232,6 @@ def make_tql(
             os.makedirs(outdir)
 
         fig, axs = pl.subplots(3, 3, figsize=(15, 12), constrained_layout=True)
-        # fig.subplots_adjust(top=0.8)
         axs = axs.flatten()
 
         # +++++++++++++++++++++ax: Raw + trend
@@ -237,7 +245,7 @@ def make_tql(
             #for wotan and tls.power
             Rstar = star.tic_params['rad'] if star.tic_params['rad'] is not None else 1.0
             Mstar = star.tic_params['mass'] if star.tic_params['mass'] is not None else 1.0
-            Porb = 10
+            Porb = 10 #TODO: arbitrary default!
             tdur = estimate_transit_duration(R_s=Rstar,
                                              M_s=Mstar,
                                              P=Porb,
@@ -447,7 +455,7 @@ def make_tql(
                 # e.g. custom
                 tpf = l.tpf_tesscut
 
-        if star.gaia_sources is None:
+        if l.gaia_sources is None:
             _ = l.query_gaia_dr2_catalog(radius=120)
 
         _ = plot_gaia_sources_on_tpf(
@@ -463,11 +471,16 @@ def make_tql(
             ax=ax,
         )
 
+        if l.contratio is None:
+            #computed in make_custom_lc()
+            fluxes = get_fluxes_within_mask(tpf, l.aper_mask, l.gaia_sources)
+            l.contratio = sum(fluxes) - 1 #c.f. l.tic_params.contratio
+
         # +++++++++++++++++++++ax: summary
         tp = star.tic_params
         ax = axs[8]
         Rp = tls_results["rp_rs"] * tp["rad"] * u.Rsun.to(u.Rearth)
-
+        Rp_true = Rp * np.sqrt(1+l.contratio) #np.sqrt(tls_results["depth"]*(1+l.contratio))
         msg = "Candidate Properties\n"
         msg += "-" * 30 + "\n"
         msg += f"SDE={tls_results.SDE:.2f}\n"
@@ -476,11 +489,11 @@ def make_tql(
             + " " * 5
         )
         msg += f"T0={tls_results.T0:.2f} BTJD\n"
-        msg += f"Duration={tls_results.duration*24:.2f} hr\n"
-        msg += f"Depth={(1-tls_results.depth)*100:.2f}%\t"
-        msg += f"Rp={Rp:.2f} " + r"R$_{\oplus}$" + "\n"
+        msg += f"Duration={tls_results.duration*24:.2f} hr" + " " * 10
+        msg += f"Depth={(1-tls_results.depth)*100:.2f}%\n"
+        msg += f"Rp={Rp:.2f} " + r"R$_{\oplus}$" + "(diluted)" + " " * 5
+        msg += f"Rp={Rp_true:.2f} " + r"R$_{\oplus}$" + "(undiluted)\n"
         msg += f"Odd-Even mismatch={tls_results.odd_even_mismatch:.2f}"+r"$\sigma$"
-
         msg += "\n" * 2
         msg += "Stellar Properties\n"
         msg += "-" * 30 + "\n"
@@ -498,6 +511,8 @@ def make_tql(
         )
         msg += f"Teff={int(tp['Teff'])}+/-{int(tp['e_Teff'])} K" + " " * 5
         msg += f"logg={tp['logg']:.2f}+/-{tp['e_logg']:.2f} dex\n"
+        # spectype = star.get_spectral_type()
+        # msg += f"SpT: {spectype}\n"
         msg += r"$\rho$" + f"star={tp['rho']:.2f}+/-{tp['e_rho']:.2f} gcc\n"
         msg += f"Contamination ratio={l.contratio:.2f}% (TIC={tp['contratio']:.2f}%)\n"
         ax.text(0, 0, msg, fontsize=10)
@@ -514,7 +529,7 @@ def make_tql(
         msg = ""
         if savefig:
             fp = os.path.join(
-                outdir, f"tic{star.ticid}_s{l.sector}_{cadence[0]}c"
+                outdir, f"tic{star.ticid}_s{l.sector}_{l.lctype}_{cadence[0]}c"
             )
             fig.savefig(fp + ".png", bbox_inches="tight")
             msg += f"Saved: {fp}.png\n"
@@ -644,6 +659,7 @@ def plot_gaia_sources_on_tpf(
             if int(id) == int(target_gaiaid):
                 marker = "s"
                 edgecolor = "w"
+                zorder = 100 #on top
                 # ax.plot(pix[1],pix[0], marker='x', ms=20, lw=10, c='w')
             if depth is not None:
                 gamma = 1 + 10 ** (0.4 * (min_gmag - gmag))
@@ -652,11 +668,13 @@ def plot_gaia_sources_on_tpf(
         else:
             # alpha=0.5
             edgecolor = "C2"
+            zorder = 1
         ax.scatter(
             pix[1],
             pix[0],
             marker=marker,
             s=50,
+            zorder=zorder,
             edgecolor=edgecolor,
             alpha=alpha,
             facecolor="none",

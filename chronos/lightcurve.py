@@ -62,6 +62,7 @@ class LongCadence(FFI_cutout):
         cutout_size=(15, 15),
         quality_bitmask="default",
         apply_data_quality_mask=False,
+        mission="tess",
         clobber=True,
         verbose=True,
         # mission="TESS",
@@ -116,6 +117,7 @@ class LongCadence(FFI_cutout):
         self.lc_custom_raw = None
         self.lc_cdips = None
         self.contratio = None
+        self.cdips = None
 
     def make_custom_lc(
         self,
@@ -253,6 +255,7 @@ class LongCadence(FFI_cutout):
             lctype=lctype,
             verbose=verbose,
         )
+        self.cdips = cdips
         self.lc_cdips = cdips.lc
         self.lc_cdips.targetid = self.ticid
         return cdips.lc
@@ -541,9 +544,8 @@ class ShortCadence(Tpf):
         self.contratio = sum(fluxes) - 1
         tic_contratio = self.tic_params.contratio
         dcontratio = abs(tic_contratio-self.contratio)
-        if tic_contratio & (dcontratio>0.5):
+        if (tic_contratio is not None) & (dcontratio>0.5):
             print(f"contratio: {self.contratio:.2f} (TIC={tic_contratio:.2f})")
-        import pdb; pdb.set_trace()
         return lc
 
 

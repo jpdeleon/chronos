@@ -19,12 +19,12 @@ if False:
     #name
     make_tql(
         gaiaid=None,
-        toiid=None,
-        ticid=460205581,
+        toiid=toiid,
+        ticid=None,
         name=None,
         sector=None,
         cadence="long",
-        lctype=lctype,
+        lctype="cdips",
         sap_mask="square",
         aper_radius=1,
         cutout_size=cutout_size,

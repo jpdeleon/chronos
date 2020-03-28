@@ -3,6 +3,9 @@
 r"""
 classes for searching target and querying cluster catalogs
 
+NOTE: query_gaia_dr2_catalog method from Target hangs when called
+so make sure to populate self.gaia_params first
+
 See also from astroquery.xmatch import XMatch
 """
 # Import standard library
@@ -20,7 +23,8 @@ from astropy.io import fits
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
-from chronos.utils import get_ctois, get_sector_cam_ccd
+from chronos.tpf import FFI_cutout
+from chronos.utils import get_ctois, get_sector_cam_ccd, parse_aperture_mask
 
 log = logging.getLogger(__name__)
 
@@ -39,14 +43,14 @@ CDIPS_CANDIDATES = "https://github.com/lgbouma/cdips_followup/blob/master/data/c
 class _TessLightCurve(TessLightCurve):
     """augments parent class by adding convenience methods"""
 
-    def detrend(self, break_tolerance=None):
+    def detrend(self, polyorder=1, break_tolerance=None):
         lc = self.copy()
         half = lc.time.shape[0] // 2
         if half % 2 == 0:
             # add 1 if even
             half += 1
         return lc.flatten(
-            window_length=half, polyorder=1, break_tolerance=break_tolerance
+            window_length=half, polyorder=polyorder, break_tolerance=break_tolerance
         )
 
 
@@ -73,10 +77,12 @@ class CDIPS(Target):
         ra_deg=None,
         dec_deg=None,
         quality_bitmask=None,
-        search_radius=2 * u.arcsec,
-        verbose=True,
+        search_radius=3,
         lctype="flux",
-        aper_idx=1
+        aper_idx=1,
+        mission="tess",
+        verbose=True,
+        clobber=True,
         # mission=("Kepler", "K2", "TESS"),
         # quarter=None,
         # month=None,
@@ -117,9 +123,9 @@ class CDIPS(Target):
                     msg = f"CDIPS lc is currently available for sectors={CDIPS_SECTORS}\n"
                     raise ValueError(msg)
                 if sum(idx) == 1:
-                    self.sector = self.all_sectors[idx][0]
+                    self.sector = self.all_sectors[idx][0] #get first available
                 else:
-                    self.sector = self.all_sectors[idx]
+                    self.sector = self.all_sectors[idx][0] #get first available
                     # get first available
                     print(
                         f"CDIPS lc may be available for sectors {self.all_sectors[idx]}"
@@ -193,6 +199,7 @@ class CDIPS(Target):
         self.fits_url = None
         ctois = get_ctois()
         self.candidates = ctois[ctois["User"] == "bouma"]
+        self.ffi_cutout = None
 
     def get_mast_table(self):
         """https://archive.stsci.edu/hlsp/cdips
@@ -324,6 +331,27 @@ class CDIPS(Target):
         #         e = e/f
         return (t[idx], f[idx], e[idx])
 
+    def get_aper_mask_cdips(self, sap_mask='round'):
+        #self.hdulist[1].data.names does not contain aperture
+        #estimate aperture
+        print("CDIPS has no aperture info in fits. Estimating aperture instead.")
+        #first download tpf cutout
+        self.ffi_cutout = FFI_cutout(
+                        sector=self.sector,
+                        gaiaDR2id=self.gaiaid,
+                        toiid=self.toiid,
+                        ticid=self.ticid,
+                        search_radius=self.search_radius,
+                        quality_bitmask=self.quality_bitmask,
+                        )
+        tpf = self.ffi_cutout.get_tpf_tesscut()
+        idx = int(self.aper_idx)-1 #
+        aper_mask = parse_aperture_mask(
+                tpf,
+                sap_mask=sap_mask,
+                aper_radius=CDIPS_APER_PIX[idx],
+                )
+        return aper_mask
 
 def get_cdips_inventory(fp=None, verbose=True, clobber=False):
     if fp is None:

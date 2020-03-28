@@ -594,7 +594,7 @@ class Target:
         simbad = Simbad()
         simbad.add_votable_fields("typed_id", "otype", "sptype", "rot", "mk")
         table = simbad.query_region(self.target_coord, radius=radius)
-        msg = "No results from Simbad"
+        msg = "No result from Simbad"
         assert len(table) > 0, msg
         df = table.to_pandas()
         df = df.drop(
@@ -630,6 +630,8 @@ class Target:
             # keywords=['stars:white_dwarf']
         )
         tables = v.query_region(self.target_coord, radius=radius)
+        msg = "No result from Vizier"
+        assert len(table) > 0, msg
         if verbose:
             print(f"{len(tables)} tables found.")
             print({k: v.description for k, v in tables.items()})

@@ -2,6 +2,9 @@
 
 r"""
 classes for manipulating targetpixelfile
+
+NOTE: query_gaia_dr2_catalog method from Target hangs when called
+so make sure to populate self.gaia_params first if needed
 """
 
 # Import standard library
@@ -50,6 +53,7 @@ class Tpf(Target):
         percentile=95,
         quality_bitmask="default",
         apply_data_quality_mask=False,
+        mission="tess",
         clobber=True,
         verbose=True,
         # mission="TESS",
@@ -78,7 +82,6 @@ class Tpf(Target):
         self.aper_radius = aper_radius
         self.percentile = percentile
         self.threshold_sigma = threshold_sigma
-        self.search_radius = search_radius
         self.quality_bitmask = quality_bitmask
         self.apply_data_quality_mask = apply_data_quality_mask
         self.tpf = None
@@ -309,7 +312,6 @@ class FFI_cutout(Target):
         self.percentile = percentile
         self.threshold_sigma = threshold_sigma
         self.cutout_size = cutout_size
-        self.search_radius = search_radius
         self.quality_bitmask = quality_bitmask
         self.apply_data_quality_mask = apply_data_quality_mask
         self.tpf_tesscut = None

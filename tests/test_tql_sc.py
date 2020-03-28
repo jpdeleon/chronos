@@ -15,7 +15,7 @@ cutout_size=(15, 15)
 window_length = 0.5
 lctype='custom'
 
-if False:
+if True:
     #name
     make_tql(
         gaiaid=None,
@@ -23,10 +23,9 @@ if False:
         ticid=460205581,
         name=None,
         sector=None,
-        cadence="long",
-        lctype=lctype,
-        sap_mask="square",
-        aper_radius=1,
+        cadence="short",
+        lctype="pdcsap",
+        sap_mask="pipeline",
         cutout_size=cutout_size,
         quality_bitmask=quality_bitmask,
         apply_data_quality_mask=apply_data_quality_mask,
@@ -45,7 +44,7 @@ if True:
         ticid=None,
         name=None,
         sector=None,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="square",
         aper_radius=1,
@@ -67,7 +66,7 @@ if True:
         ticid=None,
         name=None,
         sector=None,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="square",
         aper_radius=2,
@@ -89,7 +88,7 @@ if True:
         ticid=None,
         name=None,
         sector=None,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="round",
         aper_radius=1,
@@ -111,7 +110,7 @@ if True:
         ticid=None,
         name=None,
         sector=11,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="round",
         aper_radius=2,
@@ -133,7 +132,7 @@ if True:
         ticid=None,
         name=None,
         sector=None,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="round",
         aper_radius=2,
@@ -155,7 +154,7 @@ if False:
         ticid=None,
         name="Trappist-1",
         sector=None,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="round",
         aper_radius=2,
@@ -177,7 +176,7 @@ if True:
         ticid=None,
         name=None,
         sector=None,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="percentile",
         percentile=90,
@@ -195,7 +194,7 @@ if True:
     #sap mask threshold
     make_tql(
         toiid=toiid,
-        cadence="long",
+        cadence="short",
         lctype=lctype,
         sap_mask="threshold",
         threshold_sigma=5,
