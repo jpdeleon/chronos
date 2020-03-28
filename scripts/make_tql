@@ -4,101 +4,147 @@ import argparse
 from tqdm import tqdm
 import matplotlib.pyplot as pl
 import chronos as cr
+
 # import matplotlib
 # matplotlib.use("pdf")
 
 parser = argparse.ArgumentParser(description="create tql based on chronos")
+parser.add_argument("-gaia", type=int, help="Gaia DR2 ID", default=None)
+parser.add_argument("-toi", type=int, help="TOI ID", default=None)
+parser.add_argument("-tic", type=int, help="TIC ID", default=None)
+parser.add_argument("-n", "--name", type=str, help="target name", default=None)
 parser.add_argument(
-    "--gaia", type=int, help="Gaia DR2 ID", default=None
+    "-sec", "--sector", type=int, help="TESS sector", default=None
 )
 parser.add_argument(
-    "--toi", type=int, help="TOI ID", default=None
+    "-c",
+    "--cadence",
+    type=str,
+    choices=["long", "short"],
+    help="30-min long or 2-min short (default)",
+    default="short",
 )
 parser.add_argument(
-    "--tic", type=int, help="TIC ID", default=None
+    "-lc",
+    "--lctype",
+    type=str,
+    help="type of lightcurve",
+    choices=["pdcsap", "sap", "custom", "cdips"],
+    default=None,
 )
 parser.add_argument(
-    "--name", type=str, help="target name", default=None
+    "-m",
+    "--sap_mask",
+    type=str,
+    help="mask type",
+    choices=["pipeline", "round", "square", "percentile", "threshold"],
+    default=None,
 )
 parser.add_argument(
-    "--sector", type=int, help="TESS sector", default=None
+    "-thr",
+    "--threshold",
+    type=float,
+    help="mask threshold in sigma",
+    default=5,
 )
 parser.add_argument(
-    "--cadence", type=str, choices=["long", "short"], default="long"
+    "-r", "--aper_radius", type=int, help="mask radius in pix", default=1
 )
 parser.add_argument(
-    "--sap_mask", type=str, help="mask type", default="square"
+    "-perc", "--percentile", type=float, help="mask percentile", default=90
 )
 parser.add_argument(
-    "--threshold", type=float, help="mask threshold in sigma", default=5
+    "-b",
+    "--quality_bitmask",
+    type=str,
+    choices=["none", "default", "hard", "hardest"],
+    default="default",
 )
 parser.add_argument(
-    "--aper_radius", type=int, help="mask radius in pix", default=1
+    "-size",
+    "--cutout_size",
+    type=float,
+    help="FFI cutout size for long cadence (default=[12,12] pix)",
+    default=(12, 12),
 )
 parser.add_argument(
-    "--percentile", type=float, help="mask percentile", default=90
+    "-w",
+    "--window_length",
+    type=int,
+    help="wotan biweight window length (default=0.5 days)",
+    default=0.5,
 )
 parser.add_argument(
-    "--quality_bitmask", type=str, choices=['none',"default",'hard','hardest'], default='default'
+    "-e",
+    "--edge_cutoff",
+    type=int,
+    help="cut each edges (default=0.1 days)",
+    default=0.1,
 )
 parser.add_argument(
-    "--cutout_size", type=float, help="FFI tpf cutout size", default=(15,15)
+    "-q",
+    "--use_quality_mask",
+    action="store_true",
+    help="remove cadences in data release notes",
+    default=False,
 )
 parser.add_argument(
-    "--window_length", type=int, help='Savitzky-Golay window length', default=31
+    "-per",
+    "--period_limits",
+    help="period limits in periodogram search (default=[1, 0.5xbaseline])",
+    nargs=2,
+    type=float,
+    default=None,
 )
 parser.add_argument(
-    "-q", "--use_quality_mask", action='store_true', help="save figure", default=False
+    "-l",
+    "--priors",
+    action="store_true",
+    help="use star priors for detrending and periodogram",
+    default=False,
 )
 parser.add_argument(
-    "-s", "--save", action='store_true', help="save figure", default=False
+    "-s",
+    "--save",
+    action="store_true",
+    help="save figure ans tls",
+    default=False,
 )
 parser.add_argument(
-    "-o", "--outdir", type=str, help="output directory", default='.'
+    "-o", "--outdir", type=str, help="output directory", default="."
 )
 parser.add_argument(
-    "-v", "--verbose", action='store_true', help="show details", default=False
+    "-v", "--verbose", action="store_true", help="show details", default=False
 )
 
 args = parser.parse_args()
-gaiaid = args.gaia
-ticid = args.tic
-toiid = args.toi
-name = args.name
-sector = args.sector
-cadence = args.cadence
-sap_mask = args.sap_mask
-quality_bitmask = args.quality_bitmask
-aper_radius = args.aper_radius
-threshold = args.threshold
-percentile = args.percentile
-quality_bitmask = args.quality_bitmask
-apply_data_quality_mask = args.use_quality_mask
-window_length = args.window_length
-savefig = savetls = args.save
-verbose = args.verbose
-outdir = args.outdir
 
-if __name__=='__main__':
+if __name__ == "__main__":
     fig = cr.make_tql(
-        gaiaid=gaiaid,
-        toiid=toiid,
-        ticid=ticid,
-        name=name,
-        sector=sector,
-        cadence=cadence,
-        sap_mask=sap_mask,
-        aper_radius=aper_radius,
-        threshold_sigma=threshold,
-        percentile=percentile,
-        quality_bitmask=quality_bitmask,
-        apply_data_quality_mask=apply_data_quality_mask,
-        window_length=window_length,
-        savefig=savefig,
-        savetls=savetls,
-        outdir=outdir,
-        verbose=verbose,
-        clobber=False
-        )
-    if not savefig:
+        gaiaid=args.gaia,
+        toiid=args.toi,
+        ticid=args.tic,
+        name=args.name,
+        sector=args.sector,
+        cadence=args.cadence,
+        lctype=args.lctype,
+        sap_mask=args.sap_mask,
+        aper_radius=args.aper_radius,
+        threshold_sigma=args.threshold,
+        percentile=args.percentile,
+        quality_bitmask=args.quality_bitmask,
+        apply_data_quality_mask=args.use_quality_mask,
+        window_length=args.window_length,
+        cutout_size=args.cutout_size,
+        Porb_limits=args.period_limits,
+        use_star_priors=args.priors,
+        edge_cutoff=args.edge_cutoff,
+        savefig=args.save,
+        savetls=args.save,
+        outdir=args.outdir,
+        verbose=args.verbose,
+        clobber=False,
+    )
+    if not args.save:
         pl.show()
+    pl.close()

@@ -20,6 +20,7 @@ import pandas as pd
 import lightkurve as lk
 from scipy.ndimage import zoom
 from transitleastsquares import transitleastsquares as tls
+
 # from transitleastsquares import final_T0_fit
 from astropy.coordinates import Angle, SkyCoord, Distance
 from astropy.visualization import ZScaleInterval
@@ -53,7 +54,7 @@ from chronos.utils import (
     get_transit_mask,
     bin_data,
     get_phase,
-    detrend
+    detrend,
 )
 
 TESS_pix_scale = 21 * u.arcsec  # /pix
@@ -91,16 +92,17 @@ def make_tql(
     aper_radius=1,
     threshold_sigma=5,
     percentile=90,
-    cutout_size=(15, 15),
+    cutout_size=(12, 12),
     quality_bitmask="default",
     apply_data_quality_mask=False,
-    window_length=0.5, #deprecated for lk's flatten in ncadences
-    Porb_limits = None,
+    window_length=0.5,  # deprecated for lk's flatten in ncadences
+    Porb_limits=None,
     use_star_priors=False,
     edge_cutoff=0.1,
     savefig=False,
     savetls=False,
     outdir=".",
+    gaia_sources_radius=120,  # arcsec
     bin_hr=4,
     verbose=True,
     clobber=False,
@@ -140,21 +142,23 @@ def make_tql(
     * add phase offset in lomb scargle plot
     """
     if Porb_limits is not None:
-        assert isinstance(Porb_limits, tuple)
-        Porb_min = Porb_limits[0] if Porb_limits[0]>0.1 else None
-        Porb_max = Porb_limits[1] if Porb_limits[1]>1 else None
+        # assert isinstance(Porb_limits, list)
+        assert len(Porb_limits) == 2, "period_min, period_max"
+        Porb_min = Porb_limits[0] if Porb_limits[0] > 0.1 else None
+        Porb_max = Porb_limits[1] if Porb_limits[1] > 1 else None
     else:
         Porb_min, Porb_max = None, None
-        
+
     try:
         if cadence == "long":
             sap_mask = "square" if sap_mask is None else sap_mask
-            lctype = "pdcsap" if lctype is None else lctype
-            assert lctype in ['custom','cdips']
+            lctype = "custom" if lctype is None else lctype
+            assert lctype in ["custom", "cdips"]
+            alpha = 0.5
             lightcurve = LongCadence(
-                gaiaDR2id= gaiaid,
-                toiid= toiid,
-                ticid= ticid,
+                gaiaDR2id=gaiaid,
+                toiid=toiid,
+                ticid=ticid,
                 name=name,
                 sector=sector,
                 sap_mask=sap_mask,
@@ -169,12 +173,13 @@ def make_tql(
             )
         elif cadence == "short":
             sap_mask = "pipeline" if sap_mask is None else sap_mask
-            lctype = "custom" if lctype is None else lctype
-            assert lctype in ['pdcsap','sap','custom']
+            lctype = "pdcsap" if lctype is None else lctype
+            assert lctype in ["pdcsap", "sap", "custom"]
+            alpha = 0.1
             lightcurve = ShortCadence(
-                gaiaDR2id= gaiaid,
-                toiid= toiid,
-                ticid= ticid,
+                gaiaDR2id=gaiaid,
+                toiid=toiid,
+                ticid=ticid,
                 name=name,
                 sector=sector,
                 sap_mask=sap_mask,
@@ -188,7 +193,8 @@ def make_tql(
             )
         else:
             raise ValueError("Use cadence=(long, short).")
-        print(f"Analyzing {cadence} cadence data with {sap_mask} mask")
+        if verbose:
+            print(f"Analyzing {cadence} cadence data with {sap_mask} mask")
 
         l = lightcurve
         if l.gaia_params is None:
@@ -200,7 +206,7 @@ def make_tql(
 
         # +++++++++++++++++++++ raw lc
         if lctype == "custom":
-            #tpf is also called to make custom lc
+            # tpf is also called to make custom lc
             lc = l.make_custom_lc()
         elif lctype == "pdcsap":
             # just downloads lightcurvefile
@@ -230,30 +236,34 @@ def make_tql(
         )  # flat and trend here are just place-holder
         time, flux = lc.time, lc.flux
         if use_star_priors:
-            #for wotan and tls.power
-            Rstar = l.tic_params['rad'] if l.tic_params['rad'] is not None else 1.0
-            Mstar = l.tic_params['mass'] if l.tic_params['mass'] is not None else 1.0
-            Porb = 10 #TODO: arbitrary default!
-            tdur = estimate_transit_duration(R_s=Rstar,
-                                             M_s=Mstar,
-                                             P=Porb,
-                                             small_planet=True
-                                             )
-            window_length = tdur*3 #overrides default
+            # for wotan and tls.power
+            Rstar = (
+                l.tic_params["rad"] if l.tic_params["rad"] is not None else 1.0
+            )
+            Mstar = (
+                l.tic_params["mass"]
+                if l.tic_params["mass"] is not None
+                else 1.0
+            )
+            Porb = 10  # TODO: arbitrary default!
+            tdur = estimate_transit_duration(
+                R_s=Rstar, M_s=Mstar, P=Porb, small_planet=True
+            )
+            window_length = tdur * 3  # overrides default
 
         else:
             Rstar, Mstar = 1.0, 1.0
 
         wflat, wtrend = flatten(
-                        time,  # Array of time values
-                        flux,  # Array of flux values
-                        method="biweight",
-                        window_length=window_length,  # The length of the filter window in units of ``time``
-                        edge_cutoff=edge_cutoff,
-                        break_tolerance=0.5,  # Split into segments at breaks longer than that
-                        return_trend=True,
-                        cval=5.0,  # Tuning parameter for the robust estimators
-                    )
+            time,  # Array of time values
+            flux,  # Array of flux values
+            method="biweight",
+            window_length=window_length,  # The length of the filter window in units of ``time``
+            edge_cutoff=edge_cutoff,
+            break_tolerance=0.5,  # Split into segments at breaks longer than that
+            return_trend=True,
+            cval=5.0,  # Tuning parameter for the robust estimators
+        )
         # f > np.median(f) + 5 * np.std(f)
         idx = sigma_clip(wflat, sigma_lower=np.inf, sigma_upper=3).mask
         # replace flux values with that from wotan
@@ -270,7 +280,7 @@ def make_tql(
         baseline = int(time[-1] - time[0])
         Prot_max = baseline / 2
 
-        #detrend lc
+        # detrend lc
         dlc = detrend(lc)
         ls = LombScargle(dlc.time, dlc.flux)
         frequencies, powers = ls.autopower(
@@ -295,7 +305,12 @@ def make_tql(
         t_fit = np.linspace(0, 1, 100) - offset
         y_fit = ls.model(t_fit * best_period - best_period / 2, best_freq)
         ax.plot(
-            t_fit * best_period, y_fit, "r-", lw=3, label="sine model", zorder=3
+            t_fit * best_period,
+            y_fit,
+            "r-",
+            lw=3,
+            label="sine model",
+            zorder=3,
         )
         # fold data
         # t0 = final_T0_fit(
@@ -309,7 +324,11 @@ def make_tql(
         phase = ((time / best_period) % 1) - offset
 
         a = ax.scatter(
-            phase * best_period, flux, c=time, label="folded at  Prot", cmap=pl.get_cmap("Blues")
+            phase * best_period,
+            flux,
+            c=time,
+            label="folded at  Prot",
+            cmap=pl.get_cmap("Blues"),
         )
         pl.colorbar(a, ax=ax, label=f"Time [BTJD]")
         ax.legend()
@@ -320,35 +339,39 @@ def make_tql(
 
         # +++++++++++++++++++++ax5: TLS periodogram
         ax = axs[4]
+        period_min = 0.1 if Porb_min is None else Porb_min
+        period_max = baseline / 2 if Porb_max is None else Porb_max
         tls_results = tls(
-            flat.time,
-            flat.flux,
-            flat.flux_err, #somewhat improves SDE
-            ).power(
-                    R_star = Rstar, #0.13-3.5 default
-                    R_star_max = Rstar+0.1 if Rstar>3.5 else 3.5,
-                    M_star = Mstar, #0.1-1
-                    M_star_max = Mstar+0.1 if Mstar>1.0 else 1.0,
-                    period_min = 0.1 if Porb_min is None else Porb_min, #Roche limit default
-                    period_max = baseline/2 if Porb_max is None else Porb_max,
-                    n_transits_min = 2 #default
-            )
+            flat.time, flat.flux, flat.flux_err  # somewhat improves SDE
+        ).power(
+            R_star=Rstar,  # 0.13-3.5 default
+            R_star_max=Rstar + 0.1 if Rstar > 3.5 else 3.5,
+            M_star=Mstar,  # 0.1-1
+            M_star_max=Mstar + 0.1 if Mstar > 1.0 else 1.0,
+            period_min=period_min,  # Roche limit default
+            period_max=period_max,
+            n_transits_min=2,  # default
+        )
 
         label = f"peak={tls_results.period:.3}"
         ax.axvline(tls_results.period, alpha=0.4, lw=3, label=label)
         ax.set_xlim(np.min(tls_results.periods), np.max(tls_results.periods))
 
         for i in range(2, 10):
-            ax.axvline(
-                i * tls_results.period, alpha=0.4, lw=1, linestyle="dashed"
-            )
-            ax.axvline(
-                tls_results.period / i, alpha=0.4, lw=1, linestyle="dashed"
-            )
+            lower_harmonics = i / tls_results.period
+            higher_harmonics = i * tls_results.period
+            if period_min <= higher_harmonics <= period_max:
+                ax.axvline(
+                    higher_harmonics, alpha=0.4, lw=1, linestyle="dashed"
+                )
+            if period_min <= lower_harmonics <= period_max:
+                ax.axvline(
+                    lower_harmonics, alpha=0.4, lw=1, linestyle="dashed"
+                )
         ax.set_ylabel(r"Transit Least Squares SDE")
         ax.set_xlabel("Period (days)")
         ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
-        ax.set_xlim(0, max(tls_results.periods))
+        ax.set_xlim(period_min, period_max)
         # ax.set_title("TLS Periodogram")
         ax.legend(title="Orbital period [d]")
 
@@ -375,7 +398,9 @@ def make_tql(
         ax = axs[5]
         # binned phase folded lc
         fold = flat.fold(period=tls_results.period, t0=tls_results.T0)
-        fold.scatter(ax=ax, c="k", alpha=0.5, label="folded at Porb", zorder=1)
+        fold.scatter(
+            ax=ax, c="k", alpha=alpha, label="folded at Porb", zorder=1
+        )
         fold.bin(nbins).scatter(
             ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=2
         )
@@ -407,8 +432,8 @@ def make_tql(
         # +++++++++++++++++++++ax: odd-even
         ax = axs[6]
         yline = tls_results.depth
-        fold.scatter(ax=ax, c="C0", alpha=0.5, label="_nolegend_", zorder=1)
-        fold[fold.even_mask].bin(nbins//2).scatter(
+        fold.scatter(ax=ax, c="k", alpha=alpha, label="_nolegend_", zorder=1)
+        fold[fold.even_mask].bin(nbins // 2).scatter(
             label="even", s=30, ax=ax, zorder=2
         )
         ax.plot(
@@ -419,7 +444,7 @@ def make_tql(
             label="TLS model",
         )
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
-        fold[fold.odd_mask].bin(nbins//2).scatter(
+        fold[fold.odd_mask].bin(nbins // 2).scatter(
             label="odd", s=30, ax=ax, zorder=3
         )
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
@@ -444,31 +469,41 @@ def make_tql(
                 tpf = l.tpf_tesscut
 
         if l.gaia_sources is None:
-            _ = l.query_gaia_dr2_catalog(radius=120)
+            _ = l.query_gaia_dr2_catalog(radius=gaia_sources_radius)
 
         _ = plot_gaia_sources_on_tpf(
             tpf=tpf,
             target_gaiaid=l.gaiaid,
             gaia_sources=l.gaia_sources,
             kmax=1,
-            depth=1-tls_results.depth,
+            depth=1 - tls_results.depth,
             sap_mask=l.sap_mask,
             aper_radius=l.aper_radius,
             threshold_sigma=l.threshold_sigma,
             percentile=l.percentile,
+            cmap="viridis",
             ax=ax,
         )
 
         if l.contratio is None:
-            #computed in make_custom_lc()
+            # also computed in make_custom_lc()
+            l.aper_mask = parse_aperture_mask(
+                tpf,
+                sap_mask=l.sap_mask,
+                aper_radius=l.aper_radius,
+                percentile=l.percentile,
+                threshold_sigma=l.threshold_sigma,
+            )
             fluxes = get_fluxes_within_mask(tpf, l.aper_mask, l.gaia_sources)
-            l.contratio = sum(fluxes) - 1 #c.f. l.tic_params.contratio
+            l.contratio = sum(fluxes) - 1  # c.f. l.tic_params.contratio
 
         # +++++++++++++++++++++ax: summary
         tp = l.tic_params
         ax = axs[8]
         Rp = tls_results["rp_rs"] * tp["rad"] * u.Rsun.to(u.Rearth)
-        Rp_true = Rp * np.sqrt(1+l.contratio) #np.sqrt(tls_results["depth"]*(1+l.contratio))
+        Rp_true = Rp * np.sqrt(
+            1 + l.contratio
+        )  # np.sqrt(tls_results["depth"]*(1+l.contratio))
         msg = "Candidate Properties\n"
         msg += "-" * 30 + "\n"
         msg += f"SDE={tls_results.SDE:.2f}\n"
@@ -481,7 +516,10 @@ def make_tql(
         msg += f"Depth={(1-tls_results.depth)*100:.2f}%\n"
         msg += f"Rp={Rp:.2f} " + r"R$_{\oplus}$" + "(diluted)" + " " * 5
         msg += f"Rp={Rp_true:.2f} " + r"R$_{\oplus}$" + "(undiluted)\n"
-        msg += f"Odd-Even mismatch={tls_results.odd_even_mismatch:.2f}"+r"$\sigma$"
+        msg += (
+            f"Odd-Even mismatch={tls_results.odd_even_mismatch:.2f}"
+            + r"$\sigma$"
+        )
         msg += "\n" * 2
         msg += "Stellar Properties\n"
         msg += "-" * 30 + "\n"
@@ -507,17 +545,15 @@ def make_tql(
         ax.axis("off")
 
         if l.toiid is not None:
-            fig.suptitle(
-                f"TOI {l.toiid} | TIC {l.ticid} (sector {l.sector})"
-            )
+            fig.suptitle(f"TOI {l.toiid} | TIC {l.ticid} (sector {l.sector})")
         else:
             fig.suptitle(f"TIC {l.ticid} (sector {l.sector})")
-        #fig.tight_layout()
+        # fig.tight_layout()
 
         msg = ""
         if savefig:
             fp = os.path.join(
-                outdir, f"tic{l.ticid}_s{l.sector}_{l.lctype}_{cadence[0]}c"
+                outdir, f"tic{l.ticid}_s{l.sector}_{lctype}_{cadence[0]}c"
             )
             fig.savefig(fp + ".png", bbox_inches="tight")
             msg += f"Saved: {fp}.png\n"
@@ -591,6 +627,7 @@ def plot_gaia_sources_on_tpf(
     kmax=1,
     ax=None,
     fov_rad=None,
+    cmap="viridis",
     figsize=None,
     **mask_kwargs,
 ):
@@ -602,10 +639,10 @@ def plot_gaia_sources_on_tpf(
     # make aperture mask
     mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
     ax = plot_aperture_outline(
-        img, mask=mask, imgwcs=tpf.wcs, figsize=figsize, ax=ax
+        img, mask=mask, imgwcs=tpf.wcs, figsize=figsize, cmap=cmap, ax=ax
     )
     if fov_rad is None:
-        nx, ny = tpf.shape[:2]
+        nx, ny = tpf.shape[1:]
         diag = np.sqrt(nx ** 2 + ny ** 2)
         fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcmin)
 
@@ -647,7 +684,7 @@ def plot_gaia_sources_on_tpf(
             if int(id) == int(target_gaiaid):
                 marker = "s"
                 edgecolor = "w"
-                zorder = 100 #on top
+                zorder = 100  # on top
                 # ax.plot(pix[1],pix[0], marker='x', ms=20, lw=10, c='w')
             if depth is not None:
                 gamma = 1 + 10 ** (0.4 * (min_gmag - gmag))
@@ -668,11 +705,15 @@ def plot_gaia_sources_on_tpf(
             facecolor="none",
         )
     # set img limits
-    # pl.setp(
-    #     ax,
-    #     xlim=(min(pix_coords[0]), max(pix_coords[0])),
-    #     ylim=(min(pix_coords[1]), max(pix_coords[1])),
-    # )
+    xdeg = (nx * TESS_pix_scale).to(u.arcmin)
+    ydeg = (ny * TESS_pix_scale).to(u.arcmin)
+    pl.setp(
+        ax,
+        xlim=(0, nx),
+        ylim=(0, ny),
+        # xlabel="({0:.2f}' x {0:.2f}')".format(fov_rad.to(u.arcmin)),
+        xlabel=f"({xdeg:.2f} x {ydeg:.2f})",
+    )
     return ax
 
 
@@ -805,7 +846,9 @@ def plot_gaia_sources_on_survey(
     return ax
 
 
-def plot_aperture_outline(img, mask, ax=None, imgwcs=None, figsize=None):
+def plot_aperture_outline(
+    img, mask, ax=None, imgwcs=None, cmap="viridis", figsize=None
+):
     """
     see https://github.com/rodluger/everest/blob/56f61a36625c0d9a39cc52e96e38d257ee69dcd5/everest/standalone.py
     """
@@ -824,10 +867,17 @@ def plot_aperture_outline(img, mask, ax=None, imgwcs=None, figsize=None):
         ax.set_xlabel("RA")
         ax.set_ylabel("Dec")
     _ = ax.contour(
-        highres, levels=[0.5], extent=extent, origin="lower", colors="C6"
+        highres,
+        levels=[0.5],
+        linewidths=3,
+        extent=extent,
+        origin="lower",
+        colors="C6",
     )
     zmin, zmax = interval.get_limits(img)
-    ax.matshow(img, origin="lower", vmin=zmin, vmax=zmax, extent=extent)
+    ax.matshow(
+        img, origin="lower", cmap=cmap, vmin=zmin, vmax=zmax, extent=extent
+    )
     # verts = cs.allsegs[0][0]
     return ax
 
@@ -930,7 +980,9 @@ def plot_rotation_period(
     offset = 0.5
     t_fit = np.linspace(0, 1, 100) - offset
     y_fit = ls.model(t_fit * peak_period - peak_period / 2, best_freq)
-    ax[n].plot(t_fit * peak_period, y_fit, "r-", lw=3, label="sine model", zorder=3)
+    ax[n].plot(
+        t_fit * peak_period, y_fit, "r-", lw=3, label="sine model", zorder=3
+    )
     # fold data
     phase = ((time / peak_period) % 1) - offset
 
