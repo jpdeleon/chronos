@@ -539,6 +539,11 @@ class ShortCadence(Tpf):
             gaia_sources = self.gaia_sources
         fluxes = get_fluxes_within_mask(self.tpf, self.aper_mask, gaia_sources)
         self.contratio = sum(fluxes) - 1
+        tic_contratio = self.tic_params.contratio
+        dcontratio = abs(tic_contratio-self.contratio)
+        if tic_contratio & (dcontratio>0.5):
+            print(f"contratio: {self.contratio:.2f} (TIC={tic_contratio:.2f})")
+        import pdb; pdb.set_trace()
         return lc
 
 
