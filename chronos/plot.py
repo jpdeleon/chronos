@@ -145,33 +145,16 @@ def make_tql(
         Porb_max = Porb_limits[1] if Porb_limits[1]>1 else None
     else:
         Porb_min, Porb_max = None, None
-
-    # TODO: ShortCadence inherits Tpf and Target which makes Star redundant
-    # Star is used here to first validate tic and gaia match
-    star = Star(
-        gaiaDR2id=gaiaid,
-        toiid=toiid,
-        ticid=ticid,
-        name=name,
-        verbose=verbose,
-        clobber=clobber,
-    )
-
-    if star.gaia_params is None:
-        _ = star.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-    if star.tic_params is None:
-        _ = star.query_tic_catalog(return_nearest_xmatch=True)
-    if not star.validate_gaia_tic_xmatch():
-        raise ValueError("Gaia TIC cross-match failed")
+        
     try:
         if cadence == "long":
             sap_mask = "square" if sap_mask is None else sap_mask
             lctype = "pdcsap" if lctype is None else lctype
             assert lctype in ['custom','cdips']
-            star.lc = LongCadence(
-                gaiaDR2id=star.gaiaid,
-                toiid=star.toiid,
-                ticid=star.ticid,
+            lightcurve = LongCadence(
+                gaiaDR2id= gaiaid,
+                toiid= toiid,
+                ticid= ticid,
                 name=name,
                 sector=sector,
                 sap_mask=sap_mask,
@@ -188,10 +171,10 @@ def make_tql(
             sap_mask = "pipeline" if sap_mask is None else sap_mask
             lctype = "custom" if lctype is None else lctype
             assert lctype in ['pdcsap','sap','custom']
-            star.lc = ShortCadence(
-                gaiaDR2id=star.gaiaid,
-                toiid=star.toiid,
-                ticid=star.ticid,
+            lightcurve = ShortCadence(
+                gaiaDR2id= gaiaid,
+                toiid= toiid,
+                ticid= ticid,
                 name=name,
                 sector=sector,
                 sap_mask=sap_mask,
@@ -207,9 +190,14 @@ def make_tql(
             raise ValueError("Use cadence=(long, short).")
         print(f"Analyzing {cadence} cadence data with {sap_mask} mask")
 
-        l = star.lc
-        l.tic_params = star.tic_params
-        l.gaia_params = star.gaia_params
+        l = lightcurve
+        if l.gaia_params is None:
+            _ = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+        if l.tic_params is None:
+            _ = l.query_tic_catalog(return_nearest_xmatch=True)
+        if not l.validate_gaia_tic_xmatch():
+            raise ValueError("Gaia TIC cross-match failed")
+
         # +++++++++++++++++++++ raw lc
         if lctype == "custom":
             #tpf is also called to make custom lc
@@ -243,8 +231,8 @@ def make_tql(
         time, flux = lc.time, lc.flux
         if use_star_priors:
             #for wotan and tls.power
-            Rstar = star.tic_params['rad'] if star.tic_params['rad'] is not None else 1.0
-            Mstar = star.tic_params['mass'] if star.tic_params['mass'] is not None else 1.0
+            Rstar = l.tic_params['rad'] if l.tic_params['rad'] is not None else 1.0
+            Mstar = l.tic_params['mass'] if l.tic_params['mass'] is not None else 1.0
             Porb = 10 #TODO: arbitrary default!
             tdur = estimate_transit_duration(R_s=Rstar,
                                              M_s=Mstar,
@@ -477,7 +465,7 @@ def make_tql(
             l.contratio = sum(fluxes) - 1 #c.f. l.tic_params.contratio
 
         # +++++++++++++++++++++ax: summary
-        tp = star.tic_params
+        tp = l.tic_params
         ax = axs[8]
         Rp = tls_results["rp_rs"] * tp["rad"] * u.Rsun.to(u.Rearth)
         Rp_true = Rp * np.sqrt(1+l.contratio) #np.sqrt(tls_results["depth"]*(1+l.contratio))
@@ -518,24 +506,24 @@ def make_tql(
         ax.text(0, 0, msg, fontsize=10)
         ax.axis("off")
 
-        if star.toiid is not None:
+        if l.toiid is not None:
             fig.suptitle(
-                f"TOI {star.toiid} | TIC {star.ticid} (sector {l.sector})"
+                f"TOI {l.toiid} | TIC {l.ticid} (sector {l.sector})"
             )
         else:
-            fig.suptitle(f"TIC {star.ticid} (sector {l.sector})")
+            fig.suptitle(f"TIC {l.ticid} (sector {l.sector})")
         #fig.tight_layout()
 
         msg = ""
         if savefig:
             fp = os.path.join(
-                outdir, f"tic{star.ticid}_s{l.sector}_{l.lctype}_{cadence[0]}c"
+                outdir, f"tic{l.ticid}_s{l.sector}_{l.lctype}_{cadence[0]}c"
             )
             fig.savefig(fp + ".png", bbox_inches="tight")
             msg += f"Saved: {fp}.png\n"
         if savetls:
-            tls_results["gaiaid"] = star.gaiaid
-            tls_results["ticid"] = star.ticid
+            tls_results["gaiaid"] = l.gaiaid
+            tls_results["ticid"] = l.ticid
             dd.io.save(fp + "_tls.h5", tls_results)
             msg += f"Saved: {fp}_tls.h5"
         if verbose:
