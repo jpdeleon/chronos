@@ -126,8 +126,8 @@ parser.add_argument(
 parser.add_argument(
     "-v", "--verbose", action="store_true", help="show details", default=False
 )
-
-args = parser.parse_args()
+# prints help if no argument supplied
+args = parser.parse_args(None if sys.argv[1:] else ["-h"])
 
 if __name__ == "__main__":
     fig = cr.make_tql(

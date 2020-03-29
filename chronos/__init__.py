@@ -16,8 +16,6 @@ from .utils import *
 from .gls import *
 from .config import *
 from .constants import *
+from .version import *
 
 warnings.simplefilter("ignore")
-
-name = "chronos"
-__version__ = "0.0.1"

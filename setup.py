@@ -3,16 +3,11 @@ This installation requires git which pulls large files first before pip installa
 https://stackoverflow.com/a/58932741/1910174
 """
 from setuptools import setup, find_packages
-from chronos import __version__, name
-
-import os
-import subprocess
-import sys
 
 setup(
-    name=name,
-    version=__version__,
-    description="exploring young star catalogs",
+    name="chronos",
+    version="0.1.0",
+    description="discovery and characterization of young stars",
     url="http://github.com/jpdeleon/chronos",
     author="Jerome de Leon",
     author_email="jpdeleon.bsap@gmail.com",
@@ -21,7 +16,8 @@ setup(
     scripts=[
         "scripts/make_tql",
         # "scripts/make_kql",
-        "scripts/check_target_in_cluster" "scripts/rank_tls",
+        "scripts/check_target_in_cluster",
+        "scripts/rank_tls",
         "scripts/make_tql_per_cluster",
         "scripts/query_cluster_members_gaia_params",
         "scripts/find_cluster_near_target",
