@@ -1,0 +1,51 @@
+#!/usr/bin/env python
+"""
+checks if target is in cluster catalog
+"""
+import chronos as cr
+import argparse
+
+parser = argparse.ArgumentParser(description="check if target in cluster")
+parser.add_argument("-gaia", type=int, help="Gaia DR2 ID", default=None)
+parser.add_argument("-toi", type=int, help="TOI ID", default=None)
+parser.add_argument("-tic", type=int, help="TIC ID", default=None)
+parser.add_argument("-ctoi", type=str, help="CTOI ID", default=None)
+parser.add_argument("-epic", type=str, help="EPIC ID", default=None)
+parser.add_argument("-n", "--name", type=str, help="target name", default=None)
+parser.add_argument(
+    "--catalog", type=str, help="catalog name", default="Bouma2019"
+)
+parser.add_argument("--cluster", type=str, help="cluster name", default=None)
+
+args = parser.parse_args()
+toiid = args.toi
+ctoiid = args.ctoi
+ticid = args.tic
+epicid = args.epic
+gaiaid = args.gaia
+name = args.name
+# TODO: use target input as in mirai
+# target = args.target.lower().strip().replace("-", "")
+cluster_name = args.cluster
+catalog_name = args.catalog
+
+t = cr.Target(
+    toiid=args.toi,
+    ctoiid=args.ctoi,
+    ticid=args.tic,
+    gaiaDR2id=args.gaia,
+    epicid=args.epic,
+    name=args.name,
+    verbose=True,
+    clobber=True,
+)
+gaia_params = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+tic_params = t.query_tic_catalog(return_nearest_xmatch=True)
+t.validate_gaia_tic_xmatch()
+
+cr.is_gaiaid_in_cluster(
+    t.gaiaid,
+    cluster_name=args.cluster,
+    catalog_name=args.catalog,
+    verbose=True,
+)

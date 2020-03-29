@@ -6,6 +6,7 @@ classes for plotting cluster properties
 # Import standard library
 import sys
 import os
+from time import time as timer
 import logging
 import itertools
 import traceback
@@ -38,6 +39,7 @@ import deepdish as dd
 
 # Import from package
 from chronos.star import Star
+from chronos.gls import Gls
 from chronos.cluster import ClusterCatalog, Cluster
 from chronos.lightcurve import ShortCadence, LongCadence
 from chronos.utils import (
@@ -49,6 +51,7 @@ from chronos.utils import (
     get_absolute_color_index,
     parse_aperture_mask,
     is_point_inside_mask,
+    is_gaiaid_in_cluster,
     get_fluxes_within_mask,
     get_rotation_period,
     get_transit_mask,
@@ -99,8 +102,11 @@ def make_tql(
     Porb_limits=None,
     use_star_priors=False,
     edge_cutoff=0.1,
+    run_gls=False,
+    find_cluster=True,
     savefig=False,
     savetls=False,
+    savegls=False,
     outdir=".",
     gaia_sources_radius=120,  # arcsec
     bin_hr=4,
@@ -131,7 +137,10 @@ def make_tql(
         limb darkening in tls
     edge_cutoff : float
         length in days to be cut off each edge of lightcurve (default=0.1)
-
+    run_gls : bool
+        run Generalized Lomb Scargle (default=False)
+    find_cluster : bool
+        find if target is in cluster (default=False)
     Notes:
     * removes scattered light subtraction + TESSPld
     * uses wotan's biweight to flatten lightcurve
@@ -141,6 +150,7 @@ def make_tql(
     * rescale x-axis of phase-folded lc in days
     * add phase offset in lomb scargle plot
     """
+    start = timer()
     if Porb_limits is not None:
         # assert isinstance(Porb_limits, list)
         assert len(Porb_limits) == 2, "period_min, period_max"
@@ -358,12 +368,12 @@ def make_tql(
         ax.set_xlim(np.min(tls_results.periods), np.max(tls_results.periods))
 
         for i in range(2, 10):
-            lower_harmonics = i / tls_results.period
             higher_harmonics = i * tls_results.period
             if period_min <= higher_harmonics <= period_max:
                 ax.axvline(
                     higher_harmonics, alpha=0.4, lw=1, linestyle="dashed"
                 )
+            lower_harmonics = i / tls_results.period
             if period_min <= lower_harmonics <= period_max:
                 ax.axvline(
                     lower_harmonics, alpha=0.4, lw=1, linestyle="dashed"
@@ -549,7 +559,18 @@ def make_tql(
         else:
             fig.suptitle(f"TIC {l.ticid} (sector {l.sector})")
         # fig.tight_layout()
-
+        if run_gls:
+            if verbose:
+                print("Running GLS pipeline")
+            data = (flat.time, flat.flux, flat.flux_err)
+            gls = Gls(data, Pbeg=1, verbose=True)
+            fig2 = gls.plot(block=False, figsize=(10, 8))
+        if find_cluster:
+            is_gaiaid_in_cluster(
+                l.gaiaid, catalog_name="Bouma2019", verbose=True
+            )
+            # function prints output
+        end = timer()
         msg = ""
         if savefig:
             fp = os.path.join(
@@ -557,11 +578,16 @@ def make_tql(
             )
             fig.savefig(fp + ".png", bbox_inches="tight")
             msg += f"Saved: {fp}.png\n"
+            if run_gls:
+                fig2.savefig(fp + "_gls.png", bbox_inches="tight")
+                msg += f"Saved: {fp}_gls.png\n"
         if savetls:
             tls_results["gaiaid"] = l.gaiaid
             tls_results["ticid"] = l.ticid
             dd.io.save(fp + "_tls.h5", tls_results)
-            msg += f"Saved: {fp}_tls.h5"
+            msg += f"Saved: {fp}_tls.h5\n"
+
+        msg += f"#----------Runtime: {end-start:.2f} s----------#\n"
         if verbose:
             print(msg)
         return fig

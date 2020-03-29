@@ -50,15 +50,17 @@ class ClusterCatalog:
         ----------
         data_loc : str
             data directory
-        all_catalogs: list
-            list of all catalogs
+        all_members: pd.DataFrame
+            list of all members in catalog
+        all_clusters : pd.DataFrame
+            list of all clusters in catalog
         """
         self.catalog_name = catalog_name
-        self.data_loc = data_loc
-        self.verbose = verbose
         self.catalog_list = CATALOG_LIST
         self.all_members = None
         self.all_clusters = None
+        self.data_loc = data_loc
+        self.verbose = verbose
 
     def query_catalog(self, name=None, return_members=False, **kwargs):
         """Query catalogs
@@ -66,7 +68,7 @@ class ClusterCatalog:
         Parameters
         ----------
         name : str
-            catalog name; see `ClusterCatalog.all_catalogs`
+            catalog name; see `self.catalog_list`
         return_members : bool
             return parameters for all members instead of the default
 
@@ -155,7 +157,7 @@ class ClusterCatalog:
         # add more catalogs here
         else:
             raise ValueError(
-                f"Catalog name not found; See `{self.all_catalogs}`"
+                f"Catalog name not found in list: {self.catalog_list}"
             )
 
     def get_members_Bouma2019(self):

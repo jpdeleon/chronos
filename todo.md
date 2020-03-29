@@ -1,7 +1,8 @@
 # To do
 
 ## Basic
-- [] check if caching works in get_lc(), get_tpf(), etc.
+- [] query_gaia_dr2_catalog and tic catalog can be combined with galex into query_mast(catalog=["gaia","tic","galex"]) [see here](https://astroquery.readthedocs.io/en/latest/mast/mast.html) using [lower level functions here](https://mast.stsci.edu/api/v0/pyex.html)
+- [x] check if caching works in get_lc(), get_tpf(), etc.
 - [x] migrate constants to constants.py
 - [] make setup.py work in fresh conda environment
 - [] remove redundant large files in /data; see [this repo](https://github.com/ideasrule/platon)
@@ -14,7 +15,9 @@
 - [] include an environment.yml file, like [this](https://github.com/lgbouma/cdips_followup/blob/master/environment.yml)
 
 ## Functions
+- make input to cr.Target using get_target_coord unified as in mirai.parse_target_coord  
 - [] mr-relation
+- [] join multi-sector light curves
 - [] See routines in [difference imaging analysis](https://github.com/ryanoelkers/DIA)
 - [] add lightcurve from ASAS-SN project (Shappee et al. 2014; Kochanek et al. 2017))
 - [] check [cdips-pipeline](https://github.com/waqasbhatti/cdips-pipeline)
@@ -27,6 +30,7 @@
 - [] add isochrone fitting in CM diagram
 - [] add size=stellar radius and color=logg from tic catalog in CMD/HRD similar to Hardegree-Ullman+2020 to show if dwarf/giant misclassification
 - [] add data from [pathos pipeline](https://archive.stsci.edu/hlsp/pathos)
+- [] See [Tess tutorials](https://outerspace.stsci.edu/display/TESS/6.0+-+Data+Search+Tutorials) and [notebooks](https://github.com/spacetelescope/notebooks)
 
 ## Notes
 - [] see [TESS DR14 Notes S4.2](https://archive.stsci.edu/missions/tess/doc/tess_drn/tess_sector_14_drn19_v02.pdf) about transit search improvement in pipeline

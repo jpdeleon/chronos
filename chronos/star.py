@@ -139,6 +139,7 @@ class Star(Target):
         Interpolate spectral type from Mamajek table from
         http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt
         based on observables Teff and color indices.
+        c.f. self.query_vizier_param("SpT")
 
         Parameters
         ----------

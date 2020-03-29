@@ -50,6 +50,7 @@ class Target:
         self,
         name=None,
         toiid=None,
+        ctoiid=None,
         ticid=None,
         epicid=None,
         gaiaDR2id=None,
@@ -69,6 +70,7 @@ class Target:
             search radius for matching [arcsec]
         """
         self.toiid = toiid  # e.g. 837
+        self.ctoiid = ctoiid  # e.g. 364107753.01
         self.ticid = ticid  # e.g. 364107753
         self.epicid = epicid  # 201270176
         self.gaiaid = gaiaDR2id  # e.g. Gaia DR2 5251470948229949568
@@ -125,6 +127,7 @@ class Target:
             ra=self.ra,
             dec=self.dec,
             toi=self.toiid,
+            ctoi=self.ctoiid,
             tic=self.ticid,
             epic=self.epicid,
             gaiaid=self.gaiaid,
@@ -250,7 +253,9 @@ class Target:
 
     def query_tic_catalog(self, radius=None, return_nearest_xmatch=False):
         """
-        Query TIC v8 catalog from MAST
+        Query TIC v8 catalog from MAST: https://astroquery.readthedocs.io/en/latest/mast/mast.html
+        See column meaning in https://mast.stsci.edu/api/v0/_t_i_cfields.html
+        and Table B in Stassun+2019: https://arxiv.org/pdf/1905.10694.pdf
 
         Parameter
         ---------
@@ -631,7 +636,7 @@ class Target:
         )
         tables = v.query_region(self.target_coord, radius=radius)
         msg = "No result from Vizier"
-        assert len(table) > 0, msg
+        assert len(tables) > 0, msg
         if verbose:
             print(f"{len(tables)} tables found.")
             print({k: v.description for k, v in tables.items()})

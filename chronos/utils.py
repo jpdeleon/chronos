@@ -53,9 +53,10 @@ __all__ = [
     "get_all_campaigns",
     "get_all_sectors",
     "get_sector_cam_ccd",
-    "get_ctois",
     "get_tois",
     "get_toi",
+    "get_ctois",
+    "get_ctoi",
     "get_target_coord",
     "get_target_coord_3d",
     "get_transformed_coord",
@@ -167,15 +168,37 @@ def get_sector_cam_ccd(target_coord, sector=None):
     return sector, cam, ccd
 
 
-def is_gaiaid_in_cluster(gaiaid, cluster_name, catalog_name="Bouma2019"):
+def is_gaiaid_in_cluster(
+    gaiaid, cluster_name=None, catalog_name="Bouma2019", verbose=True
+):
+    """
+    See scripts/check_target_in_cluster
+    """
     # reduce the redundant names above
-    c = cluster.Cluster(
-        catalog_name=catalog_name, cluster_name=cluster_name, verbose=False
-    )
-    df_mem = c.query_cluster_members()
-    if df_mem.source_id.isin([gaiaid]).sum() > 0:
+    gaiaid = int(gaiaid)
+    if cluster_name is None:
+        cc = cluster.ClusterCatalog(catalog_name=catalog_name, verbose=False)
+        df_mem = cc.query_catalog(return_members=True)
+    else:
+        c = cluster.Cluster(
+            catalog_name=catalog_name, cluster_name=cluster_name, verbose=False
+        )
+        df_mem = c.query_cluster_members()
+    idx = df_mem.source_id.isin([gaiaid])
+    if idx.sum() > 0:
+        if verbose:
+            if cluster_name is None:
+                cluster_match = df_mem[idx].Cluster.values[0]
+            else:
+                # TODO: what if cluster_match != cluster_name?
+                cluster_match = cluster_name
+            print(
+                f"Gaia DR2 {gaiaid} is IN {cluster_match} cluster based on {catalog_name} catalog!"
+            )
         return True
     else:
+        if verbose:
+            print(f"Gaia DR2 {gaiaid} is NOT in {catalog_name} catalog!")
         return False
 
 
@@ -239,7 +262,9 @@ def detrend(self, polyorder=1, break_tolerance=10):
         # add 1 if even
         half += 1
     return lc.flatten(
-        window_length=half, polyorder=polyorder, break_tolerance=break_tolerance
+        window_length=half,
+        polyorder=polyorder,
+        break_tolerance=break_tolerance,
     )
 
 
@@ -925,6 +950,54 @@ def get_tois(
     return d.sort_values("TOI")
 
 
+def get_toi(toi, verbose=False, remove_FP=False, clobber=False):
+    """Query TOI from TOI list
+
+    Parameters
+    ----------
+    toi : float
+        TOI id
+    clobber : bool
+        re-download csv file
+    outdir : str
+        csv path
+    verbose : bool
+        print texts
+
+    Returns
+    -------
+    q : pandas.DataFrame
+        TOI match else None
+    """
+    df = get_tois(verbose=False, remove_FP=remove_FP, clobber=clobber)
+
+    if isinstance(toi, int):
+        toi = float(str(toi) + ".01")
+    else:
+        planet = str(toi).split(".")[1]
+        assert len(planet) == 2, "use pattern: TOI.01"
+    idx = df["TOI"].isin([toi])
+    q = df.loc[idx]
+    assert len(q) > 0, "TOI not found!"
+
+    q.index = q["TOI"].values
+    if verbose:
+        print("Data from TOI Release:\n")
+        columns = [
+            "Period (days)",
+            "Epoch (BJD)",
+            "Duration (hours)",
+            "Depth (ppm)",
+            "Comments",
+        ]
+        print(f"{q[columns].T}\n")
+
+    if q["TFOPWG Disposition"].isin(["FP"]).any():
+        print("\nTFOPWG disposition is a False Positive!\n")
+
+    return q.sort_values(by="TOI", ascending=True)
+
+
 def get_ctois(clobber=True, outdir=DATA_PATH, verbose=False, remove_FP=True):
     """Download Community TOI list from exofop/TESS.
 
@@ -968,53 +1041,49 @@ def get_ctois(clobber=True, outdir=DATA_PATH, verbose=False, remove_FP=True):
     return d.sort_values("CTOI")
 
 
-def get_toi(toi, clobber=True, outdir=DATA_PATH, add_FPP=False, verbose=True):
-    """Query TOI from TOI list
+def get_ctoi(ctoi, verbose=False, remove_FP=False, clobber=False):
+    """Query CTOI from CTOI list
 
     Parameters
     ----------
-    toi : float
-        TOI id
-    clobber : bool
-        re-download csv file
-    outdir : str
-        csv path
-    verbose : bool
-        print texts
+    ctoi : float
+        CTOI id
 
     Returns
     -------
     q : pandas.DataFrame
-        TOI match else None
+        CTOI match else None
     """
+    ctoi = float(ctoi)
+    df = get_ctois(verbose=False, remove_FP=remove_FP, clobber=clobber)
 
-    df = get_tois(clobber=clobber, verbose=verbose, outdir=outdir)
-
-    if isinstance(toi, int):
-        toi = float(str(toi) + ".01")
+    if isinstance(ctoi, int):
+        ctoi = float(str(ctoi) + ".01")
     else:
-        planet = str(toi).split(".")[1]
-        assert len(planet) == 2, "use pattern: TOI.01"
-    idx = df["TOI"].isin([toi])
-    q = df.loc[idx]
-    assert len(q) > 0, "TOI not found!"
+        planet = str(ctoi).split(".")[1]
+        assert len(planet) == 2, "use pattern: CTOI.01"
+    idx = df["CTOI"].isin([ctoi])
 
-    q.index = q["TOI"].values
+    q = df.loc[idx]
+    assert len(q) > 0, "CTOI not found!"
+
+    q.index = q["CTOI"].values
     if verbose:
-        print("Data from TOI Release:\n")
+        print("Data from CTOI Release:\n")
         columns = [
             "Period (days)",
-            "Epoch (BJD)",
+            "Midpoint (BJD)",
             "Duration (hours)",
-            "Depth (ppm)",
-            "Comments",
+            "Depth ppm",
+            "Notes",
         ]
         print(f"{q[columns].T}\n")
+    if (q["TFOPWG Disposition"].isin(["FP"]).any()) | (
+        q["User Disposition"].isin(["FP"]).any()
+    ):
+        print("\nTFOPWG/User disposition is a False Positive!\n")
 
-    if q["TFOPWG Disposition"].isin(["FP"]).any():
-        print("\nTFOPWG disposition is a False Positive!\n")
-
-    return q.sort_values(by="TOI", ascending=True)
+    return q.sort_values(by="CTOI", ascending=True)
 
 
 def get_specs_table_from_tfop(clobber=True, outdir=DATA_PATH, verbose=True):
@@ -1041,14 +1110,20 @@ def get_specs_table_from_tfop(clobber=True, outdir=DATA_PATH, verbose=True):
 
 
 def get_target_coord(
-    ra=None, dec=None, toi=None, tic=None, epic=None, gaiaid=None, name=None
+    ra=None,
+    dec=None,
+    toi=None,
+    ctoi=None,
+    tic=None,
+    epic=None,
+    gaiaid=None,
+    name=None,
 ):
     """get target coordinate
     """
 
     if np.all([ra, dec]):
         target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
-    # TIC
     elif toi:
         toi_params = get_toi(toi=toi, clobber=False, verbose=False)
         target_coord = SkyCoord(
@@ -1056,6 +1131,14 @@ def get_target_coord(
             dec=toi_params["Dec"].values[0],
             distance=toi_params["Stellar Distance (pc)"].values[0],
             unit=(u.hourangle, u.degree, u.pc),
+        )
+    elif ctoi:
+        ctoi_params = get_ctoi(ctoi=ctoi, clobber=False, verbose=False)
+        target_coord = SkyCoord(
+            ra=ctoi_params["RA"].values[0],
+            dec=ctoi_params["Dec"].values[0],
+            distance=ctoi_params["Stellar Distance (pc)"].values[0],
+            unit=(u.degree, u.degree, u.pc),
         )
     elif tic:
         df = Catalogs.query_criteria(catalog="Tic", ID=tic).to_pandas()
@@ -1087,6 +1170,104 @@ def get_target_coord(
     else:
         raise ValueError("Supply RA & Dec, TOI, TIC, or Name")
     return target_coord
+
+
+def parse_target_coord(target):
+    """
+    parse target string and query coordinates; e.g.
+    toi.X, ctoi.X, tic.X, gaiaX, epicX, Simbad name
+    """
+    assert isinstance(target, str)
+    if len(target.split(",")) == 2:
+        # coordinates: ra, dec
+        if len(target.split(":")) == 6:
+            # e.g. 01:02:03.0, 04:05:06.0
+            coord = SkyCoord(target, unit=("hourangle", "degree"))
+        else:
+            # e.g. 70.5, 80.5
+            coord = SkyCoord(target, unit=("deg", "degree"))
+    else:
+        # name or ID
+        if target[:3] == "toi":
+            toiid = float(target[3:])
+            coord = get_coord_from_toiid(toiid)
+        elif target[:4] == "ctoi":
+            ctoiid = float(target[4:])
+            coord = get_coord_from_ctoiid(ctoiid)
+        elif target[:3] == "tic":
+            # TODO: requires int for astroquery.mast.Catalogs to work
+            if len(target[3:].split(".")) == 2:
+                ticid = int(target[3:].split(".")[1])
+            else:
+                ticid = int(target[3:])
+            coord = get_coord_from_ticid(ticid)
+        elif target[:4] == "epic":
+            epicid = float(target[4:])
+            coord = get_coord_from_epicid(epicid)
+        elif target[:2] == "k2":
+            k2id = float(target[2:])
+            coord = SkyCoord.from_name("K2-" + str(k2id))
+        elif target[:4] == "gaia":
+            gaiaid = float(target[4:])
+            coord = SkyCoord.from_name("Gaia DR2 " + str(gaiaid))
+        else:
+            coord = SkyCoord.from_name(target)
+    return coord
+
+
+def get_coord_from_toiid(toiid):
+    toi = get_toi(toiid)
+    coord = SkyCoord(
+        ra=toi["RA"].values[0],
+        dec=toi["Dec"].values[0],
+        distance=toi["Stellar Distance (pc)"].values[0],
+        unit=(u.hourangle, u.degree, u.pc),
+    )
+    return coord
+
+
+def get_coord_from_ctoiid(ctoiid, **kwargs):
+    ctoi = get_ctoi(ctoiid, **kwargs)
+    coord = SkyCoord(
+        ra=ctoi["RA"].values[0],
+        dec=ctoi["Dec"].values[0],
+        distance=ctoi["Stellar Distance (pc)"].values[0],
+        unit=(u.degree, u.degree, u.pc),
+    )
+    return coord
+
+
+def get_coord_from_ticid(ticid):
+    df = Catalogs.query_criteria(catalog="Tic", ID=ticid).to_pandas()
+    coord = SkyCoord(
+        ra=df.iloc[0]["ra"],
+        dec=df.iloc[0]["dec"],
+        distance=Distance(parallax=df.iloc[0]["plx"] * u.mas).pc,
+        unit=(u.degree, u.degree, u.pc),
+    )
+    return coord
+
+
+def get_coord_from_epicid(epicid):
+    try:
+        import k2plr
+
+        client = k2plr.API()
+    except Exception:
+        raise ModuleNotFoundError(
+            "pip install git+https://github.com/rodluger/k2plr.git"
+        )
+    epicid = int(epicid)
+    star = client.k2_star(epicid)
+    ra = float(star.k2_ra)
+    dec = float(star.k2_dec)
+    coord = SkyCoord(ra=ra, dec=dec, unit="deg")
+    return coord
+
+
+def get_coord_from_gaiaid(gaiaid):
+    coord = SkyCoord.from_name("Gaia DR2 {}".format(gaiaid))
+    return coord
 
 
 def get_target_coord_3d(target_coord, verbose=False):
@@ -1441,13 +1622,14 @@ def get_pix_area_threshold(Tmag):
     """
     # set a threshold for the number of pixel by Tmag
     area_len = 9 - np.fix(Tmag / 2)
-    #最大値を7*7に制限
+    # 最大値を7*7に制限
     # restrict the maximam as 7*7
     area_len = min(area_len, 7)
-    #最小値を3*3に制限
+    # 最小値を3*3に制限
     # restrict the minimum as 3*3
     area_len = max(area_len, 3)
     return area_len ** 2
+
 
 # def determine_aperture(img, center, area_thresh=9):
 #     """determine aperture
