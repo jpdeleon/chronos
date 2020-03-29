@@ -16,6 +16,5 @@ from .utils import *
 from .gls import *
 from .config import *
 from .constants import *
-from .version import *
 
 warnings.simplefilter("ignore")

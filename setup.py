@@ -14,8 +14,8 @@ setup(
     license="MIT",
     packages=find_packages(),
     scripts=[
-        "scripts/make_tql",
-        # "scripts/make_kql",
+        "scripts/tql",
+        # "scripts/kql",
         "scripts/check_target_in_cluster",
         "scripts/rank_tls",
         "scripts/make_tql_per_cluster",

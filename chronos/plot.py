@@ -79,11 +79,11 @@ __all__ = [
     "plot_aperture_outline",
     "plot_gaia_sources_on_survey",
     "plot_gaia_sources_on_tpf",
-    "make_tql",
+    "plot_tql",
 ]
 
 
-def make_tql(
+def plot_tql(
     gaiaid=None,
     toiid=None,
     ticid=None,
@@ -564,7 +564,8 @@ def make_tql(
                 print("Running GLS pipeline")
             data = (flat.time, flat.flux, flat.flux_err)
             gls = Gls(data, Pbeg=1, verbose=True)
-            fig2 = gls.plot(block=False, figsize=(10, 8))
+            # show plot if not saved
+            fig2 = gls.plot(block=~savefig, figsize=(10, 8))
         if find_cluster:
             is_gaiaid_in_cluster(
                 l.gaiaid, catalog_name="Bouma2019", verbose=True

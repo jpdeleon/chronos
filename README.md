@@ -8,7 +8,7 @@ $ cd chronos && python setup.py install
 $ python setup.py develop
 ```
 
-If something does not work right, you may need to get the data by pulling data using `git-lfs`:
+If something does not work right, you may need to pull the data using `git-lfs`:
 ```bash
 $ git lfs pull
 ```
