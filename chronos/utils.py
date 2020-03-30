@@ -870,7 +870,7 @@ def get_tois(
     verbose=False,
     remove_FP=True,
     remove_known_planets=False,
-    add_FPP=True,
+    add_FPP=False,
 ):
     """Download TOI list from TESS Alert/TOI Release.
 

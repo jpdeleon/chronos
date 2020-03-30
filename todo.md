@@ -2,8 +2,7 @@
 
 ## Basic
 - [] query_gaia_dr2_catalog and tic catalog can be combined with galex into query_mast(catalog=["gaia","tic","galex"]) [see here](https://astroquery.readthedocs.io/en/latest/mast/mast.html) using [lower level functions here](https://mast.stsci.edu/api/v0/pyex.html)
-- [x] check if caching works in get_lc(), get_tpf(), etc.
-- [x] migrate constants to constants.py
+- [] make input to cr.Target using get_target_coord unified as in mirai.parse_target_coord  
 - [] make setup.py work in fresh conda environment
 - [] remove redundant large files in /data; see [this repo](https://github.com/ideasrule/platon)
 - [] make sure access to /data after installation works
@@ -13,9 +12,11 @@
 - [] add binder, badges
 - [] implement [typing](https://docs.python.org/3/library/typing.html) (> Python 3.8)
 - [] include an environment.yml file, like [this](https://github.com/lgbouma/cdips_followup/blob/master/environment.yml)
+- [x] check if caching works in get_lc(), get_tpf(), etc.
+- [x] migrate constants to constants.py
 
 ## Functions
-- make input to cr.Target using get_target_coord unified as in mirai.parse_target_coord  
+- [] incorporate (chronostar)[https://github.com/mikeireland/chronostar]
 - [] mr-relation
 - [] join multi-sector light curves
 - [] See routines in [difference imaging analysis](https://github.com/ryanoelkers/DIA)

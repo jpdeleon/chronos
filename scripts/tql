@@ -25,6 +25,13 @@ parser.add_argument(
     default="short",
 )
 parser.add_argument(
+    "-sr",
+    "--search_radius",
+    type=float,
+    help="search radius in arcsec (default=3)",
+    default=3,
+)
+parser.add_argument(
     "-lc",
     "--lctype",
     type=str,
@@ -33,19 +40,15 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument(
-    "-m",
-    "--sap_mask",
+    "-a",
+    "--aper_mask",
     type=str,
     help="mask type",
     choices=["pipeline", "round", "square", "percentile", "threshold"],
     default=None,
 )
 parser.add_argument(
-    "-thr",
-    "--threshold",
-    type=float,
-    help="mask threshold in sigma",
-    default=5,
+    "-t", "--threshold", type=float, help="mask threshold in sigma", default=5
 )
 parser.add_argument(
     "-r", "--aper_radius", type=int, help="mask radius in pix", default=1
@@ -54,7 +57,7 @@ parser.add_argument(
     "-perc", "--percentile", type=float, help="mask percentile", default=90
 )
 parser.add_argument(
-    "-b",
+    "-qb",
     "--quality_bitmask",
     type=str,
     choices=["none", "default", "hard", "hardest"],
@@ -68,10 +71,17 @@ parser.add_argument(
     default=(12, 12),
 )
 parser.add_argument(
+    "-m",
+    "--flatten_method",
+    type=str,
+    help="wotan flatten method (default=biweight)",
+    default="biweight",
+)
+parser.add_argument(
     "-w",
     "--window_length",
-    type=int,
-    help="wotan biweight window length (default=0.5 days)",
+    type=float,
+    help="flatten method window length (default=0.5 days)",
     default=0.5,
 )
 parser.add_argument(
@@ -82,23 +92,30 @@ parser.add_argument(
     default=0.1,
 )
 parser.add_argument(
-    "-q",
-    "--use_quality_mask",
+    "-qm",
+    "--quality_mask",
     action="store_true",
-    help="remove cadences in data release notes",
+    help="remove chunks of bad cadences identified in data release notes",
     default=False,
 )
 parser.add_argument(
-    "-per",
+    "-plims",
     "--period_limits",
-    help="period limits in periodogram search (default=[1, 0.5xbaseline])",
+    help="period limits in periodogram search; default=(1, baseline/2) days",
     nargs=2,
     type=float,
     default=None,
 )
 parser.add_argument(
-    "-l",
-    "--priors",
+    "-b",
+    "--bin_hr",
+    type=float,
+    help="bin size in folded lc (default=4 hr if -c=long else 0.5 hr)",
+    default=0.5,
+)
+parser.add_argument(
+    "-u",
+    "--use_priors",
     action="store_true",
     help="use star priors for detrending and periodogram",
     default=False,
@@ -135,22 +152,25 @@ if __name__ == "__main__":
         toiid=args.toi,
         ticid=args.tic,
         name=args.name,
+        search_radius=args.search_radius,
         sector=args.sector,
         cadence=args.cadence,
         lctype=args.lctype,
-        sap_mask=args.sap_mask,
+        sap_mask=args.aper_mask,
         aper_radius=args.aper_radius,
         threshold_sigma=args.threshold,
         percentile=args.percentile,
         quality_bitmask=args.quality_bitmask,
-        apply_data_quality_mask=args.use_quality_mask,
+        apply_data_quality_mask=args.quality_mask,
+        flatten_method=args.flatten_method,
         window_length=args.window_length,
         cutout_size=args.cutout_size,
+        bin_hr=args.bin_hr,
         Porb_limits=args.period_limits,
-        use_star_priors=args.priors,
+        use_star_priors=args.use_priors,
         edge_cutoff=args.edge_cutoff,
-        run_gls=args.gls,
         find_cluster=args.find_cluster,
+        run_gls=args.gls,
         savefig=args.save,
         savetls=args.save,
         outdir=args.outdir,

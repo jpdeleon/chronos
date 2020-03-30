@@ -87,6 +87,8 @@ class ClusterCatalog:
                 print("https://arxiv.org/pdf/1804.09366.pdf\n")
         """
         self.catalog_name = name if name is not None else self.catalog_name
+        if self.verbose:
+            print(f"Using {self.catalog_name} catalog.")
         if self.catalog_name == "Bouma2019":
             if return_members:
                 df_mem = self.get_members_Bouma2019()

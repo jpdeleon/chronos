@@ -89,6 +89,7 @@ def plot_tql(
     ticid=None,
     name=None,
     sector=None,
+    search_radius=3,
     cadence="short",
     lctype=None,  # custom, pdcsap, sap, custom
     sap_mask=None,
@@ -98,6 +99,7 @@ def plot_tql(
     cutout_size=(12, 12),
     quality_bitmask="default",
     apply_data_quality_mask=False,
+    flatten_method="biweight",
     window_length=0.5,  # deprecated for lk's flatten in ncadences
     Porb_limits=None,
     use_star_priors=False,
@@ -109,7 +111,7 @@ def plot_tql(
     savegls=False,
     outdir=".",
     gaia_sources_radius=120,  # arcsec
-    bin_hr=4,
+    bin_hr=None,
     verbose=True,
     clobber=False,
 ):
@@ -127,7 +129,11 @@ def plot_tql(
     percentile : float
         used for percentile sap_mask (default=90)
     quality_bitmask : str
-        none, [default], hard, hardest
+        none, [default], hard, hardest; See
+        https://github.com/KeplerGO/lightkurve/blob/master/lightkurve/utils.py#L135
+    flatten_method : str
+        wotan flatten method; See:
+        https://wotan.readthedocs.io/en/latest/Interface.html#module-flatten.flatten
     window_length : float
         length in days of the filter window (default=0.5; overridden by use_star_priors)
     Porb_limits : tuple
@@ -137,6 +143,8 @@ def plot_tql(
         limb darkening in tls
     edge_cutoff : float
         length in days to be cut off each edge of lightcurve (default=0.1)
+    bin_hr : float
+        bin size in hours of folded lightcurves
     run_gls : bool
         run Generalized Lomb Scargle (default=False)
     find_cluster : bool
@@ -171,6 +179,7 @@ def plot_tql(
                 ticid=ticid,
                 name=name,
                 sector=sector,
+                search_radius=search_radius,
                 sap_mask=sap_mask,
                 aper_radius=aper_radius,
                 threshold_sigma=threshold_sigma,
@@ -181,6 +190,7 @@ def plot_tql(
                 verbose=verbose,
                 clobber=clobber,
             )
+            bin_hr = 4 if bin_hr is None else bin_hr
         elif cadence == "short":
             sap_mask = "pipeline" if sap_mask is None else sap_mask
             lctype = "pdcsap" if lctype is None else lctype
@@ -192,6 +202,7 @@ def plot_tql(
                 ticid=ticid,
                 name=name,
                 sector=sector,
+                search_radius=search_radius,
                 sap_mask=sap_mask,
                 aper_radius=aper_radius,
                 threshold_sigma=threshold_sigma,
@@ -201,6 +212,7 @@ def plot_tql(
                 verbose=verbose,
                 clobber=clobber,
             )
+            bin_hr = 0.5 if bin_hr is None else bin_hr
         else:
             raise ValueError("Use cadence=(long, short).")
         if verbose:
@@ -267,7 +279,7 @@ def plot_tql(
         wflat, wtrend = flatten(
             time,  # Array of time values
             flux,  # Array of flux values
-            method="biweight",
+            method=flatten_method,
             window_length=window_length,  # The length of the filter window in units of ``time``
             edge_cutoff=edge_cutoff,
             break_tolerance=0.5,  # Split into segments at breaks longer than that
@@ -382,7 +394,10 @@ def plot_tql(
         ax.set_xlabel("Period (days)")
         ax.plot(tls_results.periods, tls_results.power, color="black", lw=0.5)
         ax.set_xlim(period_min, period_max)
-        # ax.set_title("TLS Periodogram")
+        # do not show negative SDE
+        y1, y2 = ax.get_ylim()
+        y1 = 0 if y1 < 0 else y1
+        ax.set_ylim(y1, y2)
         ax.legend(title="Orbital period [d]")
 
         # +++++++++++++++++++++++ax4 : flattened lc
@@ -392,9 +407,9 @@ def plot_tql(
         # binned phase folded lc
         cad = np.median(np.diff(time))
         nbins = int(round(bin_hr / 24 / cad))
-        flat.bin(nbins).scatter(
-            ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3
-        )
+        # flat.bin(nbins).scatter(
+        #     ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3
+        # )
         # transit mask
         tmask = get_transit_mask(
             flat, tls_results.period, tls_results.T0, tls_results.duration * 24

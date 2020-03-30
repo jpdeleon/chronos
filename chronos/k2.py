@@ -35,7 +35,9 @@ class _KeplerLightCurve(lk.KeplerLightCurve):
             # add 1 if even
             half += 1
         return lc.flatten(
-            window_length=half, polyorder=polyorder, break_tolerance=break_tolerance
+            window_length=half,
+            polyorder=polyorder,
+            break_tolerance=break_tolerance,
         )
 
 
@@ -193,7 +195,7 @@ class K2(Target):
         threshold_sigma=None,
         use_pld=True,
     ):
-        NotImplementedError
+        raise NotImplementedError
         # lc = tpf.to_lightcurve()
 
 

@@ -7,8 +7,7 @@ classes for searching object
 # Import standard library
 from os.path import join, exists
 import warnings
-
-# from typing import Tuple
+from pprint import pprint
 import logging
 import re
 
@@ -140,6 +139,10 @@ class Target:
             # raise NotImplementedError
             self.all_campaigns = get_all_campaigns(self.epicid)
 
+    # def __str__(self):
+    # 		# Override to print a readable string presentation of class
+    # 		return ', '.join(['{key}={value}'.format(key=key, value=self.__dict__.get(key)) for key in self.__dict__])
+
     def query_gaia_dr2_catalog(
         self, radius=None, return_nearest_xmatch=False, verbose=None
     ):
@@ -178,7 +181,7 @@ class Target:
         if verbose:
             # silenced when verbose=False instead of None
             print(
-                f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius}.\n"""
+                f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius}."""
             )
         # load gaia params for all TOIs
         tab = Catalogs.query_region(
@@ -270,7 +273,7 @@ class Target:
         radius = self.search_radius if radius is None else radius * u.arcsec
         if self.verbose:
             print(
-                f"Querying TIC catalog for ra,dec=({self.target_coord.to_string()}) within {radius}.\n"
+                f"Querying TIC catalog for ra,dec=({self.target_coord.to_string()}) within {radius}."
             )
         # NOTE: check tic version
         tab = Catalogs.query_region(
@@ -639,13 +642,15 @@ class Target:
         assert len(tables) > 0, msg
         if verbose:
             print(f"{len(tables)} tables found.")
-            print({k: v.description for k, v in tables.items()})
+            pprint({k: tables[k]._meta["description"] for k in tables.keys()})
         self.vizier_tables = tables
         return tables
 
     def query_vizier_param(self, param, radius=3):
+        """looks for value of param in each vizier table
+        """
         if self.vizier_tables is None:
-            tabs = self.query_vizier(radius=radius)
+            tabs = self.query_vizier(radius=radius, verbose=False)
         else:
             tabs = self.vizier_tables
         idx = [param in i.columns for i in tabs]
