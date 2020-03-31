@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description="create tql based on chronos")
 parser.add_argument("-gaia", type=int, help="Gaia DR2 ID", default=None)
 parser.add_argument("-toi", type=int, help="TOI ID", default=None)
 parser.add_argument("-tic", type=int, help="TIC ID", default=None)
-parser.add_argument("-n", "--name", type=str, help="target name", default=None)
+parser.add_argument("-name", type=str, help="target name", default=None)
 parser.add_argument(
     "-sec", "--sector", type=int, help="TESS sector", default=None
 )
@@ -43,7 +43,7 @@ parser.add_argument(
     "-a",
     "--aper_mask",
     type=str,
-    help="mask type",
+    help="aperture mask type",
     choices=["pipeline", "round", "square", "percentile", "threshold"],
     default=None,
 )
@@ -114,6 +114,13 @@ parser.add_argument(
     default=0.5,
 )
 parser.add_argument(
+    "-n",
+    "--nearby_gaia_radius",
+    type=float,
+    help="nearby gaia sources to consider (default=120 arcsec)",
+    default=120,
+)
+parser.add_argument(
     "-u",
     "--use_priors",
     action="store_true",
@@ -170,6 +177,7 @@ if __name__ == "__main__":
         use_star_priors=args.use_priors,
         edge_cutoff=args.edge_cutoff,
         find_cluster=args.find_cluster,
+        nearby_gaia_radius=args.nearby_gaia_radius,
         run_gls=args.gls,
         savefig=args.save,
         savetls=args.save,

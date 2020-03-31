@@ -2,7 +2,7 @@
 """
 make tql figure for all members of a given cluster
 the sap_mask is fixed as square with aper_radius=1 to make sure
-it is centered on target 
+it is centered on target
 """
 import matplotlib
 import chronos as cr
@@ -10,7 +10,6 @@ from tqdm import tqdm
 import argparse
 
 matplotlib.use("pdf")
-
 parser = argparse.ArgumentParser(description="create tql based on chronos")
 parser.add_argument("cluster", type=str, help="cluster name")
 parser.add_argument(
@@ -35,7 +34,7 @@ muscat_obs_constraint = mem.dec > -30
 for gaiaid in tqdm(gaiaids[muscat_obs_constraint]):
     try:
         outdir = cluster_name.lower().replace(" ", "")
-        fig = cr.make_tql(
+        fig = cr.plot_tql(
             gaiaid=gaiaid,
             cadence=cadence,
             savefig=True,

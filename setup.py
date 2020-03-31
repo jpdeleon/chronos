@@ -35,5 +35,6 @@ setup(
         "scikit-image==0.16.2",  # just for measure.find_contours
         # pprint==3.8.2
         "deepdish==0.3.6",
+        "adjustText",
     ],
 )

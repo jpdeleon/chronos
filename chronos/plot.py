@@ -36,6 +36,7 @@ from skimage import measure
 from wotan import flatten
 from wotan import t14 as estimate_transit_duration
 import deepdish as dd
+from adjustText import adjust_text
 
 # Import from package
 from chronos.star import Star
@@ -110,8 +111,9 @@ def plot_tql(
     savetls=False,
     savegls=False,
     outdir=".",
-    gaia_sources_radius=120,  # arcsec
+    nearby_gaia_radius=120,  # arcsec
     bin_hr=None,
+    tpf_cmap="viridis",
     verbose=True,
     clobber=False,
 ):
@@ -191,6 +193,8 @@ def plot_tql(
                 clobber=clobber,
             )
             bin_hr = 4 if bin_hr is None else bin_hr
+            # cad = np.median(np.diff(time))
+            cad = 30 / 60 / 24
         elif cadence == "short":
             sap_mask = "pipeline" if sap_mask is None else sap_mask
             lctype = "pdcsap" if lctype is None else lctype
@@ -213,11 +217,11 @@ def plot_tql(
                 clobber=clobber,
             )
             bin_hr = 0.5 if bin_hr is None else bin_hr
+            cad = 2 / 60 / 24
         else:
             raise ValueError("Use cadence=(long, short).")
         if verbose:
             print(f"Analyzing {cadence} cadence data with {sap_mask} mask")
-
         l = lightcurve
         if l.gaia_params is None:
             _ = l.query_gaia_dr2_catalog(return_nearest_xmatch=True)
@@ -287,7 +291,7 @@ def plot_tql(
             cval=5.0,  # Tuning parameter for the robust estimators
         )
         # f > np.median(f) + 5 * np.std(f)
-        idx = sigma_clip(wflat, sigma_lower=np.inf, sigma_upper=3).mask
+        idx = sigma_clip(wflat, sigma_lower=7, sigma_upper=3).mask
         # replace flux values with that from wotan
         flat = flat[~idx]
         trend = trend[~idx]
@@ -385,7 +389,7 @@ def plot_tql(
                 ax.axvline(
                     higher_harmonics, alpha=0.4, lw=1, linestyle="dashed"
                 )
-            lower_harmonics = i / tls_results.period
+            lower_harmonics = tls_results.period / i
             if period_min <= lower_harmonics <= period_max:
                 ax.axvline(
                     lower_harmonics, alpha=0.4, lw=1, linestyle="dashed"
@@ -405,7 +409,6 @@ def plot_tql(
         flat.scatter(ax=ax, label="flat", zorder=1)
         # ax.scatter(time, flat, label="flat")
         # binned phase folded lc
-        cad = np.median(np.diff(time))
         nbins = int(round(bin_hr / 24 / cad))
         # flat.bin(nbins).scatter(
         #     ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3
@@ -451,14 +454,14 @@ def plot_tql(
         ax.set_xlabel("Phase")
         ax.set_ylabel("Relative flux")
         width = tls_results.duration / tls_results.period
-        ax.set_xlim(-width, width)
+        ax.set_xlim(-width * 1.5, width * 1.5)
         ax.legend()
 
         # +++++++++++++++++++++ax: odd-even
         ax = axs[6]
         yline = tls_results.depth
         fold.scatter(ax=ax, c="k", alpha=alpha, label="_nolegend_", zorder=1)
-        fold[fold.even_mask].bin(nbins // 2).scatter(
+        fold[fold.even_mask].bin(nbins).scatter(
             label="even", s=30, ax=ax, zorder=2
         )
         ax.plot(
@@ -469,11 +472,11 @@ def plot_tql(
             label="TLS model",
         )
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
-        fold[fold.odd_mask].bin(nbins // 2).scatter(
+        fold[fold.odd_mask].bin(nbins).scatter(
             label="odd", s=30, ax=ax, zorder=3
         )
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
-        ax.set_xlim(-width, width)
+        ax.set_xlim(-width * 1.5, width * 1.5)
         ax.legend()
 
         # +++++++++++++++++++++ax7: tpf
@@ -493,9 +496,9 @@ def plot_tql(
                 # e.g. custom
                 tpf = l.tpf_tesscut
 
-        if l.gaia_sources is None:
-            _ = l.query_gaia_dr2_catalog(radius=gaia_sources_radius)
-
+        if (l.gaia_sources is None) or (nearby_gaia_radius != 120):
+            _ = l.query_gaia_dr2_catalog(radius=nearby_gaia_radius)
+        # _ = plot_orientation(tpf, ax)
         _ = plot_gaia_sources_on_tpf(
             tpf=tpf,
             target_gaiaid=l.gaiaid,
@@ -506,7 +509,8 @@ def plot_tql(
             aper_radius=l.aper_radius,
             threshold_sigma=l.threshold_sigma,
             percentile=l.percentile,
-            cmap="viridis",
+            cmap=tpf_cmap,
+            dmag_limit=8,
             ax=ax,
         )
 
@@ -526,12 +530,12 @@ def plot_tql(
         tp = l.tic_params
         ax = axs[8]
         Rp = tls_results["rp_rs"] * tp["rad"] * u.Rsun.to(u.Rearth)
-        Rp_true = Rp * np.sqrt(
-            1 + l.contratio
-        )  # np.sqrt(tls_results["depth"]*(1+l.contratio))
+        # np.sqrt(tls_results["depth"]*(1+l.contratio))
+        Rp_true = Rp * np.sqrt(1 + l.contratio)
         msg = "Candidate Properties\n"
         msg += "-" * 30 + "\n"
-        msg += f"SDE={tls_results.SDE:.2f}\n"
+        # secs = ','.join(map(str, l.all_sectors))
+        msg += f"SDE={tls_results.SDE:.2f} (sector={l.sector} in {l.all_sectors})\n"
         msg += (
             f"Period={tls_results.period:.2f}+/-{tls_results.period_uncertainty:.2f} d"
             + " " * 5
@@ -660,6 +664,48 @@ def plot_cluster_map(
     return fig
 
 
+def plot_orientation_on_tpf(tpf, ax=None):
+    """
+    Plot the orientation arrows on tpf
+
+    Returns
+    -------
+    tpf read from lightkurve
+
+    """
+    if ax is None:
+        fig, ax = pl.subplots(1, 1, figsize=(5, 5))
+    mean_tpf = np.mean(tpf.flux, axis=0)
+    zmin, zmax = ZScaleInterval(contrast=0.5)
+    ax.matshow(mean_tpf, vmin=zmin, vmax=zmax, origin="lower")
+    _ = plot_orientation(tpf, ax=ax)
+    return ax
+
+
+def plot_orientation(tpf, ax):
+    """overlay orientation arrows on tpf plot
+    """
+    nx, ny = tpf.flux.shape[1:]
+    x0, y0 = tpf.column + int(0.9 * nx), tpf.row + int(0.2 * nx)
+    # East
+    tmp = tpf.get_coordinates()
+    ra00, dec00 = tmp[0][0][0][0], tmp[1][0][0][0]
+    ra10, dec10 = tmp[0][0][0][-1], tmp[1][0][0][-1]
+    theta = np.arctan((dec10 - dec00) / (ra10 - ra00))
+    if (ra10 - ra00) < 0.0:
+        theta += np.pi
+    # theta = -22.*np.pi/180.
+    x1, y1 = 1.0 * np.cos(theta), 1.0 * np.sin(theta)
+    ax.arrow(x0, y0, x1, y1, head_width=0.2, color="white")
+    ax.text(x0 + 1.5 * x1, y0 + 1.5 * y1, "E", color="white")
+    # North
+    theta = theta + 90.0 * np.pi / 180.0
+    x1, y1 = 1.0 * np.cos(theta), 1.0 * np.sin(theta)
+    ax.arrow(x0, y0, x1, y1, head_width=0.2, color="white")
+    ax.text(x0 + 1.5 * x1, y0 + 1.5 * y1, "N", color="white")
+    return ax
+
+
 def plot_gaia_sources_on_tpf(
     tpf,
     target_gaiaid,
@@ -667,14 +713,20 @@ def plot_gaia_sources_on_tpf(
     sap_mask="pipeline",
     depth=None,
     kmax=1,
-    ax=None,
+    dmag_limit=8,
     fov_rad=None,
     cmap="viridis",
     figsize=None,
+    ax=None,
     **mask_kwargs,
 ):
     """
-    sources within aperture are red or orange if depth>kmax/gamma; green if outside
+    plot gaia sources brighter than dmag_limit; only annotated with starids
+    are those that are bright enough to cause reproduce the transit depth;
+    starids are in increasing separation
+
+    dmag_limit : float
+        maximum delta mag to consider; computed based on depth if None
     """
     assert target_gaiaid is not None
     img = np.nanmedian(tpf.flux, axis=0)
@@ -697,12 +749,16 @@ def plot_gaia_sources_on_tpf(
         ).to_pandas()
     assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     # find sources within mask
+    # target is assumed to be the first row
+    idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+    target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
     if depth is not None:
-        # target is assumed to be the first row
-        idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
-        target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
+        # compute delta mag limit given transit depth
+        dmag_limit = (
+            np.log10(kmax / depth - 1) if dmag_limit is None else dmag_limit
+        )
 
-        # get sources inside mask
+        # get min_gmag inside mask
         ra, dec = gaia_sources[["ra", "dec"]].values.T
         pix_coords = tpf.wcs.all_world2pix(np.c_[ra, dec], 0)
         contour_points = measure.find_contours(mask, level=0.1)[0]
@@ -714,47 +770,83 @@ def plot_gaia_sources_on_tpf(
             print(
                 f"target Gmag={target_gmag:.2f} is not the brightest within aperture (Gmag={min_gmag:.2f})"
             )
+    else:
+        min_gmag = gaia_sources.phot_g_mean_mag.min()  # brightest
+        dmag_limit = (
+            gaia_sources.phot_g_mean_mag.max()
+            if dmag_limit is None
+            else dmag_limit
+        )
 
+    base_ms = 128.0  # base marker size
+    starid = 1
     for index, row in gaia_sources.iterrows():
+        # FIXME: why some indexes are missing?
         ra, dec, gmag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
+        dmag = gmag - target_gmag
         pix = tpf.wcs.all_world2pix(np.c_[ra, dec], 0)[0]
         contour_points = measure.find_contours(mask, level=0.1)[0]
 
-        alpha, marker = 1.0, "o"
+        color, alpha = "red", 1.0
+        # change marker color and transparency depending on the location and dmag
         if is_point_inside_mask(contour_points, pix):
-            edgecolor = "C3"
             if int(id) == int(target_gaiaid):
-                marker = "s"
-                edgecolor = "w"
-                zorder = 100  # on top
-                # ax.plot(pix[1],pix[0], marker='x', ms=20, lw=10, c='w')
+                # plot x on target
+                ax.plot(
+                    pix[1],
+                    pix[0],
+                    marker="x",
+                    ms=base_ms / 16,
+                    c="white",
+                    zorder=3,
+                )
             if depth is not None:
+                # compute flux ratio with respect to brightest star
                 gamma = 1 + 10 ** (0.4 * (min_gmag - gmag))
                 if depth > kmax / gamma:
-                    edgecolor = "C1"
+                    # orange if flux is insignificant
+                    color = "C1"
         else:
-            # alpha=0.5
-            edgecolor = "C2"
-            zorder = 1
+            # outside aperture
+            color, alpha = "C1", 0.5
+
         ax.scatter(
             pix[1],
             pix[0],
-            marker=marker,
-            s=50,
-            zorder=zorder,
-            edgecolor=edgecolor,
+            s=base_ms / 2 ** (dmag),  # fainter -> smaller
+            c=color,
             alpha=alpha,
-            facecolor="none",
+            zorder=2,
+            edgecolor=None,
         )
+        # annotate starid if inside aperture or brighter than dmag limit
+        if (dmag < dmag_limit) or (color == "red"):
+            ax.text(pix[1], pix[0], str(starid), color="white", zorder=100)
+        starid += 1
+    # Make legend with 4 sizes representative of delta mags
+    gmags = gaia_sources.phot_g_mean_mag
+    gmags = gmags[(gmags - target_gmag) < dmag_limit]
+    _, dmags = pd.cut(gmags - target_gmag, 3, retbins=True)
+    for dmag in dmags:
+        size = base_ms / 2 ** dmag
+        # -1, -1 is outside the fov
+        # dmag = 0 if float(dmag)==0 else 0
+        ax.scatter(
+            -1,
+            -1,
+            s=size,
+            c="red",
+            alpha=0.6,
+            edgecolor=None,
+            zorder=10,
+            label=r"$\Delta m= $" + f"{dmag:.1f}",
+        )
+    ax.legend(fancybox=True, framealpha=0.5)
     # set img limits
     xdeg = (nx * TESS_pix_scale).to(u.arcmin)
     ydeg = (ny * TESS_pix_scale).to(u.arcmin)
     pl.setp(
-        ax,
-        xlim=(0, nx),
-        ylim=(0, ny),
-        # xlabel="({0:.2f}' x {0:.2f}')".format(fov_rad.to(u.arcmin)),
-        xlabel=f"({xdeg:.2f} x {ydeg:.2f})",
+        ax, xlim=(0, nx), ylim=(0, ny), xlabel=f"({xdeg:.2f} x {ydeg:.2f})"
     )
     return ax
 
@@ -910,7 +1002,7 @@ def plot_aperture_outline(
         ax.set_ylabel("Dec")
     _ = ax.contour(
         highres,
-        levels=[0.5],
+        # levels=[0.5],
         linewidths=3,
         extent=extent,
         origin="lower",

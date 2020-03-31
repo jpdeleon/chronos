@@ -138,6 +138,8 @@ class Target:
         elif self.mission == "k2":
             # raise NotImplementedError
             self.all_campaigns = get_all_campaigns(self.epicid)
+        if self.verbose:
+            print(f"Target: TIC {self.ticid}")
 
     # def __str__(self):
     # 		# Override to print a readable string presentation of class
@@ -187,6 +189,8 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="Gaia", version=2
         ).to_pandas()
+        errmsg = f"No gaia star within {self.search_radius}"
+        assert len(tab) > 0, errmsg
         tab["source_id"] = tab.source_id.astype(int)
 
         # check if results from DR2 (epoch 2015.5)
@@ -279,8 +283,9 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="TIC"
         ).to_pandas()
-
+        errmsg = f"No gaia star within {self.search_radius}"
         nsources = len(tab)
+        assert nsources > 0, errmsg
         if return_nearest_xmatch or (nsources == 1):
             if nsources > 1:
                 print(f"There are {nsources} TIC stars within {radius}")

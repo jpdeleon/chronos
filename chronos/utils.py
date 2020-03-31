@@ -549,6 +549,8 @@ def parse_aperture_mask(
 
     # stacked_img = np.median(tpf.flux,axis=0)
     if (sap_mask == "pipeline") or (sap_mask is None):
+        errmsg = "tpf does not have pipeline mask"
+        assert tpf.pipeline_mask is not None, errmsg
         mask = tpf.pipeline_mask  # default
     elif sap_mask == "all":
         mask = np.ones((tpf.shape[1], tpf.shape[2]), dtype=bool)
@@ -909,10 +911,11 @@ def get_tois(
                 sort=True,
             )
             d = pd.merge(d, fpp, how="outer").drop_duplicates()
+        d.to_csv(fp, index=False)
     else:
         d = pd.read_csv(fp).drop_duplicates()
         msg = f"Loaded: {fp}\n"
-    d.to_csv(fp, index=False)
+    assert len(d) > 1000, f"{fp} likely has been overwritten!"
 
     # remove False Positives
     if remove_FP:
@@ -950,7 +953,7 @@ def get_tois(
     return d.sort_values("TOI")
 
 
-def get_toi(toi, verbose=False, remove_FP=False, clobber=False):
+def get_toi(toi, verbose=False, remove_FP=True, clobber=False):
     """Query TOI from TOI list
 
     Parameters
@@ -1185,7 +1188,7 @@ def parse_target_coord(target):
             coord = SkyCoord(target, unit=("hourangle", "degree"))
         else:
             # e.g. 70.5, 80.5
-            coord = SkyCoord(target, unit=("deg", "degree"))
+            coord = SkyCoord(target, unit=("degree", "degree"))
     else:
         # name or ID
         if target[:3] == "toi":
@@ -1215,8 +1218,8 @@ def parse_target_coord(target):
     return coord
 
 
-def get_coord_from_toiid(toiid):
-    toi = get_toi(toiid)
+def get_coord_from_toiid(toiid, **kwargs):
+    toi = get_toi(toiid, **kwargs)
     coord = SkyCoord(
         ra=toi["RA"].values[0],
         dec=toi["Dec"].values[0],
