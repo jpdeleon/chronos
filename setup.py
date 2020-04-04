@@ -14,10 +14,7 @@ setup(
     license="MIT",
     packages=find_packages(),
     scripts=[
-        "scripts/tql",
-        # "scripts/kql",
         "scripts/check_target_in_cluster",
-        "scripts/rank_tls",
         "scripts/make_tql_per_cluster",
         "scripts/query_cluster_members_gaia_params",
         "scripts/find_cluster_near_target",
