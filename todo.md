@@ -3,9 +3,9 @@
 ## Basic
 - [] query_gaia_dr2_catalog and tic catalog can be combined with galex into query_mast(catalog=["gaia","tic","galex"]) [see here](https://astroquery.readthedocs.io/en/latest/mast/mast.html) using [lower level functions here](https://mast.stsci.edu/api/v0/pyex.html)
 - [] make input to cr.Target using get_target_coord unified as in mirai.parse_target_coord  
-- [] make setup.py work in fresh conda environment
-- [] remove redundant large files in /data; see [this repo](https://github.com/ideasrule/platon)
-- [] make sure access to /data after installation works
+- [x] make setup.py work in fresh conda environment
+- [x] remove redundant large files in /data; see [this repo](https://github.com/ideasrule/platon)
+- [x] make sure access to /data after installation works
 - [] add tests following [this format](https://github.com/ljvmiranda921/seagull/blob/master/tests/test_board.py)
 - [] configure documentation using [just-the-docs](https://github.com/pmarsceill/just-the-docs)
 - [] standardize docstrings

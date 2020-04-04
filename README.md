@@ -5,14 +5,24 @@ young stars in associations, moving groups, and star forming regions
 ```bash
 $ git clone git@github.com:jpdeleon/chronos.git
 $ cd chronos && python setup.py install
-$ python setup.py develop
+$ python setup.py develop (optional)
 ```
 
-If something does not work right, you may need to pull the data using `git-lfs`:
-```bash
-$ git lfs pull
-```
-If you do not have `git-lfs` installed, see instructions are [here](https://github.com/git-lfs/git-lfs/wiki/Installation).
+
+## Modules
+* target.py: star bookkeeping, e.g. position, catalog cross-matching, archival data look-up
+* star.py: physics-related calculations, e.g. extinction, spectral typing
+* cluster.py: cluster catalog, cluster analysis + plotting
+* tpf.py: targetpixel file manipulation
+* lightcurve.py: lightcurve analysis either using SPOC or custom pipeline for short and long cadence
+* age.py: stellar age related estimatation using isochrones, gyrochronology
+* k2.py: tpf and lightcurve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
+* plot.py: custom plotting functionalities
+* utils.py: useful utilities
+
+## Scripts
+* tql: convenient TESS QuickLook generator with several input for flexible customization 
+
 
 ## Examples
-See more in [examples](https://github.com/jpdeleon/chronos/tree/master/notebooks).
+Check [examples](https://github.com/jpdeleon/chronos/tree/master/notebooks).
