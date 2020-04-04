@@ -57,11 +57,11 @@ CATALOG_DICT = {
     "Gagne2018": "J/ApJ/862/138",  # Banyan sigma
     "Bossini2019": "J/A+A/623/A108/tablea",  # age of 269 OC
     "Sampedro2017": "J/MNRAS/470/3937",  # OC
-    # 'Randich2018': 'J/A+A/612/A99',
-    # 'Karchenko2013': 'J/A+A/558/A53',
-    # 'Dias2016': 'B/ocl', #OC #"Dias2014"?
-    # 'Curtis2019': 'J/AJ/158/77', #Psc Eri
-    # 'Lodieu2019': 'J/A+A/628/A66', #praesepe, alpa per
+    "Randich2018": "J/A+A/612/A99",
+    "Karchenko2013": "J/A+A/558/A53",
+    "Dias2016": "B/ocl",  # OC #"Dias2014"?
+    "Curtis2019": "J/AJ/158/77",  # Psc Eri
+    "Lodieu2019": "J/A+A/628/A66",  # praesepe, alpa per
     # 'Schneider2019': 'J/AJ/157/234', #young RV
     # 'Grandjean2020': 'J/A+A/633/A44', #young harps RV
     # 'Carerra2019': 'J/A+A/623/A80', #apogee+galah
@@ -236,33 +236,6 @@ class ClusterCatalog(CatalogDownloader):
                 df = self.get_clusters_CantatGaudin2018()
                 self.all_clusters = df
                 return df
-        elif self.catalog_name == "Gagne2018":
-            if return_members:
-                df_mem = self.get_members_Gagne2018()
-                self.all_members = df_mem
-                return df_mem
-            else:
-                df = self.get_clusters_Gagne2018()
-                self.all_clusters = df
-                return df
-        elif self.catalog_name == "Dias2014":
-            if return_members:
-                raise ValueError(
-                    "No individual cluster members in Dias catalog"
-                )
-            else:
-                df = self.get_clusters_Dias2002_2015()
-                self.all_clusters = df
-                return df
-        elif self.catalog_name == "Bossini2019":
-            if return_members:
-                raise ValueError(
-                    "No individual cluster members in Bossini age catalog"
-                )
-            else:
-                df = self.get_clusters_Bossini2019()
-                self.all_clusters = df
-                return df
         elif self.catalog_name == "Babusiaux2018":
             if return_members:
                 df_mem = self.get_members_Babusiaux2018()
@@ -274,6 +247,42 @@ class ClusterCatalog(CatalogDownloader):
                 df = self.get_clusters_Babusiaux2018()
                 self.all_clusters = df
                 return df
+        elif self.catalog_name == "Gagne2018":
+            if return_members:
+                df_mem = self.get_members_Gagne2018()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Gagne2018()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Dias2016":
+            if return_members:
+                raise ValueError(
+                    "No individual cluster members in Dias catalog"
+                )
+            else:
+                df = self.get_clusters_Dias2002_2015()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Bossini2019":
+            if return_members:
+                raise ValueError(
+                    "No individual cluster members in Bossini catalog"
+                )
+            else:
+                df = self.get_clusters_Bossini2019()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Sampedro2017":
+            if return_members:
+                df_mem = self.get_members_Sampedro2017()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Sampedro2017()
+                self.all_clusters = df
+                return df
         elif self.catalog_name == "Karchenko2013":
             if return_members:
                 raise ValueError(
@@ -283,6 +292,24 @@ class ClusterCatalog(CatalogDownloader):
                 df = self.get_clusters_Karchenko2013()
                 self.all_clusters = df
                 return df
+        elif self.catalog_name == "Curtis2019":
+            if return_members:
+                raise ValueError(
+                    "No individual cluster members in Curtis2019 catalog"
+                )
+            else:
+                df = self.get_clusters_Curtis2019()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Lodieu2019":
+            if return_members:
+                df_mem = self.get_members_Lodieu2019()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                raise ValueError(
+                    "No individual cluster info in Lodieu2019 catalog"
+                )
         elif self.catalog_name in self.catalog_list:
             raise NotImplementedError("Catalog to be added later.")
         # add more catalogs here
@@ -584,41 +611,68 @@ class ClusterCatalog(CatalogDownloader):
         )
         return df
 
+    def get_clusters_Sampedro2017(self):
+        """
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = _decode_n_drop(df, ["SimbadName", "File"])
+        df = df.rename(
+            {
+                "Name": "Cluster",
+                "RAJ2000": "ra",
+                "DEJ2000": "dec",
+                "Dist": "distance",
+                "logAge": "log10_age",
+                "E_B-V_": "E_B-V",
+                "plx": "parallax",
+            }
+        )
+        return df
+
+    def get_members_Sampedro2017(self):
+        """
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = _decode_n_drop(df, ["GaiaDR2"])
+        df = df.rename(
+            {
+                "RA_ICRS": "ra",
+                "DE_ICRS": "dec",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "gmag": "Gmag",
+            }
+        )
+        return df
+
     def get_clusters_Dias2002_2015(self):
         """Dias et al. 2004-2015; compiled until 2016:
         https://ui.adsabs.harvard.edu/abs/2014yCat....102022D/abstract
         """
-        raise NotImplementedError("To be added soon")
-        # coords = SkyCoord(
-        #     ra=df["RAJ2000"].values,
-        #     dec=df["DEJ2000"].values,
-        #     unit=("hourangle", "deg"),
-        #     equinox="J2000",
-        # )
-        # replace space in cluster name with underscore (Bouma19 convention)
-        # df["Cluster"] = df.Cluster.apply(lambda x: "_".join(x.split()))
-        # df["RAJ2000"] = coords.ra.deg
-        # df["DEJ2000"] = coords.dec.deg
-        # # drop some columns
-        # df = df.drop(["P", "WEBDA", "Lynga"], axis=1)
-        # # rename columns to follow Bouma19 convention
-        # df = df.rename(
-        #     columns={
-        #         "RAJ2000": "ra",
-        #         "DEJ2000": "dec",
-        #         "Dist": "distance",
-        #         "Diam": "ang_diameter",
-        #         "pmRA": "pmra",
-        #         "pmDE": "pmdec",
-        #         "K14": "details",
-        #         "RV": "radial_velocity",
-        #         "Age": "log10_age",
-        #         "o_RV": "RV_nstars",
-        #         "o_[Fe/H]": "[Fe/H]_nstars",
-        #         "TrType": "TrumplerType",
-        #     }
-        # )
-        # return df
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = _decode_n_drop(df, ["WEBDA", "Lynga"])
+        df = df.rename(
+            columns={
+                "RAJ2000": "ra",
+                "DEJ2000": "dec",
+                "Dist": "distance",
+                "Diam": "ang_diameter",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "K14": "details",
+                "Age": "log10_age",
+                "o_RV": "RV_obs_n",
+                "o_[Fe/H]": "[Fe/H]_obs_n",
+                "TrType": "TrumplerType",
+            }
+        )
+        return df
 
     def get_clusters_Bossini2019(self):
         """Bossini et al. 2019:
@@ -653,29 +707,63 @@ class ClusterCatalog(CatalogDownloader):
         """Karchenko et al. 2013
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/558/A53
         """
-        raise NotImplementedError("To be added soon")
-        # fp = join(
-        #     self.data_loc,
-        #     "TablesKarchenko2013/Catalog of parameters for open clusters.tsv",
-        # )
-        # df = pd.read_table(fp, delimiter="\t", skiprows=48, comment="#")
-        # df = df.rename(
-        #     columns={
-        #         "RAJ2000": "ra",
-        #         "DEJ2000": "dec",
-        #         "pmRA": "pmra",
-        #         "pmDE": "pmdec",
-        #         "d": "distance",
-        #         "logt": "log10_age",
-        #         "RV": "radial_velocity",
-        #         "r0": "ang_radius_core",
-        #         "r1": "ang_radius_central",
-        #         "r2": "ang_radius",
-        #     }
-        # )
-        # # remove columns
-        # df = df.drop(["map", "cmd", "stars", "Simbad"], axis=1)
-        # return df
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = _decode_n_drop(df, ["map", "cmd", "stars", "Simbad"])
+        df = df.rename(
+            columns={
+                "RAJ2000": "ra",
+                "DEJ2000": "dec",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "d": "distance",
+                "logt": "log10_age",
+                "r0": "ang_radius_core",
+                "r1": "ang_radius_central",
+                "r2": "ang_radius",
+                "__Fe_H_": "Fe/H",
+            }
+        )
+        return df
+
+    def get_clusters_Curtis2019(self):
+        """
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = _decode_n_drop(df, ["Seq", "Simbad"])
+        df = df.rename(
+            columns={
+                "RA_ICRS": "ra",
+                "DE_ICRS": "dec",
+                "Source": "source_id",
+                "GBP-GRP": "bp_rp",
+            }
+        )
+        return df
+
+    def get_members_Lodieu2019(self):
+        """
+        """
+        dfs = []
+        for n, name in enumerate(["alpha_per", "pleiades", "praesepe"]):
+            fp = join(self.data_loc, f"{self.catalog_name}_tab{n}.txt")
+            tab = Table.read(fp, format="ascii")
+            df = tab.to_pandas()
+            # df = _decode_n_drop(df, ["Seq", "Simbad"])
+            df = df.rename(
+                columns={
+                    "RA_ICRS": "ra",
+                    "DE_ICRS": "dec",
+                    "Source": "source_id",
+                }
+            )
+            df["Cluster"] = name  # df.assign('Cluster', name)
+            dfs.append(df)
+        df = pd.concat(dfs, axis=1)
+        return df
 
     def is_gaiaid_in_catalog(self):
         df_mem = self.query_catalog(return_members=True)

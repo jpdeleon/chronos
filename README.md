@@ -20,9 +20,6 @@ $ python setup.py develop (optional)
 * plot.py: custom plotting functionalities
 * utils.py: useful utilities
 
-## Scripts
-* tql: convenient TESS QuickLook generator with several input for flexible customization 
-
 
 ## Examples
 Check [examples](https://github.com/jpdeleon/chronos/tree/master/notebooks).
