@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-
-# Import modules
+"""
+373308740 (Tmag=14) and its neighbor 373308741 (12.7)
+Their tql are good to compare for testing
+"""
 import pytest
-
-# Import from package
 from chronos.plot import make_tql
 
 toiid = 1063
@@ -11,12 +11,12 @@ savefig = True
 verbose = True
 quality_bitmask = "default"
 apply_data_quality_mask = False
-cutout_size=(15, 15)
+cutout_size = (15, 15)
 window_length = 0.5
-lctype='custom'
+lctype = "custom"
 
 if False:
-    #name
+    # name
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -38,7 +38,7 @@ if False:
     )
 
 if True:
-    #square mask aper_radius=1
+    # square mask aper_radius=1
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -60,7 +60,7 @@ if True:
     )
 
 if True:
-    #square mask aper_radius=2
+    # square mask aper_radius=2
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -82,7 +82,7 @@ if True:
     )
 
 if True:
-    #round mask aper_radius=1
+    # round mask aper_radius=1
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -104,7 +104,7 @@ if True:
     )
 
 if True:
-    #round mask aper_radius=2, sector 11
+    # round mask aper_radius=2, sector 11
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -126,7 +126,7 @@ if True:
     )
 
 if True:
-    #smaller cutout_size
+    # smaller cutout_size
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -137,7 +137,7 @@ if True:
         lctype=lctype,
         sap_mask="round",
         aper_radius=2,
-        cutout_size=(10,10),
+        cutout_size=(10, 10),
         quality_bitmask=quality_bitmask,
         apply_data_quality_mask=apply_data_quality_mask,
         window_length=window_length,
@@ -148,7 +148,7 @@ if True:
     )
 
 if False:
-    #name search
+    # name search
     make_tql(
         gaiaid=None,
         toiid=None,
@@ -170,7 +170,7 @@ if False:
     )
 
 if True:
-    #sap mask percentile
+    # sap mask percentile
     make_tql(
         gaiaid=None,
         toiid=toiid,
@@ -192,7 +192,7 @@ if True:
     )
 
 if True:
-    #sap mask threshold
+    # sap mask threshold
     make_tql(
         toiid=toiid,
         cadence="long",

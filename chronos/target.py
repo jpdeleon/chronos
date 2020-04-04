@@ -26,7 +26,7 @@ import lightkurve as lk
 
 # from lightkurve.search import _query_mast as query_mast
 # Import from package
-from chronos import cluster
+from chronos.cluster import ClusterCatalog, Cluster
 from chronos.utils import (
     get_all_campaigns,
     get_all_sectors,
@@ -37,6 +37,9 @@ from chronos.utils import (
     get_target_coord_3d,
     get_harps_RV,
     get_specs_table_from_tfop,
+    get_between_limits,
+    get_above_lower_limit,
+    get_below_upper_limit,
 )
 
 log = logging.getLogger(__name__)
@@ -68,47 +71,36 @@ class Target:
         search_radius : float
             search radius for matching [arcsec]
         """
+        self.clobber = clobber
+        self.verbose = verbose
+        self.mission = mission.lower()
+        self.toi_params = None
         self.toiid = toiid  # e.g. 837
         self.ctoiid = ctoiid  # e.g. 364107753.01
         self.ticid = ticid  # e.g. 364107753
         self.epicid = epicid  # 201270176
         self.gaiaid = gaiaDR2id  # e.g. Gaia DR2 5251470948229949568
-        self.target_name = name  # e.g. Pi Mensae
-        self.search_radius = search_radius * u.arcsec
-        self.tic_params = None
-        self.gaia_params = None
-        self.gaia_sources = None
-        self.toi_params = None
-        self.gmag = None
-        # gaiaid match
-        # self.cluster_member = None
-        # self.cluster_members = None
-        # self.cluster_name = None
-        # position match
-        self.distance_to_nearest_cluster_member = None
-        self.nearest_cluster_member = None
-        self.nearest_cluster_members = None
-        self.nearest_cluster_name = None
-        self.clobber = clobber
-        self.verbose = verbose
-        self.mission = mission.lower()
-        self.vizier_tables = None
-
-        if name:
-            if name[:4].lower() == "epic":
-                if epicid is None:
-                    self.epicid = int(name.strip()[4:])
-            elif name[:3].lower() == "tic":
-                if ticid is None:
-                    self.ticid = int(name.strip()[3:])
-            elif name[:4].lower() == "gaia":
-                if gaiaDR2id is None:
-                    self.gaiaid = int(name.strip()[7:])
-
-        # self.mission = mission
         self.ra = ra_deg
         self.dec = dec_deg
-        # self.distance = None
+        self.target_name = name  # e.g. Pi Mensae
+        if self.toiid is not None:
+            name = f"TOI {self.toiid}"
+        elif self.ticid is not None:
+            name = f"TIC {self.ticid}"
+        elif self.epicid is not None:
+            name = f"EPIC {self.epicid}"
+            self.mission = "k2"
+        elif self.target_name is not None:
+            if self.target_name[:2].lower() == "k2":
+                name = self.target_name.upper()
+                self.mission = "k2"
+            elif self.target_name[:6].lower() == "kepler":
+                name = self.target_name.upper()
+                self.mission = "kepler"
+            elif self.target_name[:4].lower() == "gaia":
+                if gaiaDR2id is None:
+                    self.gaiaid = int(name.strip()[4:])
+
         if (self.ticid is not None) and (self.toiid is None):
             tois = get_tois(clobber=True, verbose=False)
             idx = tois["TIC ID"].isin([self.ticid])
@@ -116,6 +108,7 @@ class Target:
                 self.toiid = tois.loc[idx, "TOI"].values[0]
                 if self.verbose:
                     print(f"TIC {self.ticid} is TOI {int(self.toiid)}!")
+
         if self.toiid is not None:
             self.toi_params = get_toi(
                 toi=self.toiid, clobber=self.clobber, verbose=False
@@ -135,15 +128,41 @@ class Target:
         if self.mission == "tess":
             self.all_sectors = get_all_sectors(self.target_coord)
             self.tess_ccd_info = get_tess_ccd_info(self.target_coord)
-        elif self.mission == "k2":
-            # raise NotImplementedError
+        elif (self.mission == "k2") | (self.mission == "kepler"):
             self.all_campaigns = get_all_campaigns(self.epicid)
-        if self.verbose:
-            print(f"Target: TIC {self.ticid}")
+            # this does not throw an error
+            # self.tess_ccd_info = tesscut.Tesscut.get_sectors(self.target_coord).to_pandas()
+            # if self.tess_ccd_info is not None:
+            #     self.all_sectors = np.array([int(i) for i in self.tess_ccd_info["sector"].values])
+            #     tic_params = self.query_tic_catalog(return_nearest_xmatch=True)
+            #     print(f"Target is also TIC {tic_params['ID']}")
 
-    # def __str__(self):
-    # 		# Override to print a readable string presentation of class
-    # 		return ', '.join(['{key}={value}'.format(key=key, value=self.__dict__.get(key)) for key in self.__dict__])
+        self.search_radius = search_radius * u.arcsec
+        self.tic_params = None
+        self.gaia_params = None
+        self.gaia_sources = None
+        self.gmag = None
+        self.distance_to_nearest_cluster_member = None
+        self.nearest_cluster_member = None
+        self.nearest_cluster_members = None
+        self.nearest_cluster_name = None
+        self.vizier_tables = None
+        self.cc = None
+        # as opposed to self.cc.all_clusters, all_clusters has uncertainties
+        # appended in get_cluster_membership
+        self.all_clusters = None
+
+        if self.verbose:
+            print(f"Target: {name}")
+
+    def __str__(self):
+        # Override to print a readable string presentation of class
+        return ", ".join(
+            [
+                "{key}={value}".format(key=key, value=self.__dict__.get(key))
+                for key in self.__dict__
+            ]
+        )
 
     def query_gaia_dr2_catalog(
         self, radius=None, return_nearest_xmatch=False, verbose=None
@@ -451,9 +470,108 @@ class Target:
         uncleared = d.loc[d.source_id.isin(bad)]
         return uncleared
 
+    def get_cluster_membership(
+        self, frac=0.1, sigma=5, return_idxs=False, verbose=None
+    ):
+        """
+        """
+        verbose = verbose if verbose is not None else self.verbose
+        if self.gaia_params is None:
+            gaia_params = self.query_gaia_dr2_catalog(
+                return_nearest_xmatch=True
+            )
+        else:
+            gaia_params = self.gaia_params
+        params = "ra dec parallax pmra pmdec RV".split()
+        gparams = "ra dec parallax pmra pmdec radial_velocity".split()
+
+        if self.all_clusters is None:
+            if self.cc is None:
+                self.cc = ClusterCatalog(
+                    catalog_name="CantatGaudin2020", verbose=False
+                )
+            clusters = self.cc.query_catalog(return_members=False)
+
+            members = self.cc.query_catalog(return_members=True)
+            # estimate cluster parameter uncertainties from all members
+            # err = pd.pivot_table(members, index=["Cluster"], aggfunc=np.median)[params]
+            # err.columns = ['e_'+c for c in err_columns]
+            # pd.merge(clusters, errs, on='index')
+            g = members.groupby("Cluster")
+            # add RV based on each cluster mean
+            clusters = clusters.join(g.RV.mean(), on="Cluster")
+            self.all_clusters = clusters
+
+            # add error for each param
+            param_errs = {}
+            for param in params:
+                name = "e_" + param
+
+                d = g[param].std()  # 1-sigma
+                d.name = name
+                param_errs[name] = d
+
+                # join it as a new column in clusters
+                clusters = clusters.join(d, on="Cluster")
+        else:
+            clusters = self.all_clusters
+
+        idxs = []
+        for gparam, param in zip(gparams, params):
+            star_mean = gaia_params[gparam]
+            star_std = gaia_params[gparam + "_error"]
+
+            # remove rows with large parameter uncertainty
+            if frac is not None:
+                idx1 = clusters.apply(
+                    lambda x: (x["e_" + param] / x[param]) < frac, axis=1
+                )
+            #             print(f"{param}: {sum(~idx1)} removed")
+            #             clusters[param].isnull().sum()/clusters.shape[0]
+            else:
+                idx1 = np.ones_like(clusters.index, dtype=bool)
+            # replace those rows with nan to ignore
+            d = clusters.where(idx1, np.nan)
+
+            cluster_mean = d[param]
+            cluster_std = d["e_" + param]
+
+            idx2 = get_between_limits(
+                lower=star_mean - star_std,
+                upper=star_mean + star_std,
+                data_mu=cluster_mean,
+                data_sig=cluster_std,
+                sigma=sigma,
+            )
+            if verbose:
+                print(f"{param}: {idx2.sum()} matched")
+            idxs.append(idx2)
+
+        # sum matches along row (cluster)
+        nparams_match = np.sum(idxs, axis=0)
+        # take the row with most match per parameter
+        cluster_match_idx = nparams_match.argmax()
+        cluster = clusters.iloc[cluster_match_idx]
+
+        params_match_idx = np.array(idxs)[:, cluster_match_idx]
+        params_match = np.array(params)[params_match_idx]
+        if verbose:
+            msg = f"matched {sum(params_match_idx)} params in {cluster.Cluster}:\n{params_match}"
+            print(msg)
+
+        if (pd.Series(params_match).isin(["ra", "dec"]).sum() == 2) & (
+            len(params_match) > 3
+        ):
+            if return_idxs:
+                return cluster, idxs
+            else:
+                return cluster
+        else:
+            print(f"Target not likely a cluster member")
+
     def get_nearest_cluster_member(
         self,
-        catalog_name="Bouma2019",
+        catalog_name="CantatGaudin2020",
         df=None,
         match_id=True,
         with_parallax=True,
@@ -474,7 +592,7 @@ class Target:
             matched cluster member by gaiaid
         """
         if (df is None) or (len(df) == 0):
-            cc = cluster.ClusterCatalog(catalog_name=catalog_name)
+            cc = ClusterCatalog(catalog_name=catalog_name)
             df = cc.query_catalog(return_members=True)
             # drop rows without specified Cluster name
             # df = df.dropna(subset=['Cluster'])
@@ -557,7 +675,7 @@ class Target:
             cluster_name = nearest_star.Cluster
             self.nearest_cluster_name = cluster_name
             if df is None:
-                df = cluster.Cluster(
+                df = Cluster(
                     cluster_name, verbose=False
                 ).query_cluster_members()
             # make sure only one cluster

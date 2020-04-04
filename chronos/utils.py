@@ -9,8 +9,6 @@ import logging
 from glob import glob
 from operator import concat
 from functools import reduce
-
-# Import from standard package
 from os.path import join, exists
 import os
 
@@ -18,8 +16,10 @@ import os
 # from matplotlib.figure import Figure
 # from matplotlib.image import AxesImage
 # from loguru import logger
+from pprint import pprint
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 import matplotlib.pyplot as pl
 import lightkurve as lk
 from astropy import units as u
@@ -87,6 +87,9 @@ __all__ = [
     "query_tpf_tesscut",
     "is_gaiaid_in_cluster",
     "get_pix_area_threshold",
+    "get_above_lower_limit",
+    "get_below_upper_limit",
+    "get_between_limits",
 ]
 
 # Ax/Av
@@ -1678,6 +1681,23 @@ def get_pix_area_threshold(Tmag):
 #         aperture = np.zeros_like(img).astype(np.uint8)
 #         cv2.fillConvexPoly(aperture, points=aperture_contour, color=1)
 #     return aperture
+
+
+def get_above_lower_limit(lower, data_mu, data_sig, sigma=1):
+    idx = norm.cdf(lower, loc=data_mu, scale=data_sig) < norm.cdf(sigma)
+    return idx
+
+
+def get_below_upper_limit(upper, data_mu, data_sig, sigma=1):
+    idx = norm.cdf(upper, loc=data_mu, scale=data_sig) > norm.cdf(-sigma)
+    return idx
+
+
+def get_between_limits(lower, upper, data_mu, data_sig, sigma=1):
+    idx = get_above_lower_limit(
+        lower, data_mu, data_sig, sigma=sigma
+    ) & get_below_upper_limit(upper, data_mu, data_sig, sigma=sigma)
+    return idx
 
 
 def map_float(x):

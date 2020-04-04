@@ -8,7 +8,6 @@ import sys
 import os
 from time import time as timer
 import logging
-import itertools
 import traceback
 
 # Import modules
@@ -41,15 +40,20 @@ from adjustText import adjust_text
 # Import from package
 from chronos.star import Star
 from chronos.gls import Gls
-from chronos.cluster import ClusterCatalog, Cluster
+from chronos.cluster import (
+    ClusterCatalog,
+    Cluster,
+    plot_xyz_3d,
+    plot_hrd,
+    plot_cmd,
+    plot_rdp_pmrv,
+    plot_xyz_uvw,  # with plot
+)
 from chronos.lightcurve import ShortCadence, LongCadence
 from chronos.utils import (
-    get_transformed_coord,
     get_toi,
     get_tois,
     get_mamajek_table,
-    get_absolute_gmag,
-    get_absolute_color_index,
     parse_aperture_mask,
     is_point_inside_mask,
     is_gaiaid_in_cluster,
@@ -66,10 +70,6 @@ TESS_pix_scale = 21 * u.arcsec  # /pix
 log = logging.getLogger(__name__)
 
 __all__ = [
-    "plot_rdp_pmrv",
-    "plot_xyz_uvw",
-    "plot_cmd",
-    "plot_hrd",
     "plot_tls",
     "plot_odd_even",
     "plot_hrd_spectral_types",
@@ -88,6 +88,7 @@ def plot_tql(
     gaiaid=None,
     toiid=None,
     ticid=None,
+    coords=None,
     name=None,
     sector=None,
     search_radius=3,
@@ -169,6 +170,19 @@ def plot_tql(
     else:
         Porb_min, Porb_max = None, None
 
+    if coords is not None:
+        errmsg = "coords should be a tuple (ra dec)"
+        assert len(coords) == 2, errmsg
+        if len(coords[0].split(":")) == 3:
+            target_coord = SkyCoord(
+                ra=coords[0], dec=coords[1], unit=("hourangle", "degree")
+            )
+        elif len(coords[0].split(".")) == 2:
+            target_coord = SkyCoord(ra=coords[0], dec=coords[1], unit="degree")
+        else:
+            raise ValueError("cannot decode coord input")
+    else:
+        target_coord = None
     try:
         if cadence == "long":
             sap_mask = "square" if sap_mask is None else sap_mask
@@ -180,6 +194,8 @@ def plot_tql(
                 toiid=toiid,
                 ticid=ticid,
                 name=name,
+                ra_deg=target_coord.ra.deg if target_coord else None,
+                dec_deg=target_coord.dec.deg if target_coord else None,
                 sector=sector,
                 search_radius=search_radius,
                 sap_mask=sap_mask,
@@ -204,6 +220,8 @@ def plot_tql(
                 gaiaDR2id=gaiaid,
                 toiid=toiid,
                 ticid=ticid,
+                ra_deg=target_coord.ra.deg if target_coord else None,
+                dec_deg=target_coord.dec.deg if target_coord else None,
                 name=name,
                 sector=sector,
                 search_radius=search_radius,
@@ -286,7 +304,7 @@ def plot_tql(
             method=flatten_method,
             window_length=window_length,  # The length of the filter window in units of ``time``
             edge_cutoff=edge_cutoff,
-            break_tolerance=0.5,  # Split into segments at breaks longer than that
+            break_tolerance=0.1,  # Split into segments at breaks longer than that
             return_trend=True,
             cval=5.0,  # Tuning parameter for the robust estimators
         )
@@ -299,7 +317,6 @@ def plot_tql(
         flat.flux = wflat[~idx]
         _ = lc.scatter(ax=ax, label="raw")
         trend.plot(ax=ax, label="trend", lw=1, c="r")
-        # ax.plot(time, wtrend, label="trend", lw=1, c='r')
 
         # +++++++++++++++++++++ax2 Lomb-scargle periodogram
         ax = axs[1]
@@ -307,7 +324,7 @@ def plot_tql(
         Prot_max = baseline / 2
 
         # detrend lc
-        dlc = detrend(lc)
+        dlc = detrend(lc, break_tolerance=10)
         ls = LombScargle(dlc.time, dlc.flux)
         frequencies, powers = ls.autopower(
             minimum_frequency=1.0 / Prot_max, maximum_frequency=1.0  # 1 day
@@ -338,15 +355,6 @@ def plot_tql(
             label="sine model",
             zorder=3,
         )
-        # fold data
-        # t0 = final_T0_fit(
-        #         signal=,
-        #         depth=depth,
-        #         t=dlc.time,
-        #         y=dlc.flux,
-        #         # dy=err,
-        #         period=best_period,
-        # phase = (((time-t0) / best_period) % 1) - offset
         phase = ((time / best_period) % 1) - offset
 
         a = ax.scatter(
@@ -407,20 +415,13 @@ def plot_tql(
         # +++++++++++++++++++++++ax4 : flattened lc
         ax = axs[3]
         flat.scatter(ax=ax, label="flat", zorder=1)
-        # ax.scatter(time, flat, label="flat")
         # binned phase folded lc
         nbins = int(round(bin_hr / 24 / cad))
-        # flat.bin(nbins).scatter(
-        #     ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=3
-        # )
         # transit mask
         tmask = get_transit_mask(
             flat, tls_results.period, tls_results.T0, tls_results.duration * 24
         )
         flat[tmask].scatter(ax=ax, label="transit", c="r", alpha=0.5, zorder=1)
-        # ax.scatter(bin_data(time, binsize=nbins),
-        #             bin_data(flat, binsize=nbins),
-        #             label=f"{bin_hr}-hr bin")
 
         # +++++++++++++++++++++ax6: phase-folded at orbital period
         ax = axs[5]
@@ -432,16 +433,6 @@ def plot_tql(
         fold.bin(nbins).scatter(
             ax=ax, s=30, label=f"{bin_hr}-hr bin", zorder=2
         )
-        # ax.scatter(bin_data(tls_results.folded_phase, binsize=nbins),
-        #             bin_data(tls_results.folded_y, binsize=nbins),
-        #             color="C1", label=f"{bin_hr}-hr bin")
-        # phase = get_phase(time, tls_results.period, tls_results.T0)
-        # ax.scatter(
-        #     tls_results.folded_phase-offset,
-        #     tls_results.folded_y,
-        #     color="C0", s=5,
-        #     zorder=1, label='phase-folded'
-        #     )
 
         # TLS transit model
         ax.plot(
@@ -564,7 +555,11 @@ def plot_tql(
             + r"M$_{\odot}$"
             + "\n"
         )
-        msg += f"Teff={int(tp['Teff'])}+/-{int(tp['e_Teff'])} K" + " " * 5
+        teff = "nan" if str(tp["Teff"]).lower() == "nan" else int(tp["Teff"])
+        eteff = (
+            "nan" if str(tp["e_Teff"]).lower() == "nan" else int(tp["e_Teff"])
+        )
+        msg += f"Teff={teff}+/-{eteff} K" + " " * 5
         msg += f"logg={tp['logg']:.2f}+/-{tp['e_logg']:.2f} dex\n"
         # spectype = star.get_spectral_type()
         # msg += f"SpT: {spectype}\n"
@@ -780,6 +775,10 @@ def plot_gaia_sources_on_tpf(
 
     base_ms = 128.0  # base marker size
     starid = 1
+    # if very crowded, plot only top N
+    gmags = gaia_sources.phot_g_mean_mag
+    dmags = gmags - target_gmag
+    rank = np.argsort(dmags.values)
     for index, row in gaia_sources.iterrows():
         # FIXME: why some indexes are missing?
         ra, dec, gmag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
@@ -797,7 +796,7 @@ def plot_gaia_sources_on_tpf(
                     pix[0],
                     marker="x",
                     ms=base_ms / 16,
-                    c="white",
+                    c="k",
                     zorder=3,
                 )
             if depth is not None:
@@ -813,20 +812,31 @@ def plot_gaia_sources_on_tpf(
         ax.scatter(
             pix[1],
             pix[0],
-            s=base_ms / 2 ** (dmag),  # fainter -> smaller
+            s=base_ms / 2 ** dmag,  # fainter -> smaller
             c=color,
             alpha=alpha,
             zorder=2,
             edgecolor=None,
         )
-        # annotate starid if inside aperture or brighter than dmag limit
-        if (dmag < dmag_limit) or (color == "red"):
+        # choose which star to annotate
+        if len(gmags) < 20:
+            # sparse: annotate all
+            ax.text(pix[1], pix[0], str(starid), color="white", zorder=100)
+        elif len(gmags) > 50:
+            # crowded: annotate only 15 smallest dmag ones
+            if rank[starid - 1] < 15:
+                ax.text(pix[1], pix[0], str(starid), color="white", zorder=100)
+            elif (color == "red") & (dmag < dmag_limit):
+                # plot if within aperture and significant source of dilution
+                ax.text(pix[1], pix[0], str(starid), color="white", zorder=100)
+        elif color == "red":
+            # neither sparse nor crowded
+            # annotate if inside aperture
             ax.text(pix[1], pix[0], str(starid), color="white", zorder=100)
         starid += 1
     # Make legend with 4 sizes representative of delta mags
-    gmags = gaia_sources.phot_g_mean_mag
-    gmags = gmags[(gmags - target_gmag) < dmag_limit]
-    _, dmags = pd.cut(gmags - target_gmag, 3, retbins=True)
+    dmags = dmags[dmags < dmag_limit]
+    _, dmags = pd.cut(dmags, 3, retbins=True)
     for dmag in dmags:
         size = base_ms / 2 ** dmag
         # -1, -1 is outside the fov
@@ -839,6 +849,7 @@ def plot_gaia_sources_on_tpf(
             alpha=0.6,
             edgecolor=None,
             zorder=10,
+            clip_on=True,
             label=r"$\Delta m= $" + f"{dmag:.1f}",
         )
     ax.legend(fancybox=True, framealpha=0.5)
@@ -1205,430 +1216,6 @@ def plot_odd_even(flat, tls_results, yline=None, figsize=(8, 4)):
     return fig
 
 
-def plot_rdp_pmrv(
-    df,
-    target_gaia_id=None,
-    match_id=True,
-    df_target=None,
-    target_label=None,
-    figsize=(10, 10),
-):
-    """
-    Plot ICRS position and proper motions in 2D scatter plots,
-    and parallax and radial velocity in kernel density
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        contains ra, dec, parallax, pmra, pmdec, radial_velocity columns
-    target_gaiaid : int
-        target gaia DR2 id
-    """
-    assert len(df) > 0, "df is empty"
-    fig, axs = pl.subplots(2, 2, figsize=figsize, constrained_layout=True)
-    ax = axs.flatten()
-
-    n = 0
-    x, y = "ra", "dec"
-    # df.plot.scatter(x=x, y=y, ax=ax[n])
-    ax[n].scatter(df[x], df[y], marker="o")
-    if target_gaia_id is not None:
-        idx = df.source_id.astype(int).isin([target_gaia_id])
-        if match_id:
-            errmsg = f"Given cluster does not contain the target gaia id [{target_gaia_id}]"
-            assert sum(idx) > 0, errmsg
-            ax[n].plot(
-                df.loc[idx, x],
-                df.loc[idx, y],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-                label=target_label,
-            )
-        else:
-            assert df_target is not None, "provide df_target"
-            ax[n].plot(
-                df_target[x],
-                df_target[y],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-                label=target_label,
-            )
-    ax[n].set_xlabel("R.A. [deg]")
-    ax[n].set_ylabel("Dec. [deg]")
-    text = len(df[["ra", "dec"]].dropna())
-    ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
-    if target_label is not None:
-        ax[n].legend(loc="best")
-    n = 1
-    par = "parallax"
-    df[par].plot.kde(ax=ax[n])
-    if target_gaia_id is not None:
-        idx = df.source_id.astype(int).isin([target_gaia_id])
-        if match_id:
-            errmsg = f"Given cluster does not contain the target gaia id [{target_gaia_id}]"
-            assert sum(idx) > 0, errmsg
-            ax[n].axvline(
-                df.loc[idx, par].values[0],
-                0,
-                1,
-                c="k",
-                ls="--",
-                label=target_label,
-            )
-        else:
-            assert df_target is not None, "provide df_target"
-            ax[n].axvline(
-                df_target[par], 0, 1, c="k", ls="--", label=target_label
-            )
-
-        if target_label is not None:
-            ax[n].legend(loc="best")
-    ax[n].set_xlabel("Parallax [mas]")
-    text = len(df[par].dropna())
-    ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
-    n = 2
-    x, y = "pmra", "pmdec"
-    # df.plot.scatter(x=x, y=y, ax=ax[n])
-    ax[n].scatter(df[x], df[y], marker="o")
-    if target_gaia_id is not None:
-        idx = df.source_id.astype(int).isin([target_gaia_id])
-        if match_id:
-            errmsg = f"Given cluster does not contain the target gaia id [{target_gaia_id}]"
-            assert sum(idx) > 0, errmsg
-            ax[n].plot(
-                df.loc[idx, x],
-                df.loc[idx, y],
-                marker=r"$\star$",
-                c="y",
-                ms="25",
-            )
-        else:
-            assert df_target is not None, "provide df_target"
-            ax[n].plot(
-                df_target[x], df_target[y], marker=r"$\star$", c="y", ms="25"
-            )
-    ax[n].set_xlabel("PM R.A. [deg]")
-    ax[n].set_ylabel("PM Dec. [deg]")
-    text = len(df[["pmra", "pmdec"]].dropna())
-    ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
-    n = 3
-    par = "radial_velocity"
-    try:
-        df[par].plot.kde(ax=ax[n])
-        if target_gaia_id is not None:
-            idx = df.source_id.astype(int).isin([target_gaia_id])
-            if match_id:
-                errmsg = f"Given cluster does not contain the target gaia id [{target_gaia_id}]"
-                assert sum(idx) > 0, errmsg
-                ax[n].axvline(
-                    df.loc[idx, par].values[0],
-                    0,
-                    1,
-                    c="k",
-                    ls="--",
-                    label=target_label,
-                )
-            else:
-                ax[n].axvline(
-                    df_target[par], 0, 1, c="k", ls="--", label=target_label
-                )
-        ax[n].set_xlabel("RV [km/s]")
-        text = len(df[par].dropna())
-        ax[n].text(
-            0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes
-        )
-    except Exception as e:
-        print(e)
-        # catalog_name = df.Cluster.unique()()
-        raise ValueError(
-            f"radial_velocity is not available"
-        )  # in {catalog_name}
-    return fig
-
-
-def plot_xyz_uvw(
-    df,
-    target_gaia_id=None,
-    match_id=True,
-    df_target=None,
-    verbose=True,
-    figsize=(12, 8),
-):
-    """
-    Plot 3D position in galactocentric (xyz) frame
-    and proper motion with radial velocity in galactic cartesian velocities
-    (UVW) frame
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        contains ra, dec, parallax, pmra, pmdec, radial_velocity columns
-    target_gaiaid : int
-        target gaia DR2 id
-    df_target : pandas.Series
-        target's gaia parameters
-
-    Note: U is positive towards the direction of the Galactic center (GC);
-    V is positive for a star with the same rotational direction as the Sun going around the galaxy,
-    with 0 at the same rotation as sources at the Sun’s distance,
-    and W positive towards the north Galactic pole
-
-    U,V,W can be converted to Local Standard of Rest (LSR) by subtracting V = 238 km/s,
-    the adopted rotation velocity at the position of the Sun from Marchetti et al. (2018).
-
-    See also https://arxiv.org/pdf/1707.00697.pdf which estimates Sun's
-    (U,V,W) = (9.03, 255.26, 7.001)
-    """
-    assert len(df) > 0, "df is empty"
-    fig, axs = pl.subplots(2, 3, figsize=figsize, constrained_layout=True)
-    ax = axs.flatten()
-
-    if not np.all(df.columns.isin("X Y Z U V W".split())):
-        df = get_transformed_coord(df, frame="galactocentric", verbose=verbose)
-    if df_target is not None:
-        df_target = get_transformed_coord(
-            pd.DataFrame(df_target).T, frame="galactocentric"
-        )
-    n = 0
-    for (i, j) in itertools.combinations(["X", "Y", "Z"], r=2):
-        if target_gaia_id is not None:
-            idx = df.source_id.astype(int).isin([target_gaia_id])
-            if match_id:
-                errmsg = f"Given cluster does not contain the target gaia id [{target_gaia_id}]"
-                assert sum(idx) > 0, errmsg
-                ax[n].plot(
-                    df.loc[idx, i],
-                    df.loc[idx, j],
-                    marker=r"$\star$",
-                    c="y",
-                    ms="25",
-                )
-            else:
-                assert df_target is not None, "provide df_target"
-                ax[n].plot(
-                    df_target[i],
-                    df_target[j],
-                    marker=r"$\star$",
-                    c="y",
-                    ms="25",
-                )
-        # df.plot.scatter(x=i, y=j, ax=ax[n])
-        ax[n].scatter(df[i], df[j], marker="o")
-        ax[n].set_xlabel(i + " [pc]")
-        ax[n].set_ylabel(j + " [pc]")
-        text = len(df[[i, j]].dropna())
-        ax[n].text(
-            0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes
-        )
-        n += 1
-
-    n = 3
-    for (i, j) in itertools.combinations(["U", "V", "W"], r=2):
-        if target_gaia_id is not None:
-            idx = df.source_id.astype(int).isin([target_gaia_id])
-            if match_id:
-                errmsg = f"Given cluster does not contain the target gaia id [{target_gaia_id}]"
-                assert sum(idx) > 0, errmsg
-                ax[n].plot(
-                    df.loc[idx, i],
-                    df.loc[idx, j],
-                    marker=r"$\star$",
-                    c="y",
-                    ms="25",
-                )
-            else:
-                ax[n].plot(
-                    df_target[i],
-                    df_target[j],
-                    marker=r"$\star$",
-                    c="y",
-                    ms="25",
-                )
-        # df.plot.scatter(x=i, y=j, ax=ax[n])
-        ax[n].scatter(df[i], df[j], marker="o")
-        ax[n].set_xlabel(i + " [km/s]")
-        ax[n].set_ylabel(j + " [km/s]")
-        text = len(df[[i, j]].dropna())
-        ax[n].text(
-            0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes
-        )
-        n += 1
-
-    return fig
-
-
-def plot_cmd(
-    df,
-    target_gaia_id=None,
-    match_id=True,
-    df_target=None,
-    target_label=None,
-    xaxis="bp_rp0",
-    yaxis="abs_gmag",
-    color="radius_val",
-    figsize=(8, 8),
-    estimate_color=False,
-    cmap="viridis",
-    ax=None,
-):
-    """Plot color-magnitude diagram using absolute G magnitude and dereddened Bp-Rp from Gaia photometry
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        cluster member properties
-    match_id : bool
-        checks if target gaiaid in df
-    df_target : pd.Series
-        info of target
-    estimate_color : bool
-        estimate absolute/dereddened color from estimated excess
-
-    Returns
-    -------
-    ax : axis
-    """
-    assert len(df) > 0, "df is empty"
-    df["parallax"] = df["parallax"].astype(float)
-    idx = ~np.isnan(df["parallax"]) & (df["parallax"] > 0)
-    df = df[idx]
-    if sum(~idx) > 0:
-        print(f"{sum(~idx)} removed NaN or negative parallaxes")
-    if ax is None:
-        fig, ax = pl.subplots(1, 1, figsize=figsize, constrained_layout=True)
-
-    df["distance"] = Distance(parallax=df["parallax"].values * u.mas).pc
-    # compute absolute Gmag
-    df["abs_gmag"] = get_absolute_gmag(
-        df["phot_g_mean_mag"], df["distance"], df["a_g_val"]
-    )
-    # compute intrinsic color index
-    if estimate_color:
-        df["bp_rp0"] = get_absolute_color_index(
-            df["a_g_val"], df["phot_bp_mean_mag"], df["phot_rp_mean_mag"]
-        )
-    else:
-        df["bp_rp0"] = df["bp_rp"] - df["e_bp_min_rp_val"]
-
-    if target_gaia_id is not None:
-        idx = df.source_id.astype(int).isin([target_gaia_id])
-        if match_id:
-            errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaia_id}]"
-            assert sum(idx) > 0, errmsg
-            x, y = df.loc[idx, "bp_rp0"], df.loc[idx, "abs_gmag"]
-        else:
-            assert df_target is not None, "provide df_target"
-            df_target["distance"] = Distance(
-                parallax=df_target["parallax"] * u.mas
-            ).pc
-            # compute absolute Gmag
-            df_target["abs_gmag"] = get_absolute_gmag(
-                df_target["phot_g_mean_mag"],
-                df_target["distance"],
-                df_target["a_g_val"],
-            )
-            # compute intrinsic color index
-            if estimate_color:
-                df_target["bp_rp0"] = get_absolute_color_index(
-                    df_target["a_g_val"],
-                    df_target["phot_bp_mean_mag"],
-                    df_target["phot_rp_mean_mag"],
-                )
-            else:
-                df_target["bp_rp0"] = (
-                    df_target["bp_rp"] - df_target["e_bp_min_rp_val"]
-                )
-            x, y = df_target["bp_rp0"], df_target["abs_gmag"]
-        if target_label is not None:
-            ax.legend(loc="best")
-    ax.plot(x, y, marker=r"$\star$", c="r", ms="25", label=target_label)
-    # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
-    if color == "radius_val":
-        rstar = np.log10(df[color].astype(float))
-        c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
-        fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
-    else:
-        ax.scatter(df[xaxis], df[yaxis], marker=".")
-    ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
-    ax.invert_yaxis()
-    ax.set_ylabel(r"$G$ [mag]", fontsize=16)
-
-    text = len(df[["bp_rp0", "abs_gmag"]].dropna())
-    ax.text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax.transAxes)
-    return ax
-
-
-def plot_hrd(
-    df,
-    target_gaia_id=None,
-    match_id=True,
-    df_target=None,
-    target_label=None,
-    figsize=(8, 8),
-    yaxis="lum_val",
-    xaxis="teff_val",
-    color="radius_val",
-    cmap="viridis",
-    ax=None,
-):
-    """Plot HR diagram using luminosity and Teff
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        cluster memeber properties
-    match_id : bool
-        checks if target gaiaid in df
-    df_target : pd.Series
-        info of target
-    xaxis, yaxis : str
-        parameter to plot
-
-    Returns
-    -------
-    ax : axis
-    """
-    assert len(df) > 0, "df is empty"
-    if ax is None:
-        fig, ax = pl.subplots(1, 1, figsize=figsize, constrained_layout=True)
-    if target_gaia_id is not None:
-        idx = df.source_id.astype(int).isin([target_gaia_id])
-        if match_id:
-            errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaia_id}]"
-            assert sum(idx) > 0, errmsg
-            x, y = df.loc[idx, xaxis], df.loc[idx, yaxis]
-        else:
-            assert df_target is not None, "provide df_target"
-            df_target["distance"] = Distance(
-                parallax=df_target["parallax"] * u.mas
-            ).pc
-            x, y = df_target[xaxis], df_target[yaxis]
-        if target_label is not None:
-            ax.legend(loc="best")
-    ax.plot(x, y, marker=r"$\star$", c="r", ms="25", label=target_label)
-    # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
-    rstar = np.log10(df[color].astype(float))
-    # luminosity can be computed from abs mag; note Mag_sun = 4.85
-    # df["abs_gmag"] = get_absolute_gmag(
-    #     df["phot_g_mean_mag"], df["distance"], df["a_g_val"])
-    # df["lum_val"] = 10**(0.4*(4.85-df["abs_gmag"])
-    if color == "radius_val":
-        c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
-        fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
-    else:
-        ax.scatter(df[xaxis], df[yaxis], marker=".")
-    ax.set_ylabel(r"$\log(L/L_{\odot})$", fontsize=16)
-    ax.invert_xaxis()
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel(r"$\log(T_{\rm{eff}}$/K)", fontsize=16)
-    text = len(df[[xaxis, yaxis]].dropna())
-    ax.text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax.transAxes)
-    return ax
-
-
 def plot_pdc_sap_comparison(toiid, sector=None):
     toi = get_toi(toi=toiid, verbose=False)
     period = toi["Period (days)"].values[0]
@@ -1673,68 +1260,6 @@ def plot_hrd_spectral_types(**plot_kwargs):
     return fig
 
 
-def plot_xyz_3d(
-    df,
-    target_gaiaid=None,
-    match_id=True,
-    df_target=None,
-    xlim=None,
-    ylim=None,
-    zlim=None,
-    figsize=(10, 10),
-):
-    """plot 3-d position in galactocentric frame
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        contains ra, dec & parallax columns
-    target_gaiaid : int
-        target gaia DR2 id
-    xlim,ylim,zlim : tuple
-        lower and upper bounds
-    """
-    fig = pl.figure(figsize=figsize)
-    ax = fig.add_subplot(111, projection="3d")
-    ax.view_init(30, 120)
-
-    coords = SkyCoord(
-        ra=df.ra.values * u.deg,
-        dec=df.dec.values * u.deg,
-        distance=Distance(parallax=df.parallax.values * u.mas),
-    )
-    xyz = coords.galactocentric
-    df["x"] = xyz.x
-    df["y"] = xyz.y
-    df["z"] = xyz.z
-
-    idx1 = np.zeros_like(df.x, dtype=bool)
-    if xlim:
-        assert isinstance(xlim, tuple)
-        idx1 = (df.x > xlim[0]) & (df.x < xlim[1])
-    idx2 = np.zeros_like(df.y, dtype=bool)
-    if ylim:
-        assert isinstance(ylim, tuple)
-        idx2 = (df.y > ylim[0]) & (df.y < ylim[1])
-    idx3 = np.zeros_like(df.z, dtype=bool)
-    if zlim:
-        assert isinstance(zlim, tuple)
-        idx3 = (df.z > zlim[0]) & (df.z < zlim[1])
-    idx = idx1 | idx2 | idx3
-    ax.scatter(xs=df[idx].x, ys=df[idx].y, zs=df[idx].z, marker=".", alpha=0.5)
-    idx = df.source_id == target_gaiaid
-    ax.scatter(
-        xs=df[idx].x,
-        ys=df[idx].y,
-        zs=df[idx].z,
-        marker=r"$\star$",
-        c="r",
-        s=300,
-    )
-    pl.setp(ax, xlabel="X", ylabel="Y", zlabel="Z")
-    return fig
-
-
 def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     """
     gaia_catalog : pandas.DataFrame
@@ -1772,7 +1297,7 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     return ax
 
 
-def plot_interactive(parallax_cut=2):
+def plot_interactive(catalog_name="CantatGaudin2020", parallax_cut=2):
     """show altair plots of TOI and clusters
 
     Parameters
@@ -1789,7 +1314,7 @@ def plot_interactive(parallax_cut=2):
 
     cc = ClusterCatalog(verbose=False)
     # get Bouma catalog
-    df0 = cc.query_catalog(name="Bouma2019", return_members=False)
+    df0 = cc.query_catalog(catalog_name=catalog_name, return_members=False)
     idx = df0.parallax >= parallax_cut
     df0 = df0.loc[idx]
     df0["distance"] = Distance(parallax=df0["parallax"].values * u.mas).pc
@@ -1809,12 +1334,12 @@ def plot_interactive(parallax_cut=2):
                 scale=alt.Scale(domain=[-90, 90]),
             ),
             tooltip=[
-                "Cluster:N",
+                # "Cluster:Nstars",
                 "distance:Q",
                 "parallax:Q",
                 "pmra:Q",
                 "pmdec:Q",
-                "count:Q",
+                # "count:Q",
             ],
         )
     )
@@ -1858,7 +1383,7 @@ def plot_interactive(parallax_cut=2):
     )
 
     # plot cluster members
-    df2 = cc.query_catalog(name="CantatGaudin2018", return_members=True)
+    df2 = cc.query_catalog(catalog_name=catalog_name, return_members=True)
     idx = df2.parallax >= parallax_cut
     df2 = df2.loc[idx]
     # skip other members

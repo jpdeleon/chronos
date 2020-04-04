@@ -19,6 +19,7 @@ import astropy.units as u
 
 # Import from package
 from chronos.target import Target
+from chronos.cluster import ClusterCatalog
 from chronos.utils import (
     get_mamajek_table,
     get_mag_err_from_flux,
