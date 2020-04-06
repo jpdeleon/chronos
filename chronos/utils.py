@@ -349,16 +349,18 @@ def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
     Check if target has archival HARPS data from:
     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
     """
+    homeurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank.html"
     fp = os.path.join(outdir, "HARPS_RVBank_table.csv")
     if os.path.exists(fp):
         df = pd.read_csv(fp)
         msg = f"Loaded: {fp}\n"
     else:
         if verbose:
-            print("This may take a while...")
+            print(
+                f"Downloading HARPS bank from {homeurl}. This may take a while."
+            )
         # csvurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank_v1.csv"
         # df = pd.read_csv(csvurl)
-        homeurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank.html"
         df = pd.read_html(homeurl, header=0)[0]  # choose first table
         df.to_csv(fp, index=False)
         msg = f"Saved: {fp}\n"

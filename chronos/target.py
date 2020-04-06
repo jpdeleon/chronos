@@ -17,11 +17,11 @@ import re
 # from loguru import logger
 import numpy as np
 import pandas as pd
-from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
-from astroquery.mast import Catalogs, Observations, tesscut
+from astroquery.simbad import Simbad
+from astroquery.mast import Observations, Catalogs
 from astropy.coordinates import SkyCoord, Distance
-from astropy import units as u
+import astropy.units as u
 import lightkurve as lk
 
 # from lightkurve.search import _query_mast as query_mast
@@ -155,14 +155,20 @@ class Target:
         if self.verbose:
             print(f"Target: {name}")
 
-    def __str__(self):
-        # Override to print a readable string presentation of class
-        return ", ".join(
-            [
-                "{key}={value}".format(key=key, value=self.__dict__.get(key))
-                for key in self.__dict__
-            ]
-        )
+    # def __repr__(self):
+    #     # Override to print a readable string presentation of class
+    #     excluded_args = ['catalog_dict','catalog_list','data_loc','tables']
+    #     args = []
+    #     for key in self.__dict__:
+    #         if key not in excluded_args:
+    #             args.append(f"{key}={self.__dict__.get(key)}")
+    #     args = ", ".join(args)
+    #     return f"ClusterCatalog({args})"
+
+    # def __repr__(self):
+    #     fields = signature(self.__init__).parameters
+    #     values = ', '.join(repr(getattr(self, f)) for f in fields)
+    #     return f"{type(self).__name__}({values})"
 
     def query_gaia_dr2_catalog(
         self, radius=None, return_nearest_xmatch=False, verbose=None
@@ -208,22 +214,35 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="Gaia", version=2
         ).to_pandas()
-        errmsg = f"No gaia star within {self.search_radius}"
+        errmsg = f"No gaia star within {radius}. Use radius>{radius}"
         assert len(tab) > 0, errmsg
         tab["source_id"] = tab.source_id.astype(int)
-
         # check if results from DR2 (epoch 2015.5)
         assert np.all(
             tab["ref_epoch"].isin([2015.5])
         ), "Epoch not 2015 (version<2?)"
-        assert len(tab) > 0, f"use radius>{radius}"
 
-        if np.any(tab["parallax"] < 0):
-            # use positive parallaxes only
-            # tab = tab[tab["parallax"]> 0] #this drops NaN too
-            tab = tab[(tab["parallax"] >= 0) | (tab["parallax"].isnull())]
+        if return_nearest_xmatch:
+            nearest_match = tab.iloc[0]
+            tplx = float(nearest_match["parallax"])
+            if np.isnan(tplx) | (tplx < 0):
+                print(f"Target parallax ({tplx} mas) is omitted!")
+                tab["parallax"] = np.nan
+        else:
+            nstars = len(tab)
+            idx1 = tab["parallax"] < 0
+            tab.loc[idx1, "parallax"] = np.nan  # replace negative with nan
+            idx2 = tab["parallax"].isnull()
+            errmsg = f"No stars within radius={radius} have positive Gaia parallax!\n"
+            if idx1.sum() > 0:
+                errmsg += (
+                    f"{idx1.sum()}/{nstars} stars have negative parallax!\n"
+                )
+            if idx2.sum() > 0:
+                errmsg += f"{idx2.sum()}/{nstars} stars have no parallax!"
+            assert len(tab) > 0, errmsg
         """
-        check parallax error here and apply corresponding distance calculation: see Note 1
+        FIXME: check parallax error here and apply corresponding distance calculation: see Note 1
         """
         if self.gaiaid is not None:
             errmsg = "Catalog does not contain target gaia id."
@@ -248,7 +267,10 @@ class Target:
             idx = tab.source_id.isin([self.gaiaid]).argmax()
         star = tab.loc[idx]
         # get distance from parallax
-        target_dist = Distance(parallax=star["parallax"] * u.mas)
+        if star["parallax"] > 0:
+            target_dist = Distance(parallax=star["parallax"] * u.mas)
+        else:
+            target_dist = np.nan
         # redefine skycoord with coord and distance
         target_coord = SkyCoord(
             ra=self.target_coord.ra,
@@ -725,22 +747,24 @@ class Target:
         simbad = Simbad()
         simbad.add_votable_fields("typed_id", "otype", "sptype", "rot", "mk")
         table = simbad.query_region(self.target_coord, radius=radius)
-        msg = "No result from Simbad"
-        assert len(table) > 0, msg
-        df = table.to_pandas()
-        df = df.drop(
-            [
-                "RA_PREC",
-                "DEC_PREC",
-                "COO_ERR_MAJA",
-                "COO_ERR_MINA",
-                "COO_ERR_ANGLE",
-                "COO_QUAL",
-                "COO_WAVELENGTH",
-            ],
-            axis=1,
-        )
-        return df
+        if len(table) > 0:
+            print("No result from Simbad")
+            return None
+        else:
+            df = table.to_pandas()
+            df = df.drop(
+                [
+                    "RA_PREC",
+                    "DEC_PREC",
+                    "COO_ERR_MAJA",
+                    "COO_ERR_MINA",
+                    "COO_ERR_ANGLE",
+                    "COO_QUAL",
+                    "COO_WAVELENGTH",
+                ],
+                axis=1,
+            )
+            return df
 
     def query_vizier(self, radius=3, verbose=None):
         """
@@ -761,8 +785,8 @@ class Target:
             # keywords=['stars:white_dwarf']
         )
         tables = v.query_region(self.target_coord, radius=radius)
-        msg = "No result from Vizier"
-        assert len(tables) > 0, msg
+        if len(tables) > 0:
+            print("No result from Vizier")
         if verbose:
             print(f"{len(tables)} tables found.")
             pprint({k: tables[k]._meta["description"] for k in tables.keys()})
@@ -807,73 +831,78 @@ class Target:
         )
 
         table = ssap_resultset.to_table()
-        msg = "No results from ESO"
-        assert len(table) > 0, msg
-        df = table.to_pandas()
+        if len(table) > 0:
+            df = table.to_pandas()
 
-        # decode bytes to str
-        df["COLLECTION"] = df["COLLECTION"].apply(lambda x: x.decode())
-        df["dp_id"] = df["dp_id"].apply(lambda x: x.decode())
-        df["CREATORDID"] = df["CREATORDID"].apply(lambda x: x.decode())
-        df["access_url"] = df["access_url"].apply(lambda x: x.decode())
-        df["TARGETNAME"] = df["TARGETNAME"].apply(lambda x: x.decode())
+            # decode bytes to str
+            df["COLLECTION"] = df["COLLECTION"].apply(lambda x: x.decode())
+            df["dp_id"] = df["dp_id"].apply(lambda x: x.decode())
+            df["CREATORDID"] = df["CREATORDID"].apply(lambda x: x.decode())
+            df["access_url"] = df["access_url"].apply(lambda x: x.decode())
+            df["TARGETNAME"] = df["TARGETNAME"].apply(lambda x: x.decode())
 
-        print(
-            "Available data:\n{: <10} {: <10}".format("Instrument", "Nspectra")
-        )
-        for k, d in df.groupby("COLLECTION"):
-            print("{: <10} {: <10}".format(k, len(d)))
-
-        fields = [
-            "COLLECTION",
-            "TARGETNAME",
-            "s_ra",
-            "s_dec",
-            "APERTURE",
-            "em_min",
-            "em_max",
-            "SPECRP",
-            "SNR",
-            "t_min",
-            "t_max",
-            "CREATORDID",
-            "access_url",
-            "dp_id",
-        ]
-
-        # appply filters
-        if instru is not None:
-            idx1 = (df["COLLECTION"] == instru).values
-        else:
-            idx1 = True
-            instru = df["COLLECTION"].unique()
-        filter = idx1 & (df["SNR"] > min_snr).values
-        df = df.loc[filter, fields]
-        if len(df) == 0:
-            raise ValueError("No ESO data found.\n")
-        elif len(df) > 0:
-            # if verbose:
-            print(f"\nFound {len(df)} {instru} spectra with SNR>{min_snr}\n")
-            targetnames = (
-                df["TARGETNAME"]
-                .apply(lambda x: str(x).replace("-", ""))
-                .unique()
+            print(
+                "Available data:\n{: <10} {: <10}".format(
+                    "Instrument", "Nspectra"
+                )
             )
-            if len(targetnames) > 1:
-                print("There are {} matches:".format(len(targetnames)))
-                # print coordinates of each match to check
-                for name in targetnames:
-                    try:
-                        coord = SkyCoord.from_name(name)
-                        print(f"{name: <10}: ra,dec=({coord.to_string()})")
-                    except Exception:
-                        print(f"{name: <10}: failed to fetch coordinates")
-            # if self.verbose:
-            #     print('\nPreview:\n')
-            #     print(df[["TARGETNAME", "s_ra", "s_dec", "APERTURE", \
-            #           "em_min", "em_max", "SPECRP", "SNR", "t_min", "t_max"]].head())
+            for k, d in df.groupby("COLLECTION"):
+                print("{: <10} {: <10}".format(k, len(d)))
+
+            fields = [
+                "COLLECTION",
+                "TARGETNAME",
+                "s_ra",
+                "s_dec",
+                "APERTURE",
+                "em_min",
+                "em_max",
+                "SPECRP",
+                "SNR",
+                "t_min",
+                "t_max",
+                "CREATORDID",
+                "access_url",
+                "dp_id",
+            ]
+
+            # appply filters
+            if instru is not None:
+                idx1 = (df["COLLECTION"] == instru).values
+            else:
+                idx1 = True
+                instru = df["COLLECTION"].unique()
+            filter = idx1 & (df["SNR"] > min_snr).values
+            df = df.loc[filter, fields]
+            if len(df) == 0:
+                raise ValueError("No ESO data found.\n")
+            elif len(df) > 0:
+                # if verbose:
+                print(
+                    f"\nFound {len(df)} {instru} spectra with SNR>{min_snr}\n"
+                )
+                targetnames = (
+                    df["TARGETNAME"]
+                    .apply(lambda x: str(x).replace("-", ""))
+                    .unique()
+                )
+                if len(targetnames) > 1:
+                    print("There are {} matches:".format(len(targetnames)))
+                    # print coordinates of each match to check
+                    for name in targetnames:
+                        try:
+                            coord = SkyCoord.from_name(name)
+                            print(f"{name: <10}: ra,dec=({coord.to_string()})")
+                        except Exception:
+                            print(f"{name: <10}: failed to fetch coordinates")
+                # if self.verbose:
+                #     print('\nPreview:\n')
+                #     print(df[["TARGETNAME", "s_ra", "s_dec", "APERTURE", \
+                #           "em_min", "em_max", "SPECRP", "SNR", "t_min", "t_max"]].head())
+            else:
+                print("No data matches the given criteria.")
         else:
-            raise ValueError("\nNo data that matches the given criteria.")
+            print("No results from ESO")
 
     def query_harps_rv(self, **kwargs):
         df = get_harps_RV(self.target_coord, **kwargs)

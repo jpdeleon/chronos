@@ -11,6 +11,7 @@ from os.path import join, exists
 from os import makedirs
 from glob import glob
 from pprint import pprint
+from inspect import signature
 import itertools
 import logging
 import re
@@ -20,10 +21,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
 from matplotlib.patches import Ellipse
-from astropy.coordinates import SkyCoord, Distance
 from astroquery.vizier import Vizier
+from astropy.coordinates import SkyCoord, Distance
 from astropy.table import Table
-from astropy import units as u
+import astropy.units as u
 from tqdm import tqdm
 import deepdish as dd
 
@@ -137,6 +138,9 @@ class CatalogDownloader:
 
 
 class ClusterCatalog(CatalogDownloader):
+    # __slots__ = ["catalog_name", "all_clusters", "all_members", "catalog_list",
+    # "verbose", "clobber", "data_loc"
+    # ]
     def __init__(
         self,
         catalog_name="CantatGaudin2020",

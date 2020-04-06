@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-
 r"""
 classes for plotting cluster properties
 """
+import sys
 import numpy as np
 import matplotlib.pyplot as pl
 import pandas as pd
@@ -724,28 +724,42 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     return ax
 
 
-def plot_interactive(catalog_name="CantatGaudin2020", parallax_cut=2):
+def plot_interactive(
+    catalog_name="CantatGaudin2020",
+    min_parallax=1.5,
+    thin=10,
+    width=800,
+    height=400,
+):
     """show altair plots of TOI and clusters
 
     Parameters
     ----------
     plx_cut : float
         parallax cut in mas; default=2 mas < 100pc
+    thin : integer
+        thinning factor to use ony every nth cluster member
     """
     try:
         import altair as alt
     except ModuleNotFoundError:
         print("pip install altair")
 
-    print("import altair; altair.notebook()")
+    if sys.argv[-1].endswith("json"):
+        print("import altair; altair.notebook()")
 
     cc = ClusterCatalog(verbose=False)
-    # get Bouma catalog
     df0 = cc.query_catalog(catalog_name=catalog_name, return_members=False)
-    idx = df0.parallax >= parallax_cut
+    df2 = cc.query_catalog(catalog_name=catalog_name, return_members=True)
+    # add members count from df2 in df0
+    # counts = df2.groupby('Cluster').size()
+    # counts.name = 'Nstars'
+    # counts = counts.reset_index()
+    # df0 = pd.merge(df0, counts, how='outer')
+    idx = df0.parallax >= min_parallax
     df0 = df0.loc[idx]
     df0["distance"] = Distance(parallax=df0["parallax"].values * u.mas).pc
-    # plot Bouma catalog
+    # plot catalog
     chart0 = (
         alt.Chart(df0)
         .mark_point(color="red")
@@ -761,12 +775,12 @@ def plot_interactive(catalog_name="CantatGaudin2020", parallax_cut=2):
                 scale=alt.Scale(domain=[-90, 90]),
             ),
             tooltip=[
-                # "Cluster:Nstars",
+                "Cluster:N",
                 "distance:Q",
                 "parallax:Q",
                 "pmra:Q",
                 "pmdec:Q",
-                # "count:Q",
+                "Nstars:Q",
             ],
         )
     )
@@ -805,16 +819,15 @@ def plot_interactive(catalog_name="CantatGaudin2020", parallax_cut=2):
                 "PM Dec (mas/yr):Q",
             ],
         )
-        .properties(width=800, height=400)
+        .properties(width=width, height=height)
         .interactive()
     )
 
     # plot cluster members
-    df2 = cc.query_catalog(catalog_name=catalog_name, return_members=True)
-    idx = df2.parallax >= parallax_cut
+    idx = df2.parallax >= min_parallax
     df2 = df2.loc[idx]
     # skip other members
-    df2 = df2.iloc[::10, :]
+    df2 = df2.iloc[::thin, :]
     chart2 = (
         alt.Chart(df2)
         .mark_circle()
@@ -823,7 +836,7 @@ def plot_interactive(catalog_name="CantatGaudin2020", parallax_cut=2):
             y="dec:Q",
             color="Cluster:N",
             tooltip=[
-                "source_id:Q",
+                "source_id:O",
                 "parallax:Q",
                 "pmra:Q",
                 "pmdec:Q",
