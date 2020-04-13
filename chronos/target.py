@@ -627,9 +627,9 @@ class Target:
                     errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog\n"
                     errmsg += f"Use match_id=False to get nearest cluster\n"
                     raise ValueError(errmsg)
-                nearest_star = df.loc[idx]
+                nearest_star = df.iloc[np.argmax(idx)]
                 self.nearest_cluster_member = nearest_star
-                cluster_name = nearest_star["Cluster"].values[0]
+                cluster_name = nearest_star["Cluster"]
                 assert (
                     str(cluster_name).lower() != "nan"
                 ), "Cluster name in catalog is nan"
@@ -642,7 +642,8 @@ class Target:
                     print(
                         f"Target is in {self.nearest_cluster_name} ({catalog_name})!"
                     )
-                return df.loc[idx]
+                # return a series
+                return df.iloc[np.argmax(idx)]
             else:
                 errmsg = "Supply id via Target(gaiaDR2id=id) "
                 errmsg += (
@@ -720,16 +721,19 @@ class Target:
                 f"Searching MAST for ({self.target_coord.to_string()}) with radius={radius}"
             )
         table = Observations.query_region(self.target_coord, radius=radius)
-        msg = "No results from MAST"
-        assert len(table) > 0, msg
-        df = table.to_pandas()
-        if self.verbose:
-            wavs = df.wavelength_region.dropna().unique()
-            data = (
-                (df["obs_collection"] + "/" + df["filters"]).dropna().unique()
-            )
-            print(f"Available data: {list(data)} in {list(wavs)}")
-        return df
+        if table is None:
+            print("No result from MAST")
+        else:
+            df = table.to_pandas()
+            if self.verbose:
+                wavs = df.wavelength_region.dropna().unique()
+                data = (
+                    (df["obs_collection"] + "/" + df["filters"])
+                    .dropna()
+                    .unique()
+                )
+                print(f"Available data: {list(data)} in {list(wavs)}")
+            return df
 
     def query_simbad(self, radius=3):
         """
@@ -747,9 +751,8 @@ class Target:
         simbad = Simbad()
         simbad.add_votable_fields("typed_id", "otype", "sptype", "rot", "mk")
         table = simbad.query_region(self.target_coord, radius=radius)
-        if len(table) > 0:
+        if table is None:
             print("No result from Simbad")
-            return None
         else:
             df = table.to_pandas()
             df = df.drop(
@@ -785,13 +788,16 @@ class Target:
             # keywords=['stars:white_dwarf']
         )
         tables = v.query_region(self.target_coord, radius=radius)
-        if len(tables) > 0:
+        if tables is None:
             print("No result from Vizier")
-        if verbose:
-            print(f"{len(tables)} tables found.")
-            pprint({k: tables[k]._meta["description"] for k in tables.keys()})
-        self.vizier_tables = tables
-        return tables
+        else:
+            if verbose:
+                print(f"{len(tables)} tables found.")
+                pprint(
+                    {k: tables[k]._meta["description"] for k in tables.keys()}
+                )
+            self.vizier_tables = tables
+            return tables
 
     def query_vizier_param(self, param, radius=3):
         """looks for value of param in each vizier table
@@ -899,10 +905,11 @@ class Target:
                 #     print('\nPreview:\n')
                 #     print(df[["TARGETNAME", "s_ra", "s_dec", "APERTURE", \
                 #           "em_min", "em_max", "SPECRP", "SNR", "t_min", "t_max"]].head())
+                return df
             else:
                 print("No data matches the given criteria.")
         else:
-            print("No results from ESO")
+            print("No result from ESO")
 
     def query_harps_rv(self, **kwargs):
         df = get_harps_RV(self.target_coord, **kwargs)

@@ -542,9 +542,11 @@ class ShortCadence(Tpf):
             gaia_sources = self.gaia_sources
         fluxes = get_fluxes_within_mask(self.tpf, self.aper_mask, gaia_sources)
         self.contratio = sum(fluxes) - 1
+        if self.tic_params is None:
+            _ = self.query_tic_catalog(return_nearest_xmatch=True)
         tic_contratio = self.tic_params.contratio
-        dcontratio = abs(tic_contratio-self.contratio)
-        if (tic_contratio is not None) & (dcontratio>0.5):
+        dcontratio = abs(tic_contratio - self.contratio)
+        if (tic_contratio is not None) & (dcontratio > 0.5):
             print(f"contratio: {self.contratio:.2f} (TIC={tic_contratio:.2f})")
         return lc
 

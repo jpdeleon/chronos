@@ -942,6 +942,10 @@ class Cluster(ClusterCatalog):
         -------
         tab : pandas.DataFrame
             table of matches
+
+        FIXME:
+        If cluster size<5 arcmin:
+            query a large radius and use gaia_sources.source_id.isin([])
         """
         # fp=join(data_loc,f'TablesGaiaDR2HRDpaper/{cluster_name}_members.hdf5')
         if self.cluster_members is None:
@@ -1030,6 +1034,8 @@ class Cluster(ClusterCatalog):
                 1, 2, figsize=(12, 5), constrained_layout=True
             )
             _ = df.plot(ax=ax[0], kind="scatter", x=x, y=y, c=c, cmap=cmap)
+            # if c is not None:
+            #     fig.colorbar(cbar, ax=ax, label=c)
             if sigma is not None:
                 ax[0].plot(df[x].mean(), df[y].mean(), "ro", ms=10)
                 ell = Ellipse(
@@ -1126,6 +1132,7 @@ def plot_cmd(
     match_id=True,
     df_target=None,
     target_label=None,
+    target_color="r",
     xaxis="bp_rp0",
     yaxis="abs_gmag",
     color="radius_val",
@@ -1204,7 +1211,14 @@ def plot_cmd(
             x, y = df_target["bp_rp0"], df_target["abs_gmag"]
         if target_label is not None:
             ax.legend(loc="best")
-        ax.plot(x, y, marker=r"$\star$", c="r", ms="25", label=target_label)
+        ax.plot(
+            x,
+            y,
+            marker=r"$\star$",
+            c=target_color,
+            ms="25",
+            label=target_label,
+        )
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
     if color == "radius_val":
         rstar = np.log10(df[color].astype(float))
@@ -1227,6 +1241,7 @@ def plot_hrd(
     match_id=True,
     df_target=None,
     target_label=None,
+    target_color="r",
     figsize=(8, 8),
     yaxis="lum_val",
     xaxis="teff_val",
@@ -1268,7 +1283,14 @@ def plot_hrd(
             x, y = df_target[xaxis], df_target[yaxis]
         if target_label is not None:
             ax.legend(loc="best")
-        ax.plot(x, y, marker=r"$\star$", c="r", ms="25", label=target_label)
+        ax.plot(
+            x,
+            y,
+            marker=r"$\star$",
+            c=target_color,
+            ms="25",
+            label=target_label,
+        )
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
     rstar = np.log10(df[color].astype(float))
     # luminosity can be computed from abs mag; note Mag_sun = 4.85
@@ -1296,7 +1318,11 @@ def plot_rdp_pmrv(
     match_id=True,
     df_target=None,
     target_label=None,
+    target_color="r",
+    color="teff_val",
+    marker="o",
     figsize=(10, 10),
+    cmap="viridis",
 ):
     """
     Plot ICRS position and proper motions in 2D scatter plots,
@@ -1313,10 +1339,13 @@ def plot_rdp_pmrv(
     fig, axs = pl.subplots(2, 2, figsize=figsize, constrained_layout=True)
     ax = axs.flatten()
 
-    n = 0
+    n = 1
     x, y = "ra", "dec"
-    # df.plot.scatter(x=x, y=y, ax=ax[n])
-    ax[n].scatter(df[x], df[y], marker="o")
+    # _ = df.plot.scatter(x=x, y=y, c=color, marker=marker, ax=ax[n], cmap=cmap)
+    c = df[color] if color is not None else None
+    cbar = ax[n].scatter(df[x], df[y], c=c, marker=marker, cmap=cmap)
+    if color is not None:
+        fig.colorbar(cbar, ax=ax[n], label=color)
     if target_gaiaid is not None:
         idx = df.source_id.astype(int).isin([target_gaiaid])
         if match_id:
@@ -1326,7 +1355,7 @@ def plot_rdp_pmrv(
                 df.loc[idx, x],
                 df.loc[idx, y],
                 marker=r"$\star$",
-                c="y",
+                c=target_color,
                 ms="25",
                 label=target_label,
             )
@@ -1336,7 +1365,7 @@ def plot_rdp_pmrv(
                 df_target[x],
                 df_target[y],
                 marker=r"$\star$",
-                c="y",
+                c=target_color,
                 ms="25",
                 label=target_label,
             )
@@ -1346,7 +1375,7 @@ def plot_rdp_pmrv(
     ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
     if target_label is not None:
         ax[n].legend(loc="best")
-    n = 1
+    n = 0
     par = "parallax"
     df[par].plot.kde(ax=ax[n])
     if target_gaiaid is not None:
@@ -1373,10 +1402,14 @@ def plot_rdp_pmrv(
     ax[n].set_xlabel("Parallax [mas]")
     text = len(df[par].dropna())
     ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
-    n = 2
+    n = 3
     x, y = "pmra", "pmdec"
-    # df.plot.scatter(x=x, y=y, ax=ax[n])
-    ax[n].scatter(df[x], df[y], marker="o")
+    # _ = df.plot.scatter(x=x, y=y, c=c, marker=marker, ax=ax[n], cmap=cmap)
+    c = df[color] if color is not None else None
+    cbar = ax[n].scatter(df[x], df[y], c=c, marker=marker, cmap=cmap)
+    if (color is not None) & (n == 3):
+        # show last colorbar only
+        fig.colorbar(cbar, ax=ax[n], label=color)
     if target_gaiaid is not None:
         idx = df.source_id.astype(int).isin([target_gaiaid])
         if match_id:
@@ -1386,19 +1419,23 @@ def plot_rdp_pmrv(
                 df.loc[idx, x],
                 df.loc[idx, y],
                 marker=r"$\star$",
-                c="y",
+                c=target_color,
                 ms="25",
             )
         else:
             assert df_target is not None, "provide df_target"
             ax[n].plot(
-                df_target[x], df_target[y], marker=r"$\star$", c="y", ms="25"
+                df_target[x],
+                df_target[y],
+                marker=r"$\star$",
+                c=target_color,
+                ms="25",
             )
     ax[n].set_xlabel("PM R.A. [deg]")
     ax[n].set_ylabel("PM Dec. [deg]")
     text = len(df[["pmra", "pmdec"]].dropna())
     ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
-    n = 3
+    n = 2
     par = "radial_velocity"
     try:
         df[par].plot.kde(ax=ax[n])
@@ -1438,8 +1475,12 @@ def plot_xyz_uvw(
     target_gaiaid=None,
     match_id=True,
     df_target=None,
+    target_color="r",
+    color="teff_val",
+    marker="o",
     verbose=True,
     figsize=(12, 8),
+    cmap="viridis",
 ):
     """
     Plot 3D position in galactocentric (xyz) frame
@@ -1487,7 +1528,7 @@ def plot_xyz_uvw(
                     df.loc[idx, i],
                     df.loc[idx, j],
                     marker=r"$\star$",
-                    c="y",
+                    c=target_color,
                     ms="25",
                 )
             else:
@@ -1496,11 +1537,14 @@ def plot_xyz_uvw(
                     df_target[i],
                     df_target[j],
                     marker=r"$\star$",
-                    c="y",
+                    c=target_color,
                     ms="25",
                 )
-        # df.plot.scatter(x=i, y=j, ax=ax[n])
-        ax[n].scatter(df[i], df[j], marker="o")
+        # _ = df.plot.scatter(x=i, y=j, c=color, marker=marker, ax=ax[n])
+        c = df[color] if color is not None else None
+        cbar = ax[n].scatter(df[i], df[j], c=c, marker=marker, cmap=cmap)
+        # if color is not None:
+        #     fig.colorbar(cbar, ax=ax[n], label=color)
         ax[n].set_xlabel(i + " [pc]")
         ax[n].set_ylabel(j + " [pc]")
         text = len(df[[i, j]].dropna())
@@ -1520,7 +1564,7 @@ def plot_xyz_uvw(
                     df.loc[idx, i],
                     df.loc[idx, j],
                     marker=r"$\star$",
-                    c="y",
+                    c=target_color,
                     ms="25",
                 )
             else:
@@ -1528,11 +1572,15 @@ def plot_xyz_uvw(
                     df_target[i],
                     df_target[j],
                     marker=r"$\star$",
-                    c="y",
+                    c=target_color,
                     ms="25",
                 )
-        # df.plot.scatter(x=i, y=j, ax=ax[n])
-        ax[n].scatter(df[i], df[j], marker="o")
+        # _ = df.plot.scatter(x=i, y=j, c=color, marker=marker, ax=ax[n], cmap=cmap)
+        c = df[color] if color is not None else None
+        cbar = ax[n].scatter(df[i], df[j], c=c, marker=marker, cmap=cmap)
+        if (color is not None) and (n == 5):
+            # show last colorbar only only
+            fig.colorbar(cbar, ax=ax[n], label=color)
         ax[n].set_xlabel(i + " [km/s]")
         ax[n].set_ylabel(j + " [km/s]")
         text = len(df[[i, j]].dropna())
@@ -1549,10 +1597,14 @@ def plot_xyz_3d(
     target_gaiaid=None,
     match_id=True,
     df_target=None,
+    target_color="r",
+    color="teff_val",
+    marker="o",
     xlim=None,
     ylim=None,
     zlim=None,
-    figsize=(10, 10),
+    figsize=(8, 5),
+    cmap="viridis",
 ):
     """plot 3-d position in galactocentric frame
 
@@ -1595,14 +1647,25 @@ def plot_xyz_3d(
         assert isinstance(zlim, tuple)
         idx3 = (df.z > zlim[0]) & (df.z < zlim[1])
     idx = idx1 | idx2 | idx3
-    ax.scatter(xs=df[idx].x, ys=df[idx].y, zs=df[idx].z, marker=".", alpha=0.5)
+    c = df.loc[idx, color]
+    cbar = ax.scatter(
+        xs=df[idx].x,
+        ys=df[idx].y,
+        zs=df[idx].z,
+        c=c,
+        marker=marker,
+        cmap=cmap,
+        alpha=0.5,
+    )
+    if color is not None:
+        fig.colorbar(cbar, ax=ax, label=color)
     idx = df.source_id == target_gaiaid
     ax.scatter(
         xs=df[idx].x,
         ys=df[idx].y,
         zs=df[idx].z,
         marker=r"$\star$",
-        c="r",
+        c=target_color,
         s=300,
     )
     pl.setp(ax, xlabel="X", ylabel="Y", zlabel="Z")

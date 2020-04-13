@@ -1,5 +1,8 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
+
+# This code is copied verbatim from https://github.com/mzechmeister/GLS/tree/master/python
+#
 # Copyright (c) 2012 Sebastian Schröter, Stefan Czesla, and Mathias Zechmeister
 
 # Note : The software is also available as part of the PyAstronomy package.
