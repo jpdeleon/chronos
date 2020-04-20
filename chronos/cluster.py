@@ -556,6 +556,7 @@ class ClusterCatalog(CatalogDownloader):
             {
                 "RAdeg": "raJ2015",
                 "DEdeg": "decJ2015",
+                "Source": "source_id",
                 "_RA": "ra",
                 "_DE": "dec",
                 "plx": "parallax",

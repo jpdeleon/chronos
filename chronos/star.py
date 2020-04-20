@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Stellar characterization using stardate
+Stellar characterization module
 """
 # Import standard library
 from os.path import join
@@ -27,10 +27,6 @@ from chronos.utils import (
     map_float,
 )
 
-try:
-    import stardate as sd
-except Exception:
-    raise ModuleNotFoundError("pip install stardate")
 
 __all__ = ["Star"]
 
@@ -437,6 +433,11 @@ class Star(Target):
         prot : tuple
             stellar rotation period
         """
+        try:
+            import stardate as sd
+        except Exception:
+            raise ModuleNotFoundError("pip install stardate")
+
         if self.verbose:
             print("Estimating age from rotation period\n")
 
@@ -612,6 +613,11 @@ class Star(Target):
     ):
         """
         """
+        try:
+            import stardate as sd
+        except Exception:
+            raise ModuleNotFoundError("pip install stardate")
+
         iso_params0 = (
             iso_params0 if iso_params0 is not None else self.iso_params0
         )

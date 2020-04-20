@@ -324,7 +324,7 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="TIC"
         ).to_pandas()
-        errmsg = f"No gaia star within {self.search_radius}"
+        errmsg = f"No TIC star within {self.search_radius}"
         nsources = len(tab)
         assert nsources > 0, errmsg
         if return_nearest_xmatch or (nsources == 1):
@@ -398,7 +398,7 @@ class Target:
         print(msg)
         return True
 
-    def get_nearby_gaia_sources(self, radius=60, add_column=None):
+    def get_nearby_gaia_sources(self, radius=60, depth=None, add_column=None):
         """
         get information about stars within radius [arcsec] and
         dilution factor from delta Gmag
@@ -413,9 +413,9 @@ class Target:
         radius = radius if radius is not None else 60
 
         if self.gaia_sources is None:
-            d = self.query_gaia_dr2_catalog(radius=radius)
+            d = self.query_gaia_dr2_catalog(radius=radius).copy(deep=True)
         else:
-            d = self.gaia_sources.copy()
+            d = self.gaia_sources.copy(deep=True)
 
         if self.gaiaid is None:
             # nearest match (first entry row=0) is assumed as the target
@@ -424,43 +424,55 @@ class Target:
             gaiaid = self.gaiaid
         msg = f"Only 1 gaia source found within r={radius} arcsec"
         assert isinstance(d, pd.DataFrame), msg
-
         idx = d.source_id == gaiaid
-        target_gmag = d.loc[idx, "phot_g_mean_mag"]
+        target_gmag = d.loc[idx, "phot_g_mean_mag"].values[0]
         d["distance"] = d["distance"].apply(
             lambda x: x * u.arcmin.to(u.arcsec)
         )
         d["delta_Gmag"] = d["phot_g_mean_mag"] - target_gmag
         # compute dilution factor
-        d["gamma"] = 1 + 10 ** (0.4 * d["delta_Gmag"])
+        d["dilution"] = 1 + 10 ** (0.4 * d["delta_Gmag"])
         columns = [
             "source_id",
             "distance",
             "parallax",
             "phot_g_mean_mag",
             "delta_Gmag",
-            "gamma",
+            "dilution",
         ]
+        col = "depth*dilution>1(cleared?)"
+        if depth is None:
+            if self.toi_depth is not None:
+                depth = self.toi_depth
+                d["true_depth"] = d["dilution"] * depth
+                columns.append("true_depth")
+                columns.append(col)
+            else:
+                print("Supply depth, else depth=0")
+                depth = 0
+        d[col] = depth * d.dilution > 1
+
         if add_column is not None:
             assert (isinstance(add_column, str)) & (add_column in d.columns)
             columns.append(add_column)
         return d[columns]
 
-    def compute_Tmax_from_depth(self, depth=None):
+    def get_max_Gmag_from_depth(self, depth=None):
         """
         """
-        if self.toi_params is None:
-            toi_params = self.get_toi(clobber=False, verbose=False).iloc[0]
-        else:
-            toi_params = self.toi_params
+        if depth is None:
+            if self.toi_depth is not None:
+                depth = self.toi_depth
+            else:
+                print("Supply depth, else depth=0")
+                depth = 0
 
-        depth = toi_params["Depth (ppm)"] * 1e-6
         if self.tic_params is None:
             tic_params = self.query_tic_catalog(return_nearest_xmatch=True)
         else:
             tic_params = self.tic_params
         Tmag = tic_params["Tmag"]
-        dT = 2.5 * np.log10(depth)
+        dT = -2.5 * np.log10(depth)
         Tmax = Tmag + dT
         if self.verbose:
             print(
@@ -470,7 +482,7 @@ class Target:
 
     def get_possible_NEBs(self, depth, gaiaid=None, kmax=1.0):
         """
-        depth is useful to rule out deep eclipses when kmax/gamma>depth
+        depth is useful to rule out deep eclipses when depth*gamma > kmax
 
         kmax : float [0,1]
             maximum eclipse depth (default=1)
@@ -483,7 +495,7 @@ class Target:
         for index, row in d.iterrows():
             id, dmag, gamma = row[["source_id", "delta_Gmag", "gamma"]]
             if int(id) != gaiaid:
-                if depth > kmax / gamma:
+                if depth * gamma > kmax:
                     # observed depth is too deep to have originated from the secondary star
                     good.append(id)
                 else:
@@ -493,7 +505,12 @@ class Target:
         return uncleared
 
     def get_cluster_membership(
-        self, frac=0.1, sigma=5, return_idxs=False, verbose=None
+        self,
+        catalog_name="CantatGaudin2020",
+        frac=0.1,
+        sigma=5,
+        return_idxs=False,
+        verbose=None,
     ):
         """
         """
@@ -510,7 +527,7 @@ class Target:
         if self.all_clusters is None:
             if self.cc is None:
                 self.cc = ClusterCatalog(
-                    catalog_name="CantatGaudin2020", verbose=False
+                    catalog_name=catalog_name, verbose=False
                 )
             clusters = self.cc.query_catalog(return_members=False)
 
@@ -937,28 +954,54 @@ class Target:
 
     @property
     def toi_period(self):
-        return self.toi_params["Period (days)"]
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Period (days)"]
+        )
 
     @property
     def toi_epoch(self):
-        return self.toi_params["Epoch (BJD)"]
+        return (
+            None if self.toi_params is None else self.toi_params["Epoch (BJD)"]
+        )
 
     @property
     def toi_duration(self):
-        return self.toi_params["Duration (hours)"]
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Duration (hours)"]
+        )
 
     @property
     def toi_period_err(self):
-        return self.toi_params["Period (days) err"]
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Period (days) err"]
+        )
 
     @property
     def toi_epoch_err(self):
-        return self.toi_params["Epoch (BJD) err"]
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Epoch (BJD) err"]
+        )
 
     @property
     def toi_duration_err(self):
-        return self.toi_params["Duration (hours) err"]
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Duration (hours) err"]
+        )
 
     @property
     def toi_depth(self):
-        return self.toi_params["Depth (ppm)"] * 1e-6
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Depth (ppm)"] * 1e-6
+        )

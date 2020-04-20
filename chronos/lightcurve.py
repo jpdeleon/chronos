@@ -8,9 +8,6 @@ from os.path import join, exists
 import logging
 
 # Import library
-# from matplotlib.figure import Figure
-# from matplotlib.image import AxesImage
-# from loguru import logger
 import getpass
 import numpy as np
 import astropy.units as u
@@ -238,6 +235,8 @@ class LongCadence(FFI_cutout):
             self.tpf_tesscut, self.aper_mask, gaia_sources
         )
         self.contratio = sum(fluxes) - 1
+        # add method
+        lc.detrend = lambda: detrend(lc)
         return lc
 
     def get_cdips_lc(
@@ -492,8 +491,6 @@ class ShortCadence(Tpf):
         )
         self.tpf = tpf[~idx]
         self.raw_lc = raw_lc[~idx]
-        # add method
-        raw_lc.detrend = lambda: detrend(raw_lc)
 
         if use_pld:
             if self.verbose:
@@ -548,6 +545,9 @@ class ShortCadence(Tpf):
         dcontratio = abs(tic_contratio - self.contratio)
         if (tic_contratio is not None) & (dcontratio > 0.5):
             print(f"contratio: {self.contratio:.2f} (TIC={tic_contratio:.2f})")
+
+        # add method
+        lc.detrend = lambda: detrend(lc)
         return lc
 
 

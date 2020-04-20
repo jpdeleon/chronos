@@ -5,30 +5,33 @@ general helper functions
 """
 
 # Import standard library
+import os
 import logging
+import itertools
+from pathlib import Path
 from glob import glob
 from operator import concat
 from functools import reduce
 from os.path import join, exists
-import os
+from pprint import pprint
 
 # Import from module
 # from matplotlib.figure import Figure
 # from matplotlib.image import AxesImage
 # from loguru import logger
-from pprint import pprint
+from uncertainties import unumpy
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from scipy.ndimage import zoom
 import matplotlib.pyplot as pl
 import lightkurve as lk
 from astropy import units as u
+from astropy import constants as c
 from astropy.timeseries import LombScargle
 from astropy.modeling import models, fitting
 from astropy.io import ascii
-from scipy.ndimage import zoom
-
-# from astropy.io import ascii
 from astropy.coordinates import (
     SkyCoord,
     Distance,
@@ -37,13 +40,16 @@ from astropy.coordinates import (
     match_coordinates_3d,
 )
 from skimage import measure
+from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs, tesscut
 from astroquery.gaia import Gaia
-from tqdm import tqdm
 import deepdish as dd
 
 # Import from package
 from chronos import target, cluster
+
+# from chronos import planet
+from chronos import gls
 from chronos.config import DATA_PATH
 
 log = logging.getLogger(__name__)
@@ -82,6 +88,7 @@ __all__ = [
     "bin_data",
     "map_float",
     "map_int",
+    "flatten_list",
     "detrend",
     "query_tpf",
     "query_tpf_tesscut",
@@ -90,6 +97,9 @@ __all__ = [
     "get_above_lower_limit",
     "get_below_upper_limit",
     "get_between_limits",
+    "get_RV_K",
+    "get_tois_mass_RV_K",
+    "get_vizier_tables",
 ]
 
 # Ax/Av
@@ -106,6 +116,99 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):
+    """
+    Parameters
+    ----------
+    key : str
+        vizier catalog key
+    tab_index : int
+        table index to download and parse
+    Returns
+    -------
+    tables if tab_index is None else parsed df
+    """
+    if row_limit == -1:
+        msg = f"Downloading all tables in "
+    else:
+        msg = f"Downloading the first {row_limit} rows of each table in "
+    msg += f"{key} from vizier."
+    if verbose:
+        print(msg)
+    # set row limit
+    Vizier.ROW_LIMIT = row_limit
+
+    tables = Vizier.get_catalogs(key)
+    errmsg = f"No data returned from Vizier."
+    assert tables is not None, errmsg
+
+    if tab_index is None:
+        if verbose:
+            print({k: tables[k]._meta["description"] for k in tables.keys()})
+        return tables
+    else:
+        df = tables[tab_index].to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        )
+        return df
+
+
+def get_tois_mass_RV_K(clobber=False):
+    fp = Path(DATA_PATH, "TOIs2.csv")
+    if clobber:
+        try:
+            from mrexo import predict_from_measurement, generate_lookup_table
+        except Exception:
+            raise ModuleNotFoundError("pip install mrexo")
+
+        tois = get_tois()
+
+        masses = {}
+        for key, row in tqdm(tois.iterrows()):
+            toi = row["TOI"]
+            Rp = row["Planet Radius (R_Earth)"]
+            Rp_err = row["Planet Radius (R_Earth) err"]
+            Mp, (Mp_lo, Mp_hi), iron_planet = predict_from_measurement(
+                measurement=Rp,
+                measurement_sigma=Rp_err,
+                qtl=[0.16, 0.84],
+                dataset="kepler",
+            )
+            masses[toi] = (Mp, Mp_lo, Mp_hi)
+
+        df = pd.DataFrame(masses).T
+        df.columns = [
+            "Planet mass (Mp_Earth)",
+            "Planet mass (Mp_Earth) lo",
+            "Planet mass (Mp_Earth) hi",
+        ]
+        df.index.name = "TOI"
+        df = df.reset_index()
+
+        df["RV_K_lo"] = get_RV_K(
+            tois["Period (days)"],
+            tois["Stellar Radius (R_Sun)"],  # should be Mstar
+            df["Planet mass (Mp_Earth) lo"],
+            with_unit=True,
+        )
+
+        df["RV_K_hi"] = get_RV_K(
+            tois["Period (days)"],
+            tois["Stellar Radius (R_Sun)"],  # should be Mstar
+            df["Planet mass (Mp_Earth) hi"],
+            with_unit=True,
+        )
+
+        joint = pd.merge(tois, df, on="TOI")
+        joint.to_csv(fp, index=False)
+        print(f"Saved: {fp}")
+    else:
+        joint = pd.read_csv(fp)
+        print(f"Loaded: {fp}")
+    return joint
 
 
 def get_phase(time, period, epoch, offset=0.5):
@@ -272,17 +375,29 @@ def detrend(self, polyorder=1, break_tolerance=10):
 
 
 def get_rotation_period(
-    time, flux, min_per=0.5, max_per=None, npoints=20, plot=True, verbose=True
+    time,
+    flux,
+    flux_err=None,
+    min_per=0.5,
+    max_per=None,
+    method="ls",
+    npoints=20,
+    plot=True,
+    verbose=True,
 ):
     """
     time, flux : array
         time and flux
-    max_period : float
-        maxmimum period (default=half baseline e.g. ~13 days)
+    min_period, max_period : float
+        minimum & maxmimum period (default=half baseline e.g. ~13 days)
+    method : str
+        ls = lomb-scargle; gls = generalized ls
     npoints : int
         datapoints around which to fit a Gaussian
+
     Note:
-    The period and uncertainty were determined from the mean and the
+    1. Transits are assumed to be masked already
+    2. The period and uncertainty were determined from the mean and the
     half-width at half-maximum of a Gaussian fit to the periodogram peak, respectively
     See also:
     https://arxiv.org/abs/1702.03885
@@ -290,39 +405,54 @@ def get_rotation_period(
     baseline = int(time[-1] - time[0])
     max_per = max_per if max_per is not None else baseline / 2
 
-    ls = LombScargle(time, flux)
-    frequencies, powers = ls.autopower(
-        minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
-    )
-    idx = np.argmax(powers)
-    while npoints > idx:
-        npoints -= 1
+    if method == "ls":
+        if verbose:
+            print("Using Lomb-Scargle method")
+        ls = LombScargle(time, flux, dy=flux_err)
+        frequencies, powers = ls.autopower(
+            minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
+        )
+        idx = np.argmax(powers)
+        while npoints > idx:
+            npoints -= 1
 
-    best_freq = frequencies[idx]
-    best_period = 1.0 / best_freq
-    # specify which points to fit a gaussian
-    x = (1 / frequencies)[idx - npoints : idx + npoints]
-    y = powers[idx - npoints : idx + npoints]
+        best_freq = frequencies[idx]
+        best_period = 1.0 / best_freq
+        # specify which points to fit a gaussian
+        x = (1 / frequencies)[idx - npoints : idx + npoints]
+        y = powers[idx - npoints : idx + npoints]
 
-    # Fit the data using a 1-D Gaussian
-    g_init = models.Gaussian1D(amplitude=0.5, mean=best_period, stddev=1)
-    fit_g = fitting.LevMarLSQFitter()
-    g = fit_g(g_init, x, y)
+        # Fit the data using a 1-D Gaussian
+        g_init = models.Gaussian1D(amplitude=0.5, mean=best_period, stddev=1)
+        fit_g = fitting.LevMarLSQFitter()
+        g = fit_g(g_init, x, y)
 
-    label = f"P={g.mean.value:.2f}+/-{g.stddev.value:.2f} d"
-    if plot:
-        # Plot the data with the best-fit model
-        pl.plot(x, y, "ko", label="_nolegend_")
-        pl.plot(x, g(x), label="_nolegend_")
-        pl.ylabel("Lomb-Scargle Power")
-        pl.xlabel("Period [days]")
-        pl.axvline(g.mean, 0, 1, ls="--", c="r", label=label)
-        pl.legend()
+        label = f"P={g.mean.value:.2f}+/-{g.stddev.value:.2f} d"
+        if plot:
+            # Plot the data with the best-fit model
+            pl.plot(x, y, "ko", label="_nolegend_")
+            pl.plot(x, g(x), label="_nolegend_")
+            pl.ylabel("Lomb-Scargle Power")
+            pl.xlabel("Period [days]")
+            pl.axvline(g.mean, 0, 1, ls="--", c="r", label=label)
+            pl.legend()
 
-    if verbose:
-        print(label)
+        if verbose:
+            print(label)
 
-    return (g.mean.value, g.stddev.value)
+        return (g.mean.value, g.stddev.value)
+
+    elif method == "gls":
+        if verbose:
+            print("Using Generalized Lomb-Scargle method")
+        data = (time, flux, flux_err)
+        ls = gls.Gls(data, Pbeg=min_per, Pend=max_per, verbose=verbose)
+        prot, prot_err = ls.hpstat["P"], ls.hpstat["e_P"]
+        if plot:
+            _ = ls.plot(block=False, figsize=(10, 8))
+        return (prot, prot_err)
+    else:
+        raise ValueError("Use method=[ls | gls]")
 
 
 def get_transit_mask(lc, period, epoch, duration_hours):
@@ -392,7 +522,7 @@ def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
         nearest_obj = df.iloc[idx]["Target"]
         ra, dec = df.iloc[idx][["RA", "DEC"]]
         print(
-            f"Nearest HARPS obj is\n{nearest_obj}: ra,dec=({ra},{dec}) @ d={sep2d.arcsec/60:.2f} arcmin\n"
+            f"Nearest HARPS object is\n{nearest_obj}: ra,dec=({ra},{dec}) @ d={sep2d.arcsec/60:.2f} arcmin\n"
         )
         return None
 
@@ -595,17 +725,18 @@ def make_round_mask(img, radius, xy_center=None):
     mask : np.ma.masked_array
         aperture mask
     """
-    h, w = img.shape
+    offset = 2  # from center
+    xcen, ycen = img.shape[0] // 2, img.shape[1] // 2
     if xy_center is None:  # use the middle of the image
         y, x = np.unravel_index(np.argmax(img), img.shape)
         xy_center = [x, y]
         # check if near edge
-        if np.any([x >= h - 1, x >= w - 1, y >= h - 1, y >= w - 1]):
-            print("Brightest star is detected near the edges.")
+        if np.any([abs(x - xcen) > offset, abs(y - ycen) > offset]):
+            print("Brightest star is detected far from the center.")
             print("Aperture mask is placed at the center instead.\n")
-            xy_center = [img.shape[0] // 2, img.shape[1] // 2]
+            xy_center = [xcen, ycen]
 
-    Y, X = np.ogrid[:h, :w]
+    Y, X = np.ogrid[: img.shape[0], : img.shape[1]]
     dist_from_center = np.sqrt(
         (X - xy_center[0]) ** 2 + (Y - xy_center[1]) ** 2
     )
@@ -633,19 +764,18 @@ def make_square_mask(img, size, xy_center=None, angle=None):
     mask : np.ma.masked_array
         aperture mask
     """
-    h = w = size
+    offset = 2  # from center
+    xcen, ycen = img.shape[0] // 2, img.shape[1] // 2
     if xy_center is None:  # use the middle of the image
         y, x = np.unravel_index(np.argmax(img), img.shape)
         xy_center = [x, y]
         # check if near edge
-        if np.any([x >= h - 1, x >= w - 1, y >= h - 1, y >= w - 1]):
-            print(
-                "Brightest star detected is near the edges.\nAperture mask is placed at the center instead.\n"
-            )
-            x, y = img.shape[0] // 2, img.shape[1] // 2
-            xy_center = [x, y]
+        if np.any([abs(x - xcen) > offset, abs(y - ycen) > offset]):
+            print("Brightest star detected is far from the center.")
+            print("Aperture mask is placed at the center instead.\n")
+            xy_center = [xcen, ycen]
     mask = np.zeros_like(img, dtype=bool)
-    mask[y - h : y + h + 1, x - w : x + w + 1] = True
+    mask[ycen - size : ycen + size + 1, xcen - size : xcen + size + 1] = True
     # if angle:
     #    #rotate mask
     #    mask = rotate(mask, angle, axes=(1, 0), reshape=True, output=bool, order=0)
@@ -1683,6 +1813,24 @@ def get_pix_area_threshold(Tmag):
 #         aperture = np.zeros_like(img).astype(np.uint8)
 #         cv2.fillConvexPoly(aperture, points=aperture_contour, color=1)
 #     return aperture
+def get_RV_K(
+    P_days, Ms_Msun, mp_Mearth, ecc=0.0, inc_deg=90.0, with_unit=False
+):
+    """Compute the RV semiamplitude in m/s"""
+    P = P_days * u.day.to(u.second) * u.second
+    Ms = Ms_Msun * u.Msun.to(u.kg) * u.kg
+    mp = mp_Mearth * u.Mearth.to(u.kg) * u.kg
+    inc = np.deg2rad(inc_deg)
+    K_ms = (
+        (2 * np.pi * c.G / (P * Ms * Ms)) ** (1.0 / 3)
+        * mp
+        * np.sin(inc)
+        / unumpy.sqrt(1 - ecc ** 2)
+    )
+    if with_unit:
+        return K_ms
+    else:
+        return K_ms.value
 
 
 def get_above_lower_limit(lower, data_mu, data_sig, sigma=1):
@@ -1717,3 +1865,8 @@ def reduce_list(l):
 
 def split_func(x):
     return x.replace(" ", "").replace("_", "").split(",")
+
+
+def flatten_list(lol):
+    """flatten list of list (lol)"""
+    return list(itertools.chain.from_iterable(lol))

@@ -59,11 +59,11 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 14091704,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,65.2,5150 Angstroms,N,2019-02-20 12-09-02,zhou,tfopwg,2144,
 14165625,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,30.8,5500 angstroms,N,2019-11-22,quinn,tfopwg,7802,
 14336130,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.5,5110 Angstroms,N,2020-03-06 05:04:54,bieryla,,18005,
-14336130,,,LCO (1 m),NRES,53000.0,380 to 860 nm,52.55,550 nm,N,2020-03-04 16:45:02,rabus,tfopwg,18659,NRES
 14336130,,,LCO (1 m),NRES,53000.0,380 to 860 nm,32.67,550 nm,N,2020-02-28 18:39:37,rabus,tfopwg,18647,NRES
 14336130,,,LCO (1 m),NRES,53000.0,380 to 860 nm,28.02,550 nm,N,2020-02-26 20:28:11,rabus,tfopwg,18643,NRES
 14336130,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.0,5110 Angstroms,N,2020-03-18 03:42:09,bieryla,,18157,
 14336130,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2020-02-25,giacalone,,18147,
+14336130,,,LCO (1 m),NRES,53000.0,380 to 860 nm,52.55,550 nm,N,2020-03-04 16:45:02,rabus,tfopwg,18659,NRES
 15565627,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.8,5110 Angstroms,N,2019-10-27 03:15:57,bieryla,,6503,
 15565627,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,37.4,5110 Angstroms,N,2019-10-29 04:47:43,bieryla,,6630,
 15692883,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,32.9,5110 Angstroms,N,2019-12-13 02:20:07,bieryla,,8021,
@@ -150,13 +150,6 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 29781292,,,LCO (1 m),NRES,53000.0,380 to 860 nm,40.96,550 nm,N,2019-02-14 00:33:57,rabus,,6755,NRES
 29781292,,,LCO (1 m),NRES,53000.0,380 to 860 nm,46.99,550 nm,N,2019-01-30 03:39:52,rabus,,6690,NRES
 29781292,,,LCO (1 m),NRES,53000.0,380 to 860 nm,32.01,550 nm,N,2019-02-26 02:16:18,rabus,,6776,NRES
-29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.8,5110 Angstroms,N,2018-11-02 03:40:42,bieryla,tfopwg,1178,
-29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,23.8,5110 Angstroms,N,2018-11-01 04:21:51,bieryla,tfopwg,1179,
-29857954,,,IRTF (3 m),SpeX,2000.0,0.7 to 2.55 microns,160.0,1.5,N,2018-11-12,dressing,tfopwg,1237,
-29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,44.0,5110 Angstroms,N,2018-11-25 01:44:07,bieryla,tfopwg,1333,
-29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,25.6,5110 Angstroms,N,2018-11-22 03:08:35,bieryla,tfopwg,1335,
-29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,46.6,5110 Angstroms,N,2018-11-06 02:16:22,bieryla,tfopwg,1187,
-29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,40.4,5110 Angstroms,N,2018-11-08 03:03:52,bieryla,tfopwg,1208,
 29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,53.5,5110 Angstroms,N,2018-11-18 02:04:17,bieryla,tfopwg,1303,
 29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,51.2,5110 Angstroms,N,2018-11-17 02:16:45,bieryla,tfopwg,1305,
 29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,50.9,5110 Angstroms,N,2018-11-16 02:28:02,bieryla,tfopwg,1308,
@@ -178,6 +171,13 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.1,5110 Angstroms,N,2018-10-18 04:05:55,bieryla,tfopwg,1074,
 29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,13.8,5110 Angstroms,N,2018-11-05 02:33:24,bieryla,tfopwg,1170,
 29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,33.2,5110 Angstroms,N,2018-11-04 02:20:51,bieryla,tfopwg,1174,
+29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.8,5110 Angstroms,N,2018-11-02 03:40:42,bieryla,tfopwg,1178,
+29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,23.8,5110 Angstroms,N,2018-11-01 04:21:51,bieryla,tfopwg,1179,
+29857954,,,IRTF (3 m),SpeX,2000.0,0.7 to 2.55 microns,160.0,1.5,N,2018-11-12,dressing,tfopwg,1237,
+29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,44.0,5110 Angstroms,N,2018-11-25 01:44:07,bieryla,tfopwg,1333,
+29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,25.6,5110 Angstroms,N,2018-11-22 03:08:35,bieryla,tfopwg,1335,
+29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,46.6,5110 Angstroms,N,2018-11-06 02:16:22,bieryla,tfopwg,1187,
+29857954,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,40.4,5110 Angstroms,N,2018-11-08 03:03:52,bieryla,tfopwg,1208,
 29918916,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.1,5110 Angstroms,N,2019-10-26 07:09:05,bieryla,,6487,
 29918916,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,35.8,5110 Angstroms,N,2019-10-31 05:32:33,bieryla,,6982,
 29918916,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,28.0,5110 Angstroms,N,2019-10-21 05:26:45,bieryla,,6402,
@@ -247,6 +247,7 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 35009898,,,LCO (1 m),NRES,53000.0,380 to 860 nm,14.7,518 nm,N,2019-05-11,dressing,tfopwg,4924,
 35582553,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.1,5110 Angstroms,N,2019-10-19 10:30:16,bieryla,,6315,
 35582553,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.1,5110 Angstroms,N,2019-10-26 10:27:56,bieryla,,6488,
+36724087,TIC 36724087.01,TOI 732.01,TNG 3.6,HARPS-N,115000.0,383 to 693 nm,,,Y,2019-12-14,latham,tfopwg,1573,31 observations as of 2020-03-15
 37084932,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,52.5,5110 Angstroms,N,2019-09-19 11:28:12,bieryla,,5751,
 37575651,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,43.5,5110 Angstroms,N,2019-04-23 03:20:08,bieryla,,3377,
 37575651,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,55.0,5110 Angstroms,N,2019-04-22 04:01:56,bieryla,,3322,
@@ -726,10 +727,11 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 103448870,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,28.4,5110 Angstroms,N,2020-02-01 04:31:38,bieryla,,16332,
 103448870,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.8,5110 Angstroms,N,2020-02-06 03:47:16,bieryla,,16509,
 103633434,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,25.2,5110 Angstroms,N,2019-12-13 10:05:52,bieryla,,8025,
-103633434,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.6,5110 Angstroms,N,2019-12-01 11:41:51,bieryla,,7742,
-103633434,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,178.0,5000 Angstroms,N,2020-01-31,giacalone,,16702,
-103633434,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-10,giacalone,,18147,5 RVs between UT 2020-02-26 and 2020-03-10.
 103633434,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-01-22,giacalone,,16702,6 RVs between UT 2019-12-10 and 2020-01-22.
+103633434,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.6,5110 Angstroms,N,2019-12-01 11:41:51,bieryla,,7742,
+103633434,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-10,giacalone,,18147,5 RVs between UT 2020-02-26 and 2020-03-10.
+103633434,TIC 103633434.01,TOI 1235.01,TNG 3.6,HARPS-N,115000.0,383 to 693 nm,,,Y,2019-12-24,latham,tfopwg,1573,27 observations as of 2020-03-12
+103633434,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,178.0,5000 Angstroms,N,2020-01-31,giacalone,,16702,
 104208182,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,8.1,5110 Angstroms,N,2020-03-05 04:31:19,bieryla,,17996,
 106402532,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,39.7,5500 angstroms,N,2019-06-16,quinn,tfopwg,4179,
 106402532,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,33.0,5500 angstroms,N,2019-06-19,quinn,tfopwg,4179,
@@ -843,11 +845,11 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 124573851,,,LCO (1 m),NRES,53000.0,380 to 860 nm,34.07,550 nm,N,2019-05-09 20:23:54,rabus,,6824,NRES
 124573851,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,41.3,5500 angstroms,N,2019-06-29,quinn,tfopwg,4315,
 124573851,,,LCO (1 m),NRES,53000.0,380 to 860 nm,29.42,550 nm,N,2019-05-23 19:15:25,rabus,tfopwg,6864,NRES
-124573851,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.2,5110 Angstroms,N,2019-05-29 05:26:02,bieryla,,4019,
-124573851,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,33.2,5500 angstroms,N,2019-07-01,quinn,tfopwg,4314,
 124573851,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2020-01-04,giacalone,,16702,
 124573851,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-03,giacalone,,18147,6 RVs between UT 2020-02-24 and 2020-03-03.
 124573851,,,LCO (1 m),NRES,53000.0,380 to 860 nm,31.7,550 nm,N,2019-05-11 20:00:06,rabus,,6831,NRES
+124573851,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.2,5110 Angstroms,N,2019-05-29 05:26:02,bieryla,,4019,
+124573851,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,33.2,5500 angstroms,N,2019-07-01,quinn,tfopwg,4314,
 124709665,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,41.6,5110 Angstroms,N,2019-09-20 12:06:35,bieryla,,5760,
 125192758,,,SMARTS (1.5 m),CHIRON,25000.0,4500 to 8900 Angstroms,26.9,5150 Angstroms,N,2019-11-16 05-30-23,zhou,tfopwg,18527,
 125192758,,,SMARTS (1.5 m),CHIRON,25000.0,4500 to 8900 Angstroms,21.9,5150 Angstroms,N,2019-11-10 07-09-00,zhou,tfopwg,18525,
@@ -1017,9 +1019,9 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 146520535,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,52.8,5150 Angstroms,N,2019-10-19 06-41-34,zhou,tfopwg,7268,
 146520535,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,64.0,5150 Angstroms,N,2019-09-25 08-35-03,zhou,tfopwg,7265,
 146520535,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,55.7,5150 Angstroms,N,2019-10-18 06-49-13,zhou,tfopwg,7267,
-147660886,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,75.0,5150 Angstroms,N,2020-03-17 02-33-24,zhou,tfopwg,18574,
 147660886,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,78.4,5150 Angstroms,N,2020-03-13 05-19-19,zhou,tfopwg,18570,
 147660886,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,80.6,5150 Angstroms,N,2020-03-10 04-50-53,zhou,tfopwg,18567,
+147660886,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,75.0,5150 Angstroms,N,2020-03-17 02-33-24,zhou,tfopwg,18574,
 147950620,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,32.9,5110 Angstroms,N,2019-12-13 11:30:38,bieryla,,8028,
 147950620,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-02-05,giacalone,,16702,4 RVs between UT 2019-12-15 and 2020-02-05.
 147950620,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2020-02-01,giacalone,,16702,
@@ -1039,8 +1041,8 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 147977348,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,59.9,5150 Angstroms,N,2019-10-06 09-02-15,zhou,tfopwg,18511,
 147977348,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,62.1,5150 Angstroms,N,2019-10-05 09-13-48,zhou,tfopwg,18510,
 147977348,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,31.8,5150 Angstroms,N,2019-09-25 09-34-36,zhou,tfopwg,7265,
-147977348,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,36.3,5150 Angstroms,N,2019-09-22 09-26-42,zhou,tfopwg,18505,
 147977348,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,33.6,5150 Angstroms,N,2019-09-24 09-34-45,zhou,tfopwg,18506,
+147977348,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,36.3,5150 Angstroms,N,2019-09-22 09-26-42,zhou,tfopwg,18505,
 148228019,,,LCO (1 m),NRES,53000.0,380 to 860 nm,41.34,550 nm,N,2019-04-14 17:33:13,rabus,,6805,NRES
 148228019,,,LCO (1 m),NRES,53000.0,380 to 860 nm,44.38,550 nm,N,2019-04-15 23:21:32,rabus,,6808,NRES
 148479278,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,66.5,5500 angstroms,N,2019-03-27,quinn,tfopwg,3082,
@@ -1239,55 +1241,55 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 169532369,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,28.6,5110 Angstroms,N,2019-02-02 05:27:18,bieryla,,1910,
 169765334,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,37.5,5110 Angstroms,N,2019-07-25 09:46:55,bieryla,,4949,
 169765334,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.5,5110 Angstroms,N,2018-12-29 03:02:53,bieryla,,1592,
-169904935,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,38.3,5110 Angstroms,N,2019-10-19 12:25:04,bieryla,,6322,
 169904935,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,35.9,5110 Angstroms,N,2019-12-10 09:10:23,bieryla,,7918,
+169904935,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,38.3,5110 Angstroms,N,2019-10-19 12:25:04,bieryla,,6322,
 170634116,,,LCO (1 m),NRES,53000.0,380 to 860 nm,39.88,550 nm,N,2019-02-21 00:56:10,rabus,,6765,NRES
 170634116,,,LCO (1 m),NRES,53000.0,380 to 860 nm,41.19,550 nm,N,2019-02-14 01:40:55,rabus,,6755,NRES
 172193428,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.9,5110 Angstroms,N,2019-03-24 03:22:25,bieryla,,2850,
 172193428,TIC 172193428.01,TOI 502.01,Keck (10 m),HIRES,50000.0,350 to 700 nm,,,Y,2019-04-11,crossfield,tfopwg,3350,
-173612049,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,36.1,5110 Angstroms,N,2019-12-14 05:00:49,bieryla,,8061,
 173612049,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,33.8,5110 Angstroms,N,2019-12-11 05:18:39,bieryla,,7947,
 173612049,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2019-12-10,giacalone,,16702,
-174143743,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,35.1,5500 angstroms,N,2020-03-06,quinn,tfopwg,18297,
+173612049,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,36.1,5110 Angstroms,N,2019-12-14 05:00:49,bieryla,,8061,
 174143743,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,38.5,5500 angstroms,N,2020-02-27,quinn,tfopwg,18298,
+174143743,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,35.1,5500 angstroms,N,2020-03-06,quinn,tfopwg,18297,
 174599051,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,39.5,5500 angstroms,N,2020-01-08,quinn,tfopwg,15775,
 174599051,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,40.6,5500 angstroms,N,2019-12-18,quinn,tfopwg,15776,
 175176327,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,74.4,5150 Angstroms,N,2019-04-23 02-36-09,zhou,tfopwg,3395,
 175176327,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,77.9,5150 Angstroms,N,2019-05-08 00-17-54,zhou,tfopwg,3512,
 175176327,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,81.7,5150 Angstroms,N,2019-05-05 01-20-54,zhou,tfopwg,3510,
 175532955,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,32.3,5500 angstroms,N,2019-12-08,quinn,tfopwg,15777,
-176778112,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,35.1,5110 Angstroms,N,2019-01-26 02:52:07,bieryla,,1774,
 176778112,,,LCO (1 m),NRES,53000.0,380 to 860 nm,39.64,550 nm,N,2019-02-08 02:30:06,rabus,,6751,NRES
-176796997,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,36.8,5110 Angstroms,N,2019-02-01 03:30:44,bieryla,,1912,
+176778112,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,35.1,5110 Angstroms,N,2019-01-26 02:52:07,bieryla,,1774,
 176796997,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,34.3,5110 Angstroms,N,2019-01-29 02:27:58,bieryla,,1805,
+176796997,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,36.8,5110 Angstroms,N,2019-02-01 03:30:44,bieryla,,1912,
 176831592,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,37.8,5110 Angstroms,N,2019-10-11 09:14:25,bieryla,,6053,
 176860064,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,54.3,5110 Angstroms,N,2019-12-11 05:43:35,bieryla,,7948,
-176871981,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,69.3,5150 Angstroms,N,2019-02-23 10-39-37,zhou,tfopwg,2180,
-176871981,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,38.6,5150 Angstroms,N,2019-02-20 14-29-45,zhou,tfopwg,2144,
 176871981,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,66.7,5150 Angstroms,N,2019-02-21 16-53-36,zhou,tfopwg,2171,
+176871981,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,38.6,5150 Angstroms,N,2019-02-20 14-29-45,zhou,tfopwg,2144,
+176871981,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,69.3,5150 Angstroms,N,2019-02-23 10-39-37,zhou,tfopwg,2180,
+176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,40.3,5500 angstroms,N,2020-03-06,quinn,tfopwg,18299,
 176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,43.2,5500 angstroms,N,2020-03-04,quinn,tfopwg,18301,
 176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,43.2,5500 angstroms,N,2020-02-24,quinn,tfopwg,18301,
-176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,41.1,5500 angstroms,N,2020-02-29,quinn,tfopwg,18300,
 176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,22.9,5500 angstroms,N,2020-02-17,quinn,tfopwg,16810,
-176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,40.3,5500 angstroms,N,2020-03-06,quinn,tfopwg,18299,
+176956893,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,41.1,5500 angstroms,N,2020-02-29,quinn,tfopwg,18300,
 176957796,,,LCO (1 m),NRES,53000.0,380 to 860 nm,17.3,518 nm,N,2019-05-07,dressing,tfopwg,4924,
 176957796,,,LCO (1 m),NRES,53000.0,380 to 860 nm,14.0,518 nm,N,2019-05-10,dressing,tfopwg,4924,
-177077336,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,34.6,5500 angstroms,N,2019-11-13,quinn,tfopwg,7821,
 177077336,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,38.4,5500 angstroms,N,2019-11-10,quinn,tfopwg,7822,
+177077336,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,34.6,5500 angstroms,N,2019-11-13,quinn,tfopwg,7821,
 177115354,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,39.4,5500 angstroms,N,2019-11-08,quinn,tfopwg,7823,
 177126182,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,39.5,5110 Angstroms,N,2019-10-23 11:13:01,bieryla,,6427,
 177244357,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2019-12-28,giacalone,,16702,1 RVs between UT 2019-12-28 and 2019-12-28.
-177244357,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.9,5110 Angstroms,N,2019-12-15 06:12:47,bieryla,,8831,
 177244357,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2019-12-10,giacalone,,16702,
 177244357,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.5,5110 Angstroms,N,2019-12-12 03:26:38,bieryla,,7963,
-177258735,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,50.7,5500 angstroms,N,2020-01-26,quinn,tfopwg,16370,
+177244357,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.9,5110 Angstroms,N,2019-12-15 06:12:47,bieryla,,8831,
 177258735,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,63.5,5500 angstroms,N,2020-01-24,quinn,tfopwg,16370,
-177350401,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,41.9,5150 Angstroms,N,2019-02-22 16-34-30,zhou,tfopwg,2172,
+177258735,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,50.7,5500 angstroms,N,2020-01-26,quinn,tfopwg,16370,
 177350401,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,45.9,5150 Angstroms,N,2019-02-21 11-03-27,zhou,tfopwg,2171,
-177722855,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2019-12-10,giacalone,,16702,
-177722855,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,38.6,5500 angstroms,N,2020-01-09,quinn,tfopwg,15778,
-177722855,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-02-05,giacalone,,16702,9 RVs between UT 2019-11-21 and 2020-02-05.
+177350401,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,41.9,5150 Angstroms,N,2019-02-22 16-34-30,zhou,tfopwg,2172,
 177722855,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.2,5110 Angstroms,N,2019-10-12 11:01:08,bieryla,,6060,
+177722855,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,38.6,5500 angstroms,N,2020-01-09,quinn,tfopwg,15778,
+177722855,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2019-12-10,giacalone,,16702,
+177722855,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-02-05,giacalone,,16702,9 RVs between UT 2019-11-21 and 2020-02-05.
 177722855,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-03,giacalone,,18147,6 RVs between UT 2020-02-24 and 2020-03-03.
 178155732,,,LCO (1 m),NRES,53000.0,380 to 860 nm,65.54,550 nm,N,2019-02-22 00:56:19,rabus,,6769,NRES
 178155732,,,LCO (1 m),NRES,53000.0,380 to 860 nm,77.85,550 nm,N,2019-02-27 18:13:59,rabus,,6777,NRES
@@ -1381,14 +1383,14 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 187029841,,,LCO (1 m),NRES,53000.0,380 to 860 nm,45.67,550 nm,N,2019-12-29 16:47:05,rabus,tfopwg,8950,NRES
 187029841,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.1,5110 Angstroms,N,2020-01-02 06:19:38,bieryla,,8538,
 187029841,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,32.2,5110 Angstroms,N,2019-12-30 05:34:16,bieryla,,8474,
-188570092,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,17.6,5110 Angstroms,N,2019-07-01 10:54:14,bieryla,,4355,
 188570092,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,19.6,5110 Angstroms,N,2019-07-25 10:29:52,bieryla,,4950,
+188570092,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,17.6,5110 Angstroms,N,2019-07-01 10:54:14,bieryla,,4355,
 188593929,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,30.9,5500 angstroms,N,2019-08-07,quinn,tfopwg,5136,
 188593929,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,28.3,5500 angstroms,N,2019-08-05,quinn,tfopwg,5135,
 188593930,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,64.4,5500 angstroms,N,2019-08-14,quinn,tfopwg,5195,
 188593930,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,72.3,5500 angstroms,N,2019-08-15,quinn,tfopwg,5464,
-188768068,TIC 188768068.01,TOI 1462.01,OHP T193 (2 m),SOPHIE ,75000.0,390 to 690 nm,,,Y,2012-05-01,santerne,,7838,See https://arxiv.org/abs/1911.13296
 188768068,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,75.6,5110 Angstroms,N,2020-01-17 13:33:39,bieryla,,15844,
+188768068,TIC 188768068.01,TOI 1462.01,OHP T193 (2 m),SOPHIE ,75000.0,390 to 690 nm,,,Y,2012-05-01,santerne,,7838,See https://arxiv.org/abs/1911.13296
 188768068,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-09,giacalone,,18147,2 RVs between UT 2020-03-08 and 2020-03-09.
 188768068,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,85.8,5110 Angstroms,N,2020-02-02 13:01:47,bieryla,,16350,
 188768068,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2019-06-14,giacalone,,16702,1 RVs between UT 2019-06-14 and 2019-06-14.
@@ -1450,34 +1452,35 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 196286587,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,34.6,5110 Angstroms,N,2019-05-01 03:18:09,bieryla,,3480,
 197650870,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,38.1,5110 Angstroms,N,2019-12-13 04:08:11,bieryla,,8032,
 197650870,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.5,5110 Angstroms,N,2019-12-20 02:14:49,bieryla,,8365,
+198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,22.7,5500 angstroms,N,2019-09-03,quinn,tfopwg,5703,
+198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,62.2,5150 Angstroms,N,2019-10-09 07-22-33,zhou,tfopwg,7266,
+198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,44.5,5150 Angstroms,N,2019-10-20 08-13-04,zhou,tfopwg,7269,
 198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,62.2,5150 Angstroms,N,2019-10-09 07-22-33,zhou,tfopwg,7266,
 198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,43.5,5500 angstroms,N,2019-08-28,quinn,tfopwg,5465,
 198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,44.5,5150 Angstroms,N,2019-10-20 08-13-04,zhou,tfopwg,7269,
-198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,62.2,5150 Angstroms,N,2019-10-09 07-22-33,zhou,tfopwg,7266,
-198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,44.5,5150 Angstroms,N,2019-10-20 08-13-04,zhou,tfopwg,7269,
-198077394,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,22.7,5500 angstroms,N,2019-09-03,quinn,tfopwg,5703,
-198186769,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.2,5110 Angstroms,N,2020-02-07 11:16:49,bieryla,,16516,
 198186769,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,28.4,5110 Angstroms,N,2019-10-27 02:19:57,bieryla,,6510,
+198186769,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.2,5110 Angstroms,N,2020-02-07 11:16:49,bieryla,,16516,
 198186769,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2020-03-10,giacalone,,18147,
 198206613,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,27.4,5110 Angstroms,N,2020-03-05 10:34:54,bieryla,,18000,
 198206613,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2020-03-10,giacalone,,18147,
 198212955,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,20.2,5110 Angstroms,N,2020-03-04 10:39:32,bieryla,,17303,
 198212955,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,20.5,5110 Angstroms,N,2020-02-08 11:44:47,bieryla,,16523,
 198241702,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,33.1,5110 Angstroms,N,2020-02-14 12:00:47,bieryla,,16773,
+198241702,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-08,giacalone,,18147,1 RVs between UT 2020-03-08 and 2020-03-08.
+198241702,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.4,5110 Angstroms,N,2020-01-30 12:07:10,bieryla,,16312,
 198241702,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2019-11-28,giacalone,,16702,
 198241702,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,27.7,5110 Angstroms,N,2019-10-27 01:59:11,bieryla,,6511,
-198241702,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.4,5110 Angstroms,N,2020-01-30 12:07:10,bieryla,,16312,
-198241702,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-08,giacalone,,18147,1 RVs between UT 2020-03-08 and 2020-03-08.
 198356533,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2020-03-09,giacalone,,18147,
-198356533,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.7,5110 Angstroms,N,2020-01-17 13:22:06,bieryla,,15845,
 198356533,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,81.0,5000 Angstroms,N,2019-11-28,giacalone,,16702,
 198356533,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,39.3,5110 Angstroms,N,2020-02-13 11:40:04,bieryla,,16766,
+198356533,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.7,5110 Angstroms,N,2020-01-17 13:22:06,bieryla,,15845,
 198356533,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-09,giacalone,,18147,2 RVs between UT 2020-03-08 and 2020-03-09.
 198384408,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,40.9,5110 Angstroms,N,2020-02-14 12:50:06,bieryla,,16774,
 198384408,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,45.4,5110 Angstroms,N,2020-01-31 12:50:17,bieryla,,16321,
-198390247,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2019-11-28,giacalone,,16702,
-198390247,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,28.0,5110 Angstroms,N,2020-03-16 12:08:00,bieryla,,18120,
 198390247,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,32.4,5110 Angstroms,N,2020-01-30 12:38:44,bieryla,,16313,
+198390247,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,28.0,5110 Angstroms,N,2020-03-16 12:08:00,bieryla,,18120,
+198390247,TIC 198390247.01,TOI 1453.01,TNG 3.6,HARPS-N,115000.0,383 to 693 nm,,,Y,2020-03-12,latham,tfopwg,1573,2 observations as of 2020-03-16
+198390247,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2019-11-28,giacalone,,16702,
 198457103,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,52.9,5110 Angstroms,N,2020-01-27 13:27:43,bieryla,,16237,
 199376584,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-01-09,giacalone,,16702,10 RVs between UT 2019-11-28 and 2020-01-09.
 199376584,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,48.3,5110 Angstroms,N,2019-10-15 04:55:12,bieryla,,6084,
@@ -2016,18 +2019,18 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 260708537,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,48.7,5500 angstroms,N,2019-04-20,quinn,tfopwg,3266,
 260708537,,,LCO (1 m),NRES,53000.0,380 to 860 nm,20.1,518 nm,N,2019-05-07,dressing,tfopwg,4924,
 261136679,TIC 261136679.01,TOI 144.01,Magellan II  (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2020-02-04,teske,tfopwg,18092,3 epochs between 4-11 Feb UT
+261136679,,,LCO (1 m),NRES,53000.0,380 to 860 nm,56.72,550 nm,N,2019-02-08 04:25:12,rabus,,6750,NRES
+261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2018-12-15,teske,tfopwg,1634,9 epochs of PRVs taken between UT Dec 15 and 27
 261136679,,,LCO (1 m),NRES,53000.0,380 to 860 nm,61.84,550 nm,N,2019-01-27 04:01:42,rabus,,6671,NRES
 261136679,,,LCO (1 m),NRES,53000.0,380 to 860 nm,48.82,550 nm,N,2019-01-29 23:32:02,rabus,,6684,NRES
 261136679,,,LCO (1 m),NRES,53000.0,380 to 860 nm,44.47,550 nm,N,2019-02-02 00:41:30,rabus,,6741,NRES
 261136679,,,LCO (1 m),NRES,53000.0,380 to 860 nm,42.43,550 nm,N,2019-02-04 20:51:58,rabus,,6745,NRES
-261136679,,,LCO (1 m),NRES,53000.0,380 to 860 nm,56.72,550 nm,N,2019-02-08 04:25:12,rabus,,6750,NRES
+261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2019-01-18,teske,tfopwg,1827,5 epochs of PRVS taken between UT Jan 18 and 28
 261136679,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,165.8,5500 angstroms,N,2019-04-23,quinn,tfopwg,3375,
 261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2019-04-18,teske,tfopwg,3414,2 epochs between 18 and 22 April UT
 261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2019-02-12,teske,tfopwg,2237,4 epochs between Feb 12 and 18 UT
 261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2018-10-14,teske,tfopwg,1295,125 PRVs taken between Oct. 14-26
 261136679,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,269.3,5500 angstroms,N,2019-02-15,quinn,tfopwg,2878,
-261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2018-12-15,teske,tfopwg,1634,9 epochs of PRVs taken between UT Dec 15 and 27
-261136679,TIC 261136679.01,TOI 144.01,Magellan II (6.5 m),PFS,130000.0,3800 to 6900 Angstroms,,,Y,2019-01-18,teske,tfopwg,1827,5 epochs of PRVS taken between UT Jan 18 and 28
 261257684,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,34.5,5500 angstroms,N,2019-11-10,quinn,tfopwg,7829,
 261867566,,,LCO (1 m),NRES,53000.0,380 to 860 nm,42.39,550 nm,N,2019-08-21 18:38:57,rabus,tfopwg,6887,NRES
 262330063,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,34.3,5110 Angstroms,N,2019-09-12 11:56:10,bieryla,,5655,
@@ -2059,34 +2062,35 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 264979636,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,53.5,5500 angstroms,N,2019-05-22,quinn,tfopwg,3948,
 265077027,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,36.2,5110 Angstroms,N,2019-12-01 11:05:45,bieryla,,7743,
 265077027,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,39.7,5110 Angstroms,N,2019-11-04 11:31:08,bieryla,,7101,
-266500992,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,35.9,5110 Angstroms,N,2020-02-08 04:27:17,bieryla,,16526,
 266500992,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.5,5110 Angstroms,N,2020-01-31 02:45:13,bieryla,,16322,
-266980320,,,LCO (1 m),NRES,53000.0,380 to 860 nm,34.06,550 nm,N,2018-11-23 21:18:01,rabus,,6546,NRES
-266980320,,,LCO (1 m),NRES,53000.0,380 to 860 nm,49.3,550 nm,N,2018-11-21 03:41:02,rabus,,6538,NRES
-266980320,TIC 266980320.01,TOI 118.01,3.6@LaSilla (3.6 m),HARPS,115000.0,380 to 690 nm,,,Y,2018-10-02,darmstrong,tfopwg,2915,6 RVs taken between 2018-10-02 and 2018-10-17
+266500992,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,35.9,5110 Angstroms,N,2020-02-08 04:27:17,bieryla,,16526,
 266980320,,,LCO (1 m),NRES,53000.0,380 to 860 nm,43.05,550 nm,N,2018-11-18 03:52:55,rabus,,6521,NRES
+266980320,,,LCO (1 m),NRES,53000.0,380 to 860 nm,49.3,550 nm,N,2018-11-21 03:41:02,rabus,,6538,NRES
+266980320,,,LCO (1 m),NRES,53000.0,380 to 860 nm,34.06,550 nm,N,2018-11-23 21:18:01,rabus,,6546,NRES
+266980320,TIC 266980320.01,TOI 118.01,3.6@LaSilla (3.6 m),HARPS,115000.0,380 to 690 nm,,,Y,2018-10-02,darmstrong,tfopwg,2915,6 RVs taken between 2018-10-02 and 2018-10-17
 267694283,TIC 267694283.01,TOI 1656.01,Keck (10 m),HIRES,50000.0,350 to 700 nm,,,N,2020-01-31,dalba,,16282,Vetting spectrum
 268334473,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,80.0,5000 Angstroms,N,2020-03-10,giacalone,,18147,
 268371979,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,22.1,5110 Angstroms,N,2019-10-17 10:18:53,bieryla,,6280,
-269238073,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,34.1,5110 Angstroms,N,2019-12-30 04:51:58,bieryla,,8478,
 269238073,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.9,5110 Angstroms,N,2019-12-15 03:22:19,bieryla,,8837,
-269509393,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,32.2,5110 Angstroms,N,2019-12-12 05:50:28,bieryla,,7967,
+269238073,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,34.1,5110 Angstroms,N,2019-12-30 04:51:58,bieryla,,8478,
 269509393,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,31.4,5110 Angstroms,N,2019-12-20 04:04:36,bieryla,,8367,
-269558487,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.6,5110 Angstroms,N,2019-09-19 10:54:47,bieryla,,5755,
+269509393,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,32.2,5110 Angstroms,N,2019-12-12 05:50:28,bieryla,,7967,
 269558487,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,33.9,5110 Angstroms,N,2019-09-20 09:00:03,bieryla,,5762,
+269558487,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,30.6,5110 Angstroms,N,2019-09-19 10:54:47,bieryla,,5755,
 269696107,,,SMARTS (1.5 m),CHIRON,25000.0,4500 to 8900 Angstroms,60.8,5150 Angstroms,N,2020-02-03 00-34-27,zhou,tfopwg,18542,
-269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,59.84,550 nm,N,2019-11-01 01:57:00,rabus,tfopwg,8899,NRES
-269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,25.52,550 nm,N,2019-11-24 16:42:56,rabus,tfopwg,8926,NRES
-269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,25.61,550 nm,N,2019-11-25 17:06:37,rabus,tfopwg,8928,NRES
 269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,26.3,550 nm,N,2019-11-28 17:39:28,rabus,tfopwg,8930,NRES
+269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,25.61,550 nm,N,2019-11-25 17:06:37,rabus,tfopwg,8928,NRES
+269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,25.52,550 nm,N,2019-11-24 16:42:56,rabus,tfopwg,8926,NRES
+269701147,,,LCO (1 m),NRES,53000.0,380 to 860 nm,59.84,550 nm,N,2019-11-01 01:57:00,rabus,tfopwg,8899,NRES
 269701147,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-01-09,giacalone,,16702,33 RVs between UT 2019-11-08 and 2020-01-09.
+269701147,TIC 269701147.01,TOI 1339.01,TNG 3.6,HARPS-N,115000.0,383 to 693 nm,,,Y,2019-11-17,latham,tfopwg,1573,5 observations as of 2019-12-01
 269701147,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2019-12-10,giacalone,,16702,
 269701147,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,43.5,5110 Angstroms,N,2019-10-24 04:47:54,bieryla,,6444,
-269701147,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,50.8,5110 Angstroms,N,2019-11-01 04:28:22,bieryla,,7008,
 269701147,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,46.1,5110 Angstroms,N,2019-11-05 02:10:49,bieryla,,7118,
+269701147,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,50.8,5110 Angstroms,N,2019-11-01 04:28:22,bieryla,,7008,
 269861070,,,SMARTS (1.5 m),CHIRON,25000.0,4500 to 8900 Angstroms,82.9,5150 Angstroms,N,2020-02-26 03-21-40,zhou,tfopwg,18556,
-269892793,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,22.4,5110 Angstroms,N,2020-01-29 03:12:21,bieryla,,16270,
 269892793,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,12.8,5110 Angstroms,N,2020-02-13 04:36:37,bieryla,,16769,
+269892793,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,22.4,5110 Angstroms,N,2020-01-29 03:12:21,bieryla,,16270,
 270238522,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,38.0,5110 Angstroms,N,2019-12-12 01:24:26,bieryla,,7968,
 270238522,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,47.5,5110 Angstroms,N,2020-01-09 02:44:59,bieryla,,8811,
 270341214,,,LCO (1 m),NRES,53000.0,380 to 860 nm,69.82,550 nm,N,2019-08-21 23:15:37,rabus,tfopwg,6888,NRES
@@ -2788,15 +2792,15 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 362249359,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,44.1,5500 angstroms,N,2020-03-07,quinn,tfopwg,18307,
 362249359,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,41.6,5500 angstroms,N,2020-03-01,quinn,tfopwg,18307,
 363260203,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,32.7,5500 angstroms,N,2020-01-28,quinn,tfopwg,16747,
+363914762,,,SMARTS (1.5 m),CHIRON,25000.0,4500 to 8900 Angstroms,116.5,5150 Angstroms,N,2019-02-12 01-24-36,zhou,tfopwg,1949,
 363914762,,,ANU (2.3 m),echelle,23000.0,3900 to 6700 Angstroms,62.3,5150 Angstroms,N,2019-02-18 12-12-38,zhou,tfopwg,1971,
 363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,59.5,5150 Angstroms,N,2019-02-26 03-02-02,zhou,tfopwg,2414,
-363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,66.0,5150 Angstroms,N,2019-04-09 23-50-19,zhou,tfopwg,3124,
+363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,60.8,5150 Angstroms,N,2019-02-27 02-42-34,zhou,tfopwg,2415,
 363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,61.7,5150 Angstroms,N,2019-02-28 01-52-34,zhou,tfopwg,2416,
 363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,57.6,5150 Angstroms,N,2019-03-03 02-26-37,zhou,tfopwg,2419,
 363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,65.9,5150 Angstroms,N,2019-04-21 23-03-17,zhou,tfopwg,3393,
 363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,54.8,5150 Angstroms,N,2019-04-23 00-57-27,zhou,tfopwg,3395,
-363914762,,,SMARTS (1.5 m),CHIRON,25000.0,4500 to 8900 Angstroms,116.5,5150 Angstroms,N,2019-02-12 01-24-36,zhou,tfopwg,1949,
-363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,60.8,5150 Angstroms,N,2019-02-27 02-42-34,zhou,tfopwg,2415,
+363914762,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,66.0,5150 Angstroms,N,2019-04-09 23-50-19,zhou,tfopwg,3124,
 364107753,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,107.1,5500 angstroms,N,2019-08-13,quinn,tfopwg,5203,
 364186197,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,33.4,5110 Angstroms,N,2019-12-06 03:04:11,bieryla,,7874,
 364186197,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,39.3,5110 Angstroms,N,2019-12-13 02:42:57,bieryla,,8046,
@@ -2875,6 +2879,7 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 376838000,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,29.2,5110 Angstroms,N,2020-01-03 02:24:07,bieryla,,8556,
 377064495,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,39.3,5500 angstroms,N,2020-03-13,quinn,tfopwg,18308,
 377064495,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,42.0,5110 Angstroms,N,2019-04-21 03:59:26,bieryla,,3321,
+377064495,TIC 377064495.01,TOI 561.01,TNG 3.6,HARPS-N,115000.0,383 to 693 nm,,,Y,2019-11-17,latham,tfopwg,1573,41 GTO observations as of 2020-03-14
 377064495,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,400.0,5000 Angstroms,N,2019-04-26,giacalone,,16702,
 377064495,,,Keck (10 m),HIRES,50000.0,3600 to 9000 Angstroms,,,Y,2020-03-10,giacalone,,18147,21 RVs between UT 2020-02-24 and 2020-03-10.
 377064495,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,36.1,5110 Angstroms,N,2019-04-15 04:41:02,bieryla,,3190,

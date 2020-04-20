@@ -5,6 +5,7 @@ import warnings
 # Import from package
 from .target import *
 from .star import *
+from .planet import *
 from .cluster import *
 from .tpf import *
 from .lightcurve import *

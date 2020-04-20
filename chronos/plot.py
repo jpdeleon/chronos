@@ -667,23 +667,44 @@ def plot_pdc_sap_comparison(toiid, sector=None):
     return lcf, ax
 
 
-def plot_hrd_spectral_types(**plot_kwargs):
+def plot_hrd_spectral_types(
+    x=None,
+    y=None,
+    c=None,
+    cmap="viridis",
+    invert_xaxis=True,
+    invert_yaxis=False,
+    **plot_kwargs,
+):
     """
     """
     df = get_mamajek_table()
     fig, ax = pl.subplots(1, 1, **plot_kwargs)
-    classes = []
-    for idx, g in df.assign(SpT2=df["#SpT"].apply(lambda x: x[0])).groupby(
-        by="SpT2"
-    ):
-        classes.append(idx)
-        x = g["logT"].astype(float)
-        y = g["logL"].astype(float)
-        pl.plot(x, y, label=idx)
-    pl.ylabel(r"$\log_{10}$ (L/L$_{\odot}$)")
-    pl.xlabel(r"$\log_{10}$ (T$_{\rm{eff}}$/K)")
-    pl.legend()
-    pl.gca().invert_xaxis()
+
+    if (x is not None) & (y is not None):
+        _ = df.plot.scatter(x=x, y=y, c=c, ax=ax, cmap=cmap)
+        # _ = df.plot.scatter(x='V-Ks', y='M_Ks', c='R_Rsun', cmap='viridis')
+        # ax.axhline(6.7, 0, 1, ls='--', c='k')
+        # ax.annotate(s='fully convective', xy=(7, 8), fontsize=12)
+        if invert_xaxis:
+            ax.invert_xaxis()
+        if invert_yaxis:
+            ax.invert_yaxis()
+        ax.set_ylabel(y)
+        ax.set_xlabel(x)
+    else:
+        classes = []
+        for idx, g in df.assign(SpT2=df["#SpT"].apply(lambda x: x[0])).groupby(
+            by="SpT2"
+        ):
+            classes.append(idx)
+            x = g["logT"].astype(float)
+            y = g["logL"].astype(float)
+            ax.plot(x, y, label=idx)
+        ax.set_ylabel(r"$\log_{10}$ (L/L$_{\odot}$)")
+        ax.set_xlabel(r"$\log_{10}$ (T$_{\rm{eff}}$/K)")
+        ax.legend()
+        ax.invert_xaxis()
     return fig
 
 

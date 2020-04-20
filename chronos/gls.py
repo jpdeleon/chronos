@@ -138,7 +138,8 @@ class Gls:
         verbose=False,
         **kwargs
     ):
-
+        self.prot = None
+        self.amp = None
         self._freq = freq
         self.fbeg = fbeg
         self.fend = fend
