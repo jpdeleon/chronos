@@ -98,6 +98,7 @@ __all__ = [
     "get_below_upper_limit",
     "get_between_limits",
     "get_RV_K",
+    "get_RM_K",
     "get_tois_mass_RV_K",
     "get_vizier_tables",
 ]
@@ -1831,6 +1832,13 @@ def get_RV_K(
         return K_ms
     else:
         return K_ms.value
+
+
+def get_RM_K(vsini_kms, rp_Rearth, Rs_Rsun):
+    """Compute the approximate semi-amplitude for the Rossiter-McLaughlin
+    effect in m/s"""
+    D = (rp_Rearth * u.Rearth.to(u.m) / Rs_Rsun * u.Rsun.to(u.m)) ** 2
+    return (vsini_kms * D / (1 - D)) * 1e3
 
 
 def get_above_lower_limit(lower, data_mu, data_sig, sigma=1):
