@@ -64,6 +64,7 @@ __all__ = [
     "get_ctois",
     "get_ctoi",
     "get_target_coord",
+    "get_epicid_from_k2name",
     "get_target_coord_3d",
     "get_transformed_coord",
     "query_gaia_params_of_all_tois",
@@ -78,7 +79,7 @@ __all__ = [
     "remove_bad_data",
     "is_point_inside_mask",
     "get_fluxes_within_mask",
-    "get_harps_RV",
+    "get_harps_bank",
     "get_specs_table_from_tfop",
     "get_rotation_period",
     "get_transit_mask",
@@ -475,10 +476,13 @@ def get_transit_mask(lc, period, epoch, duration_hours):
     return transit_mask
 
 
-def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
+def get_harps_bank(
+    target_coord, separation=30, outdir=DATA_PATH, verbose=True
+):
     """
     Check if target has archival HARPS data from:
     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
+    See also https://github.com/3fon3fonov/HARPS_RVBank
     """
     homeurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank.html"
     fp = os.path.join(outdir, "HARPS_RVBank_table.csv")
@@ -526,6 +530,16 @@ def get_harps_RV(target_coord, separation=30, outdir=DATA_PATH, verbose=True):
             f"Nearest HARPS object is\n{nearest_obj}: ra,dec=({ra},{dec}) @ d={sep2d.arcsec/60:.2f} arcmin\n"
         )
         return None
+
+
+# def get_harps_bank(url, verbose=True):
+#     """
+#     Download archival HARPS data from url
+#     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
+#     """
+#     homeurl = ""
+#     fp = os.path.join(outdir, "HARPS_RVBank_table.csv")
+#     return
 
 
 def get_mamajek_table(clobber=False, verbose=True, data_loc=DATA_PATH):
@@ -1260,7 +1274,6 @@ def get_target_coord(
 ):
     """get target coordinate
     """
-
     if np.all([ra, dec]):
         target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     elif toi:
@@ -1289,19 +1302,19 @@ def get_target_coord(
         )
     # name resolver
     elif epic is not None:
-        try:
-            import k2plr
-
-            client = k2plr.API()
-        except Exception:
-            raise ModuleNotFoundError(
-                "pip install git+https://github.com/rodluger/k2plr.git"
-            )
-        star = client.k2_star(int(epic))
-        ra = float(star.k2_ra)
-        dec = float(star.k2_dec)
-        target_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
-        # target_coord = SkyCoord.from_name(f"EPIC {epic}")
+        # try:
+        #     import k2plr
+        #
+        #     client = k2plr.API()
+        # except Exception:
+        #     raise ModuleNotFoundError(
+        #         "pip install git+https://github.com/rodluger/k2plr.git"
+        #     )
+        # star = client.k2_star(int(epic))
+        # ra = float(star.k2_ra)
+        # dec = float(star.k2_dec)
+        # target_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
+        target_coord = SkyCoord.from_name(f"EPIC {epic}")
     elif gaiaid is not None:
         target_coord = SkyCoord.from_name(f"Gaia DR2 {gaiaid}")
     elif name is not None:
@@ -1340,18 +1353,23 @@ def parse_target_coord(target):
             else:
                 ticid = int(target[3:])
             coord = get_coord_from_ticid(ticid)
-        elif target[:4] == "epic":
-            epicid = float(target[4:])
-            coord = get_coord_from_epicid(epicid)
-        elif target[:2] == "k2":
-            k2id = float(target[2:])
-            coord = SkyCoord.from_name("K2-" + str(k2id))
-        elif target[:4] == "gaia":
-            gaiaid = float(target[4:])
-            coord = SkyCoord.from_name("Gaia DR2 " + str(gaiaid))
+        elif (
+            (target[:4] == "epic")
+            | (target[:2] == "k2")
+            | (target[:4] == "gaia")
+        ):
+            # coord = get_coord_from_epicid(epicid)
+            coord = SkyCoord.from_name(target)
         else:
             coord = SkyCoord.from_name(target)
     return coord
+
+
+def get_epicid_from_k2name(k2name):
+    res = lk.search_targetpixelfile(k2name, mission="K2")
+    target_name = res.table.to_pandas().target_name[0]
+    epicid = int(target_name[4:])  # skip ktwo
+    return epicid
 
 
 def get_coord_from_toiid(toiid, **kwargs):
@@ -1401,11 +1419,6 @@ def get_coord_from_epicid(epicid):
     ra = float(star.k2_ra)
     dec = float(star.k2_dec)
     coord = SkyCoord(ra=ra, dec=dec, unit="deg")
-    return coord
-
-
-def get_coord_from_gaiaid(gaiaid):
-    coord = SkyCoord.from_name("Gaia DR2 {}".format(gaiaid))
     return coord
 
 

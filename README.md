@@ -12,6 +12,12 @@ $ python setup.py develop (optional)
 ```
 
 
+## test
+```
+$ pytest tests/
+```
+
+
 ## Modules
 * `target.py`: star bookkeeping, e.g. position, catalog cross-matching, archival data look-up
 * `star.py`: physics-related calculations, e.g. extinction, spectral typing, isochrones, gyrochronology

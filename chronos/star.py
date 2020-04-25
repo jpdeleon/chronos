@@ -77,6 +77,7 @@ class Star(Target):
         self.sigma_blur = sigma_blur
         self.use_skew_slope = use_skew_slope
         self.nsamples = int(nsamples)
+        self.isochrones = None
         self.stardate = None
         self.iso_params = None
         self.iso_param_names = [
@@ -506,8 +507,15 @@ class Star(Target):
         # phot_bands='G bp rp J H K'.split(),
         # star_params='teff logg parallax'.split()
     ):
-        """
-        get parameters for isochrones
+        """get parameters for isochrones
+        teff, logg, feh: tuple
+            'gaia' populates Teff from gaia DR2
+        min_mag_err : float
+            minimum magnitude error
+        add_jhk : bool
+            appends JHKs photometry if True
+        inflate_plx_err : bool
+            adds 0.01 parallax error in quadrature if True
         """
         if self.gaia_params is None:
             gp = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
@@ -521,7 +529,8 @@ class Star(Target):
             msg = f"TIC {self.ticid} does not match Gaia DR2 {self.gaiaid} properties"
             raise Exception(msg)
 
-        if teff is None:
+        params = {}
+        if teff == "gaia":
             # Use Teff from Gaia by default
             teff = gp["teff_val"]
             teff_err = get_err_quadrature(
@@ -532,29 +541,34 @@ class Star(Target):
                     # use Teff from TIC if Teff error is smaller
                     teff = tp["Teff"]
                     teff_err = tp["e_Teff"]
-        else:
+            params.update({"teff": (teff, teff_err)})
+        elif teff is not None:
             assert isinstance(
                 teff, tuple
             ), "teff must be a tuple (value,error)"
             teff, teff_err = teff[0], teff[1]
+            params.update({"teff": (teff, teff_err)})
 
         gmag = gp["phot_g_mean_mag"]
         gmag_err = get_mag_err_from_flux(
             gp["phot_g_mean_flux"], gp["phot_g_mean_flux_error"]
         )
         gmag_err = gmag_err if gmag_err > min_mag_err else min_mag_err
+        params.update({"G": (gmag, gmag_err)})
 
         bpmag = gp["phot_bp_mean_mag"]
         bpmag_err = get_mag_err_from_flux(
             gp["phot_bp_mean_flux"], gp["phot_bp_mean_flux_error"]
         )
         bpmag_err = bpmag_err if bpmag_err > min_mag_err else min_mag_err
+        params.update({"bp": (bpmag, bpmag_err)})
 
         rpmag = gp["phot_rp_mean_mag"]
         rpmag_err = get_mag_err_from_flux(
             gp["phot_rp_mean_flux"], gp["phot_rp_mean_flux_error"]
         )
         rpmag_err = rpmag_err if rpmag_err > min_mag_err else min_mag_err
+        params.update({"rp": (rpmag, rpmag_err)})
 
         plx = gp["parallax"]
         if inflate_plx_err:
@@ -563,15 +577,8 @@ class Star(Target):
         else:
             plx_err = gp["parallax_error"]
 
-        params = {
-            "teff": (teff, teff_err),
-            "G": (gmag, gmag_err),
-            # "T": (tp['Tmag'], tp['e_Tmag']),
-            "bp": (bpmag, bpmag_err),
-            "rp": (rpmag, rpmag_err),
-            "parallax": (plx, plx_err),
-            # 'AV': self.estimate_Av()
-        }
+        params.update({"parallax": (plx, plx_err)})
+
         if feh is not None:
             # params.update({"feh": (tp["MH"], tp["e_MH"])})
             assert isinstance(feh, tuple), "feh must be a tuple (value,error)"
@@ -603,47 +610,110 @@ class Star(Target):
         self.iso_params = iso_params
         return iso_params
 
+    def run_isochrones(
+        self,
+        iso_params=None,
+        model="mist",
+        bands=None,
+        binary_star=False,
+        nsteps=None,
+    ):
+        """
+        https://isochrones.readthedocs.io/en/latest/quickstart.html#Fit-physical-parameters-of-a-star-to-observed-data
+
+        iso_params : dict
+            isochrone input
+
+        Note: See mod._priors for priors; for multi-star systems, see
+        https://isochrones.readthedocs.io/en/latest/multiple.html
+        FIXME: nsteps param in mod.fit() cannot be changeed
+        """
+        try:
+            from isochrones import (
+                get_ichrone,
+                SingleStarModel,
+                BinaryStarModel,
+            )
+        except Exception:
+            cmd = "pip install isochrones"
+            raise ModuleNotFoundError(cmd)
+
+        nsteps = nsteps if nsteps is not None else self.mcmc_steps
+
+        # Create a dictionary of observables
+        iso_params = (
+            self.get_iso_params() if iso_params is None else iso_params
+        )
+
+        mist = get_ichrone(model, bands=bands)
+        if binary_star:
+            self.isochrones = BinaryStarModel(mist, **iso_params)
+        else:
+            self.isochrones = SingleStarModel(mist, **iso_params)
+        self.isochrones.fit()  # niter=nsteps
+
+    # @classmethod
+    def get_isochrones_results(self):
+        if self.isochrones is not None:
+            return self.isochrones.derived_samples
+        else:
+            raise ValueError("Try self.run_isochrones()")
+
+    # @classmethod
+    def get_isochrones_results_summary(self):
+        if self.isochrones is not None:
+            return self.isochrones.derived_samples.describe()
+        else:
+            raise ValueError("Try self.run_isochrones()")
+
     def run_stardate(
         self,
         prot=None,
+        iso_params=None,
         iso_params0=None,
-        mcmc_steps=None,
-        burnin=None,
-        thin=None,
+        min_Av_err=0.01,
+        optimize=False,
+        nsteps=None,
+        nburn=None,
+        nthin=None,
     ):
         """
+        iso_params : dict
+            isochrones parameters
+        iso_params0 : list
+            isochrones initial guesses
+        optimize : bool
+            optimize first before MCMC
         """
         try:
             import stardate as sd
         except Exception:
-            raise ModuleNotFoundError("pip install stardate")
-
-        iso_params0 = (
-            iso_params0 if iso_params0 is not None else self.iso_params0
-        )
-        prot = prot if prot is not None else self.prot
-        burnin = burnin if burnin is not None else self.burnin
-        thin = thin if thin is not None else self.thin
+            cmd = "pip install git+https://github.com/RuthAngus/stardate.git#egg=stardate"
+            raise ModuleNotFoundError(cmd)
 
         prot = prot if prot is not None else self.prot
+        nsteps = nsteps if nsteps is not None else self.mcmc_steps
+        nburn = nburn if nburn is not None else self.burnin
+        nthin = nthin if nthin is not None else self.thin
+
         if prot is not None:
             errmsg = "prot should be a tuple (value,error)"
             assert isinstance(prot, tuple), errmsg
             prot, prot_err = prot[0], prot[1]
         else:
             prot, prot_err = None, None
-        mcmc_steps = mcmc_steps if mcmc_steps is not None else self.mcmc_steps
 
         # Create a dictionary of observables
-        if self.iso_params is None:
-            iso_params = self.get_iso_params()
-        else:
-            iso_params = self.iso_params
+        iso_params = (
+            self.get_iso_params() if iso_params is None else iso_params
+        )
+        # Init guesses
+        iso_params0 = self.iso_params0 if iso_params0 is None else iso_params0
 
         # estimate extinction
-        Av, Av_err = (self.estimate_Av(), 0.01)
+        Av, Av_err = (self.estimate_Av(), min_Av_err)
         # Set up the star object.
-        star = sd.Star(
+        self.stardate = sd.Star(
             iso_params, prot=prot, prot_err=prot_err, Av=Av, Av_err=Av_err
         )
         if self.verbose:
@@ -655,10 +725,14 @@ class Star(Target):
             pprint(self.iso_params_init)
 
         # Run the MCMC
-        star.fit(inits=iso_params0, max_n=mcmc_steps)
+        self.stardate.fit(
+            inits=iso_params0,
+            max_n=nsteps,
+            thin_by=nthin,
+            burnin=nburn,
+            optimize=optimize,
+        )
         self.iso_params0 = iso_params0
-        self.stardate = star
-        return star
 
     def get_age_from_color(
         self, burnin=None, return_samples=False, plot=False
@@ -704,7 +778,7 @@ class Star(Target):
         else:
             return (mid, errp, errm)
 
-    def get_mass(self, burnin=None):
+    def get_mass(self, burnin=None, return_samples=False):
         """
         """
         if self.stardate is None:
@@ -720,9 +794,12 @@ class Star(Target):
                 mass, mass_errp, mass_errm
             )
         )
-        raise NotImplementedError
+        if return_samples:
+            return (mass, mass_errp, mass_errm, mass_samples)
+        else:
+            return (mass, mass_errp, mass_errm)
 
-    def get_feh(self, burnin=None):
+    def get_feh(self, burnin=None, return_samples=False):
         if self.stardate is None:
             raise ValueError("Try self.run_stardate()")
         else:
@@ -732,28 +809,31 @@ class Star(Target):
         print(
             "feh = {0:.2f} + {1:.2f} - {2:.2f}".format(feh, feh_errp, feh_errm)
         )
-        raise NotImplementedError
+        if return_samples:
+            return (feh, feh_errp, feh_errm, feh_samples)
+        else:
+            return (feh, feh_errp, feh_errm)
 
-    def get_distance(self, burnin=None):
+    def get_distance(self, burnin=None, return_samples=False):
         if self.stardate is None:
             raise ValueError("Try self.run_stardate()")
         else:
             star = self.stardate
         burnin = burnin if burnin is not None else self.burnin
-        (
-            lndistance,
-            lndistance_errp,
-            lndistance_errm,
-            lndistance_samples,
-        ) = star.distance_results(burnin=burnin)
+        (lnd, lnd_errp, lnd_errm, lnd_samples) = star.distance_results(
+            burnin=burnin
+        )
         print(
             "ln(distance) = {0:.2f} + {1:.2f} - {2:.2f} ".format(
-                lndistance, lndistance_errp, lndistance_errm
+                lnd, lnd_errp, lnd_errm
             )
         )
-        raise NotImplementedError
+        if return_samples:
+            return (lnd, lnd_errp, lnd_errm, lnd_samples)
+        else:
+            return (lnd, lnd_errp, lnd_errm)
 
-    def get_Av(self, burnin=None):
+    def get_Av(self, burnin=None, return_samples=False):
         if self.stardate is None:
             raise ValueError("Try self.run_stardate()")
         else:
@@ -761,7 +841,10 @@ class Star(Target):
         burnin = burnin if burnin is not None else self.burnin
         Av, Av_errp, Av_errm, Av_samples = star.Av_results(burnin=burnin)
         print("Av = {0:.2f} + {1:.2f} - {2:.2f}".format(Av, Av_errp, Av_errm))
-        raise NotImplementedError
+        if return_samples:
+            return (Av, Av_errp, Av_errm, Av_samples)
+        else:
+            return (Av, Av_errp, Av_errm)
 
     def plot_flatchain(self, burnin=None):
         """
@@ -784,20 +867,65 @@ class Star(Target):
         [axs.flat[i].set_ylabel(l) for i, l in enumerate(self.iso_param_names)]
         return fig
 
-    def plot_corner(self, burnin=None, thin=None):
+    def plot_corner(
+        self,
+        use_isochrones=True,
+        posterior="physical",
+        columns=None,
+        burnin=None,
+        thin=None,
+    ):
+        """
+        use_isochrones : bool
+            use isochrones or stardate results
+        posterior : str
+            'observed', 'physical', 'derived'
+        columns : list
+            columns to plot if use_isochrones=True and posterior='derived'
+        See https://isochrones.readthedocs.io/en/latest/starmodel.html
+        """
         try:
             from corner import corner
         except Exception:
             raise ValueError("pip install corner")
-        if self.stardate is None:
-            raise ValueError("Try self.run_stardate()")
-        else:
-            star = self.stardate
+
+        errmsg = "Try run_isochrones() or run_stardate()"
+        assert (self.isochrones is not None) | (
+            self.stardate is not None
+        ), errmsg
+
         burnin = burnin if burnin is not None else self.burnin
         thin = thin if thin is not None else self.thin
 
-        chain = star.sampler.chain
-        nwalkers, nsteps, ndim = chain.shape
-        samples = chain[:, burnin::thin, :].reshape((-1, ndim))
-        fig = corner(samples, labels=self.iso_param_names)
+        if use_isochrones:
+            if self.isochrones is None:
+                raise ValueError("Try self.run_isochrones()")
+            else:
+                star = self.isochrones
+
+            if posterior == "observed":
+                fig = star.corner_observed()
+            elif posterior == "physical":
+                fig = star.corner_physical()
+            elif posterior == "derived":
+                if columns is None:
+                    print("Choose columns:")
+                    print(self.isochrones.derived_samples.columns)
+                    return None
+                else:
+                    fig = star.corner_derived(columns)
+            else:
+                raise ValueError("Use posterior=(observed,physical,derived)")
+
+        else:
+            if self.stardate is None:
+                raise ValueError("Try self.run_stardate()")
+            else:
+                star = self.stardate
+
+            chain = star.sampler.chain
+            nwalkers, nsteps, ndim = chain.shape
+            samples = chain[:, burnin::thin, :].reshape((-1, ndim))
+            fig = corner(samples, labels=self.iso_param_names)
+
         return fig

@@ -35,7 +35,8 @@ from chronos.utils import (
     get_tois,
     get_target_coord,
     get_target_coord_3d,
-    get_harps_RV,
+    get_epicid_from_k2name,
+    get_harps_bank,
     get_specs_table_from_tfop,
     get_between_limits,
     get_above_lower_limit,
@@ -94,6 +95,7 @@ class Target:
             if self.target_name[:2].lower() == "k2":
                 name = self.target_name.upper()
                 self.mission = "k2"
+                self.epicid = get_epicid_from_k2name(name)
             elif self.target_name[:6].lower() == "kepler":
                 name = self.target_name.upper()
                 self.mission = "kepler"
@@ -613,6 +615,7 @@ class Target:
         catalog_name="CantatGaudin2020",
         df=None,
         match_id=True,
+        radius=None,
         with_parallax=True,
     ):
         """
@@ -623,13 +626,16 @@ class Target:
         match_id : bool
             check if target gaiaid matches that of cluster member,
             else return nearest member only
-        with_parallax : uses parallax to compute 3d distance; otherwise 2d
-
+        with_parallax : bool
+            uses parallax to compute 3d distance; otherwise 2d
+        radius : float
+            search radius in arcsec (used when match_id=False)
         Returns
         -------
         match : pandas.Series
             matched cluster member by gaiaid
         """
+        radius = self.search_radius if radius is None else radius * u.arcsec
         if (df is None) or (len(df) == 0):
             cc = ClusterCatalog(catalog_name=catalog_name)
             df = cc.query_catalog(return_members=True)
@@ -646,19 +652,20 @@ class Target:
                     raise ValueError(errmsg)
                 nearest_star = df.iloc[np.argmax(idx)]
                 self.nearest_cluster_member = nearest_star
-                cluster_name = nearest_star["Cluster"]
-                assert (
-                    str(cluster_name).lower() != "nan"
-                ), "Cluster name in catalog is nan"
-                self.nearest_cluster_name = cluster_name
-                self.nearest_cluster_members = df.loc[
-                    df.Cluster == cluster_name
-                ]
+                if catalog_name != "Grandjean2020":
+                    cluster_name = nearest_star["Cluster"]
+                    assert (
+                        str(cluster_name).lower() != "nan"
+                    ), "Cluster name in catalog is nan"
+                    self.nearest_cluster_name = cluster_name
+                    self.nearest_cluster_members = df.loc[
+                        df.Cluster == cluster_name
+                    ]
 
-                if self.verbose and np.any(idx):
-                    print(
-                        f"Target is in {self.nearest_cluster_name} ({catalog_name})!"
-                    )
+                    if self.verbose and np.any(idx):
+                        print(
+                            f"Target is in {self.nearest_cluster_name} ({catalog_name})!"
+                        )
                 # return a series
                 return df.iloc[np.argmax(idx)]
             else:
@@ -712,15 +719,20 @@ class Target:
             nearest_star = df.iloc[separations.argmin()]
             self.distance_to_nearest_cluster_member = separations.min()
             self.nearest_cluster_member = nearest_star
-            cluster_name = nearest_star.Cluster
-            self.nearest_cluster_name = cluster_name
-            if df is None:
-                df = Cluster(
-                    cluster_name, verbose=False
-                ).query_cluster_members()
-            # make sure only one cluster
-            idx = df.Cluster == cluster_name
-            self.nearest_cluster_members = df.loc[idx]
+            if radius < self.distance_to_nearest_cluster_member:
+                print(
+                    f"separation ({separations.min().arcsec:.1f} arcsec) > {radius}"
+                )
+            if catalog_name != "Grandjean2020":
+                cluster_name = nearest_star.Cluster
+                self.nearest_cluster_name = cluster_name
+                if df is None:
+                    df = Cluster(
+                        cluster_name, verbose=False
+                    ).query_cluster_members()
+                # make sure only one cluster
+                idx = df.Cluster == cluster_name
+                self.nearest_cluster_members = df.loc[idx]
         return nearest_star
 
     def query_mast(self, radius=3):
@@ -832,6 +844,40 @@ class Target:
             print(f"Found {sum(idx)} references with {param}")
         return vals
 
+    def query_literature_photometry(
+        self, catalogs=["tycho", "gaiadr2", "2mass", "wise"], add_err=True
+    ):
+        """
+        """
+        if self.vizier_tables is None:
+            tabs = self.query_vizier(verbose=False)
+
+        refs = {
+            "tycho": {"tabid": "I/259/tyc2", "cols": ["BTmag", "VTmag"]},
+            "gaiadr2": {
+                "tabid": "I/345/gaia2",
+                "cols": ["Gmag", "BPmag", "RPmag", "Plx"],
+            },
+            "2mass": {"tabid": "II/246/out", "cols": ["Jmag", "Hmag", "Kmag"]},
+            "wise": {
+                "tabid": "II/328/allwise",
+                "cols": ["W1mag", "W2mag", "W3mag", "W4mag"],
+            },
+        }
+
+        phot = []
+        for cat in catalogs:
+            tabid = refs[cat]["tabid"]
+            cols = refs[cat]["cols"]
+            d = tabs[tabid].to_pandas()[cols]
+            phot.append(d)
+            if add_err:
+                ecols = ["e_" + col for col in refs[cat]["cols"]]
+                if cat != "tycho":
+                    e = tabs[tabid].to_pandas()[ecols]
+                    phot.append(e)
+        return pd.concat(phot, axis=1)
+
     def query_eso(self, diameter=3, instru=None, min_snr=1):
         """
         """
@@ -929,7 +975,7 @@ class Target:
             print("No result from ESO")
 
     def query_harps_rv(self, **kwargs):
-        df = get_harps_RV(self.target_coord, **kwargs)
+        df = get_harps_bank(self.target_coord, **kwargs)
         return df
 
     def query_specs_from_tfop(self, clobber=None):

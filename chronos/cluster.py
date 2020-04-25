@@ -64,7 +64,7 @@ CATALOG_DICT = {
     "Curtis2019": "J/AJ/158/77",  # Psc Eri
     "Lodieu2019": "J/A+A/628/A66",  # praesepe, alpa per
     # 'Schneider2019': 'J/AJ/157/234', #young RV
-    # 'Grandjean2020': 'J/A+A/633/A44', #young harps RV
+    "Grandjean2020": "J/A+A/633/A44",  # young harps RV
     # 'Carerra2019': 'J/A+A/623/A80', #apogee+galah
     # 'BailerJones2018': 'I/347', #distances
     # 'Luo2019': 'V/149', #Lamost
@@ -252,6 +252,7 @@ class ClusterCatalog(CatalogDownloader):
                 self.all_clusters = df
                 return df
         elif self.catalog_name == "Gagne2018":
+            print("Not cluster but young, moving group catalog")
             if return_members:
                 df_mem = self.get_members_Gagne2018()
                 self.all_members = df_mem
@@ -314,6 +315,17 @@ class ClusterCatalog(CatalogDownloader):
                 raise ValueError(
                     "No individual cluster info in Lodieu2019 catalog"
                 )
+        elif self.catalog_name == "Grandjean2020":
+            # return both cluster and members
+            print("Not cluster but young, nearby RV catalog")
+            if return_members:
+                df = self.get_catalog_Grandjean2020()
+                self.all_members = df
+                return df
+            else:
+                df = self.get_catalog_Grandjean2020()
+                self.all_clusters = df
+                return df
         elif self.catalog_name in self.catalog_list:
             raise NotImplementedError("Catalog to be added later.")
         # add more catalogs here
@@ -321,6 +333,30 @@ class ClusterCatalog(CatalogDownloader):
             raise ValueError(
                 f"Catalog name not found in list: {self.catalog_list}"
             )
+
+    def get_catalog_Grandjean2020(self):
+        """
+        'J/A+A/633/A44/sources': 'List of targets and positions',
+        'J/A+A/633/A44/tablea1': 'Stellar characteristics of the survey',
+        'J/A+A/633/A44/tablea2': 'Results of the survey'
+        """
+        dfs = []
+        for i in range(3):
+            fp = join(self.data_loc, f"{self.catalog_name}_tab{i}.txt")
+            tab = Table.read(fp, format="ascii")
+            df = tab.to_pandas()
+            dfs.append(df)
+        df = pd.concat(dfs, axis=1)
+        # remove duplicate Name columns
+        df = df.loc[:, ~df.columns.duplicated()]
+        df = _decode_n_drop(df, ["Simbad"])
+        coords = SkyCoord(
+            ra=df["RAJ2000"], dec=df["DEJ2000"], unit=("hourangle", "degree")
+        )
+        df["ra"] = coords.ra.deg
+        df["dec"] = coords.dec.deg
+        df = df.drop(["RAJ2000", "DEJ2000"], axis=1)
+        return df
 
     def get_members_Bouma2019(self):
         """
@@ -961,7 +997,7 @@ class Cluster(ClusterCatalog):
                 # sort in decreasing magnitude
                 df = df.sort_values("phot_g_mean_mag", ascending=True)
                 # use only top_n_brighest
-                gaiaids = df.iloc[:top_n_brighest, "source_id"].values
+                gaiaids = df.iloc[:top_n_brighest]["source_id"].values
             elif gmag_cut is not None:
                 # apply Gmag cut
                 idx = df["phot_g_mean_mag"] < gmag_cut
@@ -989,11 +1025,15 @@ class Cluster(ClusterCatalog):
                 except Exception as e:
                     print(e)
             # save
+            errmsg = "data is empty"
+            assert len(gaia_data) > 0, errmsg
             dd.io.save(fp, gaia_data)
             msg = f"Saved: {fp}"
         else:
             gaia_data = dd.io.load(fp)
             msg = f"Loaded: {fp}"
+            errmsg = "data is empty"
+            assert len(gaia_data) > 0, errmsg
         if self.verbose:
             print(msg)
         # convert dict of series into a single df
