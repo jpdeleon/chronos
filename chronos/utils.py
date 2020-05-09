@@ -27,6 +27,7 @@ from scipy.stats import norm
 from scipy.ndimage import zoom
 import matplotlib.pyplot as pl
 import lightkurve as lk
+from astropy.visualization import hist
 from astropy import units as u
 from astropy import constants as c
 from astropy.timeseries import LombScargle
@@ -1302,19 +1303,21 @@ def get_target_coord(
         )
     # name resolver
     elif epic is not None:
-        # try:
-        #     import k2plr
-        #
-        #     client = k2plr.API()
-        # except Exception:
-        #     raise ModuleNotFoundError(
-        #         "pip install git+https://github.com/rodluger/k2plr.git"
-        #     )
-        # star = client.k2_star(int(epic))
-        # ra = float(star.k2_ra)
-        # dec = float(star.k2_dec)
-        # target_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
-        target_coord = SkyCoord.from_name(f"EPIC {epic}")
+        try:
+            import k2plr
+
+            client = k2plr.API()
+        except Exception:
+            raise ModuleNotFoundError(
+                "pip install git+https://github.com/rodluger/k2plr.git"
+            )
+        try:
+            target_coord = SkyCoord.from_name(f"EPIC {epic}")
+        except Exception:
+            star = client.k2_star(int(epic))
+            ra = float(star.k2_ra)
+            dec = float(star.k2_dec)
+            target_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
     elif gaiaid is not None:
         target_coord = SkyCoord.from_name(f"Gaia DR2 {gaiaid}")
     elif name is not None:
@@ -1828,23 +1831,51 @@ def get_pix_area_threshold(Tmag):
 #         cv2.fillConvexPoly(aperture, points=aperture_contour, color=1)
 #     return aperture
 def get_RV_K(
-    P_days, Ms_Msun, mp_Mearth, ecc=0.0, inc_deg=90.0, with_unit=False
+    P_days,
+    mp_Mearth,
+    Ms_Msun,
+    ecc=0.0,
+    inc_deg=90.0,
+    nsamples=10000,
+    percs=[50, 16, 84],
+    return_samples=False,
+    plot=False,
 ):
-    """Compute the RV semiamplitude in m/s"""
+    """Compute the RV semiamplitude in m/s via Monte Carlo
+    P_days : tuple
+        median and 1-sigma error
+    mp_Mearth : tuple
+        median and 1-sigma error
+    Ms_Msun : tuple
+        median and 1-sigma error
+    """
+    if (
+        isinstance(P_days, tuple),
+        isinstance(Ms_Msun, tuple),
+        isinstance(mp_Mearth, tuple),
+    ):
+        # generate samples
+        P_days = np.random.rand(nsamples) * P_days[1] + P_days[0]
+        mp_Mearth = np.random.rand(nsamples) * mp_Mearth[1] + mp_Mearth[0]
+        Ms_Msun = np.random.rand(nsamples) * Ms_Msun[1] + Ms_Msun[0]
     P = P_days * u.day.to(u.second) * u.second
     Ms = Ms_Msun * u.Msun.to(u.kg) * u.kg
     mp = mp_Mearth * u.Mearth.to(u.kg) * u.kg
     inc = np.deg2rad(inc_deg)
-    K_ms = (
+    K_samples = (
         (2 * np.pi * c.G / (P * Ms * Ms)) ** (1.0 / 3)
         * mp
         * np.sin(inc)
         / unumpy.sqrt(1 - ecc ** 2)
-    )
-    if with_unit:
-        return K_ms
+    ).value
+    K, K_lo, K_hi = np.percentile(K_samples, percs)
+    K, K_siglo, K_sighi = K, K - K_lo, K_hi - K
+    if plot:
+        _ = hist(K_samples, bins="scott")
+    if return_samples:
+        return (K, K_siglo, K_sighi, K_samples)
     else:
-        return K_ms.value
+        return (K, K_siglo, K_sighi)
 
 
 def get_RM_K(vsini_kms, rp_Rearth, Rs_Rsun):

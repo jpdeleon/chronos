@@ -92,6 +92,7 @@ class Star(Target):
             k: self.iso_params0[i] for i, k in enumerate(self.iso_param_names)
         }
         self.perc = [16, 50, 84]
+        self.starhorse = self.query_vizier(verbose=False)["I/349/starhorse"]
 
     def estimate_Av(self, map="sfd", constant=3.1):
         """
@@ -626,7 +627,7 @@ class Star(Target):
 
         Note: See mod._priors for priors; for multi-star systems, see
         https://isochrones.readthedocs.io/en/latest/multiple.html
-        FIXME: nsteps param in mod.fit() cannot be changeed
+        FIXME: nsteps param in mod.fit() cannot be changed
         """
         try:
             from isochrones import (
@@ -929,3 +930,31 @@ class Star(Target):
             fig = corner(samples, labels=self.iso_param_names)
 
         return fig
+
+    @property
+    def toi_Rstar(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar Radius (R_Sun)"]
+        )
+
+    @property
+    def toi_Rstar_err(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar Radius (R_Sun) err"]
+        )
+
+    @property
+    def starhorse_Mstar(self):
+        return (
+            None
+            if self.starhorse is None
+            else self.starhorse["mass50"].quantity[0].value
+        )
+
+    @property
+    def starhorse_Mstar_err(self):
+        raise ValueError("starhorse table has no error!")

@@ -1051,3 +1051,11 @@ class Target:
             if self.toi_params is None
             else self.toi_params["Depth (ppm)"] * 1e-6
         )
+
+    @property
+    def toi_depth_err(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Depth (ppm) err"] * 1e-6
+        )
