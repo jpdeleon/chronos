@@ -92,7 +92,12 @@ class Star(Target):
             k: self.iso_params0[i] for i, k in enumerate(self.iso_param_names)
         }
         self.perc = [16, 50, 84]
-        self.starhorse = self.query_vizier(verbose=False)["I/349/starhorse"]
+        vizier = self.query_vizier(verbose=False)
+        self.starhorse = (
+            vizier["I/349/starhorse"]
+            if "I/349/starhorse" in vizier.keys()
+            else None
+        )
 
     def estimate_Av(self, map="sfd", constant=3.1):
         """

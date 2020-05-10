@@ -484,6 +484,9 @@ def get_harps_bank(
     Check if target has archival HARPS data from:
     http://www.mpia.de/homes/trifonov/HARPS_RVBank.html
     See also https://github.com/3fon3fonov/HARPS_RVBank
+
+    For column meanings:
+    https://www2.mpia-hd.mpg.de/homes/trifonov/HARPS_RVBank_header.txt
     """
     homeurl = "http://www.mpia.de/homes/trifonov/HARPS_RVBank.html"
     fp = os.path.join(outdir, "HARPS_RVBank_table.csv")
@@ -515,7 +518,8 @@ def get_harps_bank(
         # result may be multiple objects
         res = df[idxs]
         if verbose:
-            print(f"There are {len(res)} matches: {res['Target'].values}")
+            targets = res["Target"].values
+            print(f"There are {len(res)} matches: {targets}")
             print(f"{df.loc[idxs, df.columns[7:14]].T}\n\n")
         return res
 

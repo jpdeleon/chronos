@@ -2,8 +2,10 @@
 planet characterization module
 """
 import numpy as np
+import matplotlib.pyplot as pl
 from scipy import stats
 import astropy.units as u
+import pandas as pd
 import astropy.constants as c
 from astropy.visualization import hist
 
@@ -52,6 +54,7 @@ class Planet(Star):
         )
         self.starname = None
         self.planet_params = None
+        self.harps_bank_rv = None
 
     def get_Rp_from_depth(
         self,
@@ -197,8 +200,7 @@ class Planet(Star):
             assert not (
                 (P_days is None) & (Ms_Msun is None) & (mp_Mearth is None)
             )
-
-        return get_RV_K(
+        results = get_RV_K(
             P_days=(P_days, P_days_err),
             mp_Mearth=(mp_Mearth, mp_Mearth_err),
             Ms_Msun=(Ms_Msun, Ms_Msun_err),
@@ -207,9 +209,65 @@ class Planet(Star):
             return_samples=return_samples,
             plot=plot,
         )
+        if self.verbose:
+            print(
+                f"RV K: {results[0]:.2f}-{results[1]:.2f}+{results[2]:.2f} m/s"
+            )
+        return results
 
     # def get_RM_amplitude(self, ecc=0.0, inc_deg=90):
     #     return get_RM_K(vsini_kms, rp_Rearth, Rs_Rsun)
+
+    def query_harps_rv(self):
+        """ """
+        data_url = "https://www2.mpia-hd.mpg.de/homes/trifonov"
+        table = self.query_harps_bank_table()
+        targets = table["Target"].values
+        fp = f"{data_url}/{targets[0]}_RVs/{targets[0]}_harps_all-data_v1.csv"
+        try:
+            df = pd.read_csv(fp, delimiter=";")
+            self.harps_bank_rv = df
+            return df
+        except Exception as e:
+            print(e)
+            print(f"Check url: {fp}")
+
+    def plot_harps_rv(self):
+        """ """
+        if self.harps_bank_rv is None:
+            rv = self.query_harps_rv()
+            assert rv is not None
+        else:
+            rv = self.harps_bank_rv.copy()
+
+        fig, ax = pl.subplots(2, 3, figsize=(12, 8), constrained_layout=True)
+        ax = ax.flatten()
+
+        n = 0
+        bjd0 = rv.BJD.astype(int).min()
+        for col in [
+            "RV_mlc_nzp",
+            "RV_drs_nzp",
+            "RV_mlc",
+            "RV_drs",
+            "RV_mlc_j",
+            "CRX",
+        ]:
+            ax[n].errorbar(
+                rv.BJD - bjd0,
+                rv[col],
+                yerr=rv["e_" + col],
+                marker=".",
+                label=col,
+                ls="",
+            )
+            ax[n].set_xlabel(f"BJD-{bjd0}")
+            ax[n].set_ylabel(col)
+            n += 1
+        fig.suptitle(
+            f" HARPS RV bank: {self.harps_bank_table.Target.values[0]}"
+        )
+        return fig
 
     @property
     def toi_Rp(self):

@@ -153,6 +153,7 @@ class Target:
         # as opposed to self.cc.all_clusters, all_clusters has uncertainties
         # appended in get_cluster_membership
         self.all_clusters = None
+        self.harps_bank_table = None
 
         if self.verbose:
             print(f"Target: {name}")
@@ -974,8 +975,12 @@ class Target:
         else:
             print("No result from ESO")
 
-    def query_harps_rv(self, **kwargs):
-        df = get_harps_bank(self.target_coord, **kwargs)
+    def query_harps_bank_table(self, **kwargs):
+        if self.harps_bank_table is None:
+            df = get_harps_bank(self.target_coord, **kwargs)
+        else:
+            df = self.harps_bank_table.copy()
+        self.harps_bank_table = df
         return df
 
     def query_specs_from_tfop(self, clobber=None):

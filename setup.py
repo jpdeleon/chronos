@@ -47,5 +47,8 @@ setup(
             "git+https://github.com/gregreen/dustmaps.git#egg=dustmaps"
         ],
         "corner": ["git+https://github.com/dfm/corner.py.git#egg=corner"],
+        "maelstrom": [
+            "git+https://github.com/danhey/maelstrom.git#egg=maelstrom"
+        ],
     },
 )
