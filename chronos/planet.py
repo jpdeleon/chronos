@@ -106,6 +106,25 @@ class Planet(Star):
         else:
             return (Rp, Rp_siglo, Rp_sighi)
 
+    def validate_Rp(self):
+        """compare Rp from TOI depth and Rp in TOI;
+        if their difference is large:
+        * Rp_from_toi_depth>>Rp_from_toi, then
+        toi depth is undiluted/overcorrected or Rstar is too small
+        * Rp_from_toi_depth<<Rp_from_toi, then
+        toi depth is diluted/undercorrected or Rstar is too large
+        NOTE: need to confirm if Rp in TOI is un/diluted
+        """
+        Rp_from_toi_depth = (
+            np.sqrt(self.toi_depth) * self.toi_Rstar * u.Rsun.to(u.Rearth)
+        )
+        Rp_from_toi = self.toi_Rp
+        relative_error = (Rp_from_toi_depth / Rp_from_toi - 1) * 100
+        errmsg = "relative error between TOI Rp & sqrt(depth)*Rs>50%"
+        assert abs(relative_error) < 50, errmsg
+        if self.verbose:
+            print(f"Relative error: {relative_error:.1f}%")
+
     def get_Mp_from_MR_relation(
         self, Rp=None, dataset="kepler", use_toi_params=True, **kwargs
     ):

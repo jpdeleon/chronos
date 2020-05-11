@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-test if target coordinate is resolved, and other methods
+test methods of target module
+* target identification
+* target coordinate resolution
+* catalog querries: gaia, tic, mast, vizier, simbad
+* gaia and tic cross-matching
+* cluster catalog cross-matching
 """
 import numpy as np
 import pandas as pd
@@ -113,7 +118,7 @@ def test_tic_match():
 
 def test_harps():
     t = Target(toiid=200)
-    df = t.query_harps_rv()
+    df = t.query_harps_bank_table()
     assert isinstance(df, pd.DataFrame)
 
 

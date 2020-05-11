@@ -20,13 +20,26 @@ $ pytest tests/
 
 ## Modules
 * `target.py`: star bookkeeping, e.g. position, catalog cross-matching, archival data look-up
-* `star.py`: physics-related calculations, e.g. extinction, spectral typing, isochrones, gyrochronology
+* `star.py`: physics-related calculations, e.g. extinction, spectral typing, isochrones, gyrochronology (inherits `target`)
+* `planet.py`: planet parameters calculations (inherits `star`)
 * `cluster.py`: cluster catalog, cluster analysis + plotting
 * `tpf.py`: targetpixel file manipulation
-* `lightcurve.py`: lightcurve analysis either using SPOC or custom pipeline for short and long cadence
+* `lightcurve.py`: lightcurve analysis either using SPOC or custom pipeline for short and long cadence (inherits `tpf`)
 * `k2.py`: tpf and lightcurve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
 * `plot.py`: custom plotting functionalities
 * `utils.py`: useful utilities
+
+
+## Dependencies
+* `astropy` & `astroquery` for star bookkeeping
+* `lightkurve` & `wotan` for lightcurve analysis
+* `emcee` & `corner` for MCMC analysis
+* `isochrones` for isochrones analysis
+* `dustmass` for extinction calculation
+* `stardate` for gyrochronology
+* `mrexo` for mass-radius relation
+[//]: # * `maelstrom` for pulsating binary analysis
+[//]: # * `triceratops` for FPP calculation based on lightcurve shape
 
 
 ## Examples
