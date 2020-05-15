@@ -38,8 +38,8 @@ $ pytest tests/
 * `dustmass` for extinction calculation
 * `stardate` for gyrochronology
 * `mrexo` for mass-radius relation
-[//]: # * `maelstrom` for pulsating binary analysis
-[//]: # * `triceratops` for FPP calculation based on lightcurve shape
+* `maelstrom` for pulsating binary analysis
+* `triceratops` for FPP calculation based on lightcurve shape
 
 
 ## Examples

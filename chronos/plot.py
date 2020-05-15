@@ -497,6 +497,8 @@ def plot_possible_NEBs(gaia_sources, depth, gaiaid=None, kmax=1.0, ax=None):
 def plot_rotation_period(
     time,
     flux,
+    err=None,
+    mask=None,
     method="lombscargle",
     min_per=0.5,
     max_per=30,
@@ -511,8 +513,11 @@ def plot_rotation_period(
         lombscargle or acf (autocorrelation function)
     """
     fig, ax = pl.subplots(1, 2, figsize=figsize, constrained_layout=True)
+    if mask is not None:
+        time, flux = time[~mask], flux[~mask]
+        err = None if err is None else err[~mask]
     if method == "lombscargle":
-        ls = LombScargle(time, flux)
+        ls = LombScargle(time, flux, dy=err)
         frequencies, powers = ls.autopower(
             minimum_frequency=1.0 / max_per, maximum_frequency=1.0 / min_per
         )
