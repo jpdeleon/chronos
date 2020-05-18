@@ -51,20 +51,36 @@ __all__ = [
 ]
 
 CATALOG_DICT = {
-    "CantatGaudin2020": "J/A+A/633/A99",  # 1481 clusters and their members
+    # 570 new open clusters in the Galactic disc
+    "CastroGinard2020": "J/A+A/635/A45",
+    # 1481 clusters and their members
+    "CantatGaudin2020": "J/A+A/633/A99",
+    # open clusters in the Galactic anticenter
+    "CastroGinard2019": "J/A+A/627/A35",
+    #
     "CantatGaudin2018": "J/A+A/618/A93",
-    "Babusiaux2018": "J/A+A/616/A10",  # HRD of Gaia DR2
-    # "Bouma2019": "",
-    "Gagne2018": "J/ApJ/862/138",  # Banyan sigma
-    "Bossini2019": "J/A+A/623/A108/tablea",  # age of 269 OC
-    "Sampedro2017": "J/MNRAS/470/3937",  # OC
+    # HRD of Gaia DR2
+    "Babusiaux2018": "J/A+A/616/A10",
+    # merged catalogs
+    "Bouma2019": "None",
+    # Banyan sigma
+    "Gagne2018": "J/ApJ/862/138",
+    # ages of 269 OC
+    "Bossini2019": "J/A+A/623/A108/tablea",
+    # OC
+    "Sampedro2017": "J/MNRAS/470/3937",
     "Randich2018": "J/A+A/612/A99",
     "Karchenko2013": "J/A+A/558/A53",
-    "Dias2016": "B/ocl",  # OC #"Dias2014"?
-    "Curtis2019": "J/AJ/158/77",  # Psc Eri
-    "Lodieu2019": "J/A+A/628/A66",  # praesepe, alpa per
-    # 'Schneider2019': 'J/AJ/157/234', #young RV
-    "Grandjean2020": "J/A+A/633/A44",  # young harps RV
+    # OC #"Dias2014"?
+    "Dias2016": "B/ocl",
+    # Psc Eri
+    "Curtis2019": "J/AJ/158/77",
+    # praesepe, alpa per
+    "Lodieu2019": "J/A+A/628/A66",
+    # young RV
+    # 'Schneider2019': 'J/AJ/157/234',
+    # young harps RV
+    "Grandjean2020": "J/A+A/633/A44",
     # 'Carerra2019': 'J/A+A/623/A80', #apogee+galah
     # 'BailerJones2018': 'I/347', #distances
     # 'Luo2019': 'V/149', #Lamost
@@ -93,6 +109,11 @@ class CatalogDownloader:
         self.clobber = clobber
         self.data_loc = join(data_loc, self.catalog_name)
         self.tables = None
+
+    def __repr__(self):
+        fields = signature(self.__init__).parameters
+        values = [repr(getattr(self, f)) for f in fields]
+        return f"{type(self).__name__}(catalog_name={values[0]})"
 
     def get_tables_from_vizier(self, row_limit=50, save=False, clobber=None):
         """row_limit-1 to download all rows"""
@@ -135,6 +156,13 @@ class CatalogDownloader:
                     print(f"Saved: {fp}")
             else:
                 print("Set clobber=True to overwrite.")
+
+    def get_vizier_url(self, catalog_name=None):
+        if catalog_name is None:
+            catalog_name = self.catalog_name
+        base_url = "https://vizier.u-strasbg.fr/viz-bin/VizieR?-source="
+        vizier_key = self.catalog_dict[catalog_name]
+        return base_url + vizier_key
 
 
 class ClusterCatalog(CatalogDownloader):
@@ -198,8 +226,9 @@ class ClusterCatalog(CatalogDownloader):
         -------
         df : pandas.DataFrame
             dataframe parameters of the cluster or its individual members
-
-        Note: Use the following:
+        Note:
+        1. See self.vizier_url() for details
+        2. Use the following:
         if np.any(df["parallax"] < 0):
             df = df[(df["parallax"] >= 0) | (df["parallax"].isnull())]
             if verbose:
@@ -229,6 +258,24 @@ class ClusterCatalog(CatalogDownloader):
                 return df_mem
             else:
                 df = self.get_clusters_CantatGaudin2020()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "CastroGinard2020":
+            if return_members:
+                df_mem = self.get_members_CastroGinard2020()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_CastroGinard2020()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "CastroGinard2019":
+            if return_members:
+                df_mem = self.get_members_CastroGinard2019()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_CastroGinard2019()
                 self.all_clusters = df
                 return df
         elif self.catalog_name == "CantatGaudin2018":
@@ -334,28 +381,114 @@ class ClusterCatalog(CatalogDownloader):
                 f"Catalog name not found in list: {self.catalog_list}"
             )
 
-    def get_catalog_Grandjean2020(self):
+    def get_clusters_CastroGinard2020(self):
+        """Castro-Ginard et al. 2020,
         """
-        'J/A+A/633/A44/sources': 'List of targets and positions',
-        'J/A+A/633/A44/tablea1': 'Stellar characteristics of the survey',
-        'J/A+A/633/A44/tablea2': 'Results of the survey'
-        """
-        dfs = []
-        for i in range(3):
-            fp = join(self.data_loc, f"{self.catalog_name}_tab{i}.txt")
-            tab = Table.read(fp, format="ascii")
-            df = tab.to_pandas()
-            dfs.append(df)
-        df = pd.concat(dfs, axis=1)
-        # remove duplicate Name columns
-        df = df.loc[:, ~df.columns.duplicated()]
-        df = _decode_n_drop(df, ["Simbad"])
-        coords = SkyCoord(
-            ra=df["RAJ2000"], dec=df["DEJ2000"], unit=("hourangle", "degree")
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
-        df["ra"] = coords.ra.deg
-        df["dec"] = coords.dec.deg
-        df = df.drop(["RAJ2000", "DEJ2000"], axis=1)
+        df = df.rename(
+            {
+                "RA_ICRS": "raJ2015",
+                "e_RA_ICRS": "e_raJ2015",
+                "DE_ICRS": "decJ2015",
+                "e_DE_ICRS": "e_decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            },
+            axis=1,
+        )
+        # add distance
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_CastroGinard2020(self):
+        """Castro-Ginard et al. 2020,
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        )
+        df = df.rename(
+            {
+                "RA_ICRS": "raJ2015",
+                "DE_ICRS": "decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "Source": "source_id",
+            },
+            axis=1,
+        )
+        return df
+
+    def get_clusters_CastroGinard2019(self):
+        """Castro-Ginard et al. 2019,
+        open clusters in the galactic anti-center
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        )
+        df = df.rename(
+            {
+                "RA_ICRS": "raJ2015",
+                "e_RA_ICRS": "e_raJ2015",
+                "DE_ICRS": "decJ2015",
+                "e_DE_ICRS": "e_decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            },
+            axis=1,
+        )
+        # add distance
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_CastroGinard2019(self):
+        """Castro-Ginard et al. 2019,
+        open clusters in the galactic anti-center
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        )
+        df = df.rename(
+            {
+                "RA_ICRS": "raJ2015",
+                "DE_ICRS": "decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "Source": "source_id",
+            },
+            axis=1,
+        )
         return df
 
     def get_members_Bouma2019(self):
@@ -599,6 +732,30 @@ class ClusterCatalog(CatalogDownloader):
             },
             axis=1,
         )
+        return df
+
+    def get_catalog_Grandjean2020(self):
+        """Grandjean et al. 2020,
+        'J/A+A/633/A44/sources': 'List of targets and positions',
+        'J/A+A/633/A44/tablea1': 'Stellar characteristics of the survey',
+        'J/A+A/633/A44/tablea2': 'Results of the survey'
+        """
+        dfs = []
+        for i in range(3):
+            fp = join(self.data_loc, f"{self.catalog_name}_tab{i}.txt")
+            tab = Table.read(fp, format="ascii")
+            df = tab.to_pandas()
+            dfs.append(df)
+        df = pd.concat(dfs, axis=1)
+        # remove duplicate Name columns
+        df = df.loc[:, ~df.columns.duplicated()]
+        df = _decode_n_drop(df, ["Simbad"])
+        coords = SkyCoord(
+            ra=df["RAJ2000"], dec=df["DEJ2000"], unit=("hourangle", "degree")
+        )
+        df["ra"] = coords.ra.deg
+        df["dec"] = coords.dec.deg
+        df = df.drop(["RAJ2000", "DEJ2000"], axis=1)
         return df
 
     def get_clusters_Gagne2018(self):

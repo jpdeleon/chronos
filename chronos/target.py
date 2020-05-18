@@ -527,36 +527,31 @@ class Target:
         params = "ra dec parallax pmra pmdec RV".split()
         gparams = "ra dec parallax pmra pmdec radial_velocity".split()
 
-        if self.all_clusters is None:
-            if self.cc is None:
-                self.cc = ClusterCatalog(
-                    catalog_name=catalog_name, verbose=False
-                )
-            clusters = self.cc.query_catalog(return_members=False)
+        if self.cc is None:
+            self.cc = ClusterCatalog(catalog_name=catalog_name, verbose=False)
+        clusters = self.cc.query_catalog(return_members=False)
 
-            members = self.cc.query_catalog(return_members=True)
-            # estimate cluster parameter uncertainties from all members
-            # err = pd.pivot_table(members, index=["Cluster"], aggfunc=np.median)[params]
-            # err.columns = ['e_'+c for c in err_columns]
-            # pd.merge(clusters, errs, on='index')
-            g = members.groupby("Cluster")
-            # add RV based on each cluster mean
-            clusters = clusters.join(g.RV.mean(), on="Cluster")
-            self.all_clusters = clusters
+        members = self.cc.query_catalog(return_members=True)
+        # estimate cluster parameter uncertainties from all members
+        # err = pd.pivot_table(members, index=["Cluster"], aggfunc=np.median)[params]
+        # err.columns = ['e_'+c for c in err_columns]
+        # pd.merge(clusters, errs, on='index')
+        g = members.groupby("Cluster")
+        # add RV based on each cluster mean
+        clusters = clusters.join(g.RV.mean(), on="Cluster")
+        self.all_clusters = clusters
 
-            # add error for each param
-            param_errs = {}
-            for param in params:
-                name = "e_" + param
-
+        # add error for each param
+        param_errs = {}
+        for param in params:
+            name = "e_" + param
+            if name not in members.columns:
                 d = g[param].std()  # 1-sigma
                 d.name = name
                 param_errs[name] = d
 
                 # join it as a new column in clusters
                 clusters = clusters.join(d, on="Cluster")
-        else:
-            clusters = self.all_clusters
 
         idxs = []
         for gparam, param in zip(gparams, params):
