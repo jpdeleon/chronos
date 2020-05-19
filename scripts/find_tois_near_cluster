@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 """
+DEPRECATED: see star.get_cluster_membership()
+or find_cluster_near_target script
 Find the nearest cluster to all tois
 """
 from os.path import join
@@ -30,7 +32,9 @@ def get_tois_near_cluster(
     """
     if tois is None:
         tois = get_tois(
-            clobber=clobber, verbose=verbose, remove_known_planets=remove_known_planets
+            clobber=clobber,
+            verbose=verbose,
+            remove_known_planets=remove_known_planets,
         )
 
     toi_list = {}
@@ -111,8 +115,12 @@ if __name__ == "__main__":
         action="store_false",
         default=True,
     )
-    ap.add_argument("--pmtol", help="proper motion difference tolerance", default=10)
-    ap.add_argument("--postol", help="position difference tolerance", default=10)
+    ap.add_argument(
+        "--pmtol", help="proper motion difference tolerance", default=10
+    )
+    ap.add_argument(
+        "--postol", help="position difference tolerance", default=10
+    )
     ap.add_argument("-v", "--verbose", action="store_true", default=True)
     ap.add_argument("-c", "--clobber", action="store_true", default=True)
     args = ap.parse_args()

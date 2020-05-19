@@ -62,9 +62,16 @@ CATALOG_DICT = {
     # HRD of Gaia DR2
     "Babusiaux2018": "J/A+A/616/A10",
     # merged catalogs
-    "Bouma2019": "None",
+    "Bouma2019": "J/ApJS/245/13",
     # Banyan sigma
-    "Gagne2018": "J/ApJ/862/138",
+    "Gagne2018a": "J/ApJ/860/43",  # TGAS
+    "Gagne2018b": "J/ApJ/862/138",  # DR2
+    # Argus assoc via simbad link
+    "Zuckerman2019": "None",
+    # eta Cha assoc
+    "Murphy2013": "J/MNRAS/435/1325",
+    # nu Cha assoc
+    "Bell2015": "J/MNRAS/454/593",
     # ages of 269 OC
     "Bossini2019": "J/A+A/623/A108/tablea",
     # OC
@@ -298,14 +305,49 @@ class ClusterCatalog(CatalogDownloader):
                 df = self.get_clusters_Babusiaux2018()
                 self.all_clusters = df
                 return df
-        elif self.catalog_name == "Gagne2018":
+        elif self.catalog_name == "Gagne2018a":
             print("Not cluster but young, moving group catalog")
             if return_members:
-                df_mem = self.get_members_Gagne2018()
+                df_mem = self.get_members_Gagne2018a()
                 self.all_members = df_mem
                 return df_mem
             else:
-                df = self.get_clusters_Gagne2018()
+                df = self.get_clusters_Gagne2018a()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Gagne2018b":
+            print("Not cluster but young, moving group catalog")
+            if return_members:
+                df_mem = self.get_members_Gagne2018b()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Gagne2018b()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Zuckerman2019":
+            print("Not cluster but only Argus association")
+            df_mem = self.get_members_Zuckerman2019()
+            self.all_members = df_mem
+            return df_mem
+        elif self.catalog_name == "Murphy2013":
+            print("Not cluster but only eta Cha association")
+            if return_members:
+                df_mem = self.get_members_Murphy2013()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Murphy2013()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Bell2015":
+            print("Not cluster but only nu Cha association")
+            if return_members:
+                df_mem = self.get_members_Bell2015()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Bell2015()
                 self.all_clusters = df
                 return df
         elif self.catalog_name == "Dias2016":
@@ -391,7 +433,7 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "e_RA_ICRS": "e_raJ2015",
                 "DE_ICRS": "decJ2015",
@@ -404,8 +446,7 @@ class ClusterCatalog(CatalogDownloader):
                 "e_pmRA": "e_pmra",
                 "pmDE": "pmdec",
                 "e_pmDE": "e_pmdec",
-            },
-            axis=1,
+            }
         )
         # add distance
         df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
@@ -421,7 +462,7 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
@@ -430,8 +471,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "Source": "source_id",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -446,7 +486,7 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "e_RA_ICRS": "e_raJ2015",
                 "DE_ICRS": "decJ2015",
@@ -459,8 +499,7 @@ class ClusterCatalog(CatalogDownloader):
                 "e_pmRA": "e_pmra",
                 "pmDE": "pmdec",
                 "e_pmDE": "e_pmdec",
-            },
-            axis=1,
+            }
         )
         # add distance
         df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
@@ -477,7 +516,7 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
@@ -486,8 +525,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "Source": "source_id",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -584,7 +622,7 @@ class ClusterCatalog(CatalogDownloader):
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "dmode_01", "dmode-01"])
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
@@ -594,8 +632,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "N": "Nstars",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -609,7 +646,7 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
@@ -620,8 +657,7 @@ class ClusterCatalog(CatalogDownloader):
                 "Plx": "parallax",
                 "Gmag": "phot_g_mean_mag",
                 "BP-RP": "bp_rp",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -634,15 +670,14 @@ class ClusterCatalog(CatalogDownloader):
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "dmode_01", "dmode-01"])
         df = df.rename(
-            {
+            columns={
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
                 "dmode": "distance",
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "plx": "parallax",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -657,7 +692,7 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
@@ -669,8 +704,7 @@ class ClusterCatalog(CatalogDownloader):
                 "plx": "parallax",
                 # 'Gmag': 'phot_g_mean_mag',
                 "BP-RP": "bp_rp",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -690,7 +724,7 @@ class ClusterCatalog(CatalogDownloader):
         # df["distance"] = Distance(distmod=df["DM"]).pc
         df = _decode_n_drop(df, ["SimbadName"])
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 # '_RA.icrs':'ra', '_DE.icrs':'dec',
@@ -702,8 +736,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "plx": "parallax",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -722,15 +755,14 @@ class ClusterCatalog(CatalogDownloader):
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
         df = df.rename(
-            {
+            columns={
                 "RAdeg": "raJ2015",
                 "DEdeg": "decJ2015",
                 "Source": "source_id",
                 "_RA": "ra",
                 "_DE": "dec",
                 "plx": "parallax",
-            },
-            axis=1,
+            }
         )
         return df
 
@@ -758,10 +790,55 @@ class ClusterCatalog(CatalogDownloader):
         df = df.drop(["RAJ2000", "DEJ2000"], axis=1)
         return df
 
-    def get_clusters_Gagne2018(self):
+    def get_clusters_Gagne2018a(self):
         """
-        BANYAN. XII. New members of nearby young associations from Gaia-Tycho data.
-        2018ApJ...860...43G2018ApJ...860...43G
+        BANYAN. XII. New members from Gaia-Tycho data (Gagne+, 2018a)
+        https://ui.adsabs.harvard.edu/abs/2018ApJ...860...43G/abstract
+
+        J/ApJ/860/43/refs	References (table added by CDS) (148 rows)
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab5.txt")
+        df = Table.read(fp, format="ascii").to_pandas()
+        return df
+
+    def get_members_Gagne2018a(self):
+        """
+        BANYAN XIII. A First Look at Nearby Young Associations with Gaia DR2
+        https://ui.adsabs.harvard.edu/abs/2018ApJ...862..138G/abstract
+        J/ApJ/860/43/table4 (c)Candidate members recovered in this work (708 rows)
+        J/ApJ/860/43/seq1	*CMD for the bona fide members of young assoc – Ages<20Myr (100 rows)
+        J/ApJ/860/43/seq2	*CMD for the bona fide members of young assoc – Ages: 20-100Myr (100 rows)
+        J/ApJ/860/43/seq3	*CMD for the bona fide members of young assoc – Ages: 100-800Myr (100 rows)
+        J/ApJ/860/43/seq4	*CMD – Ages: Field (>800Myr) (Interactive plot) (Note) (100 rows)
+        """
+        fp0 = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab0 = Table.read(fp0, format="ascii").to_pandas()
+        # fp1 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        # tab1 = Table.read(fp1, format="ascii").to_pandas()
+        # fp2 = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        # tab2 = Table.read(fp2, format="ascii").to_pandas()
+        # fp3 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
+        # tab3 = Table.read(fp3, format="ascii").to_pandas()
+        # fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
+        # tab4 = Table.read(fp4, format="ascii").to_pandas()
+        # df = pd.concat([tab0,tab1,tab2,tab3,tab4], axis=0, join="outer")).reset_index()
+        df = _decode_n_drop(tab0, ["SimbadName"])
+        df = df.rename(
+            columns={  # 'Assoc':'Cluster',
+                "RAJ2000": "ra",
+                "DEJ2000": "dec",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "plx": "parallax",
+                "RVel": "RV",
+                "Dist": "distance",
+            }
+        )
+        return df
+
+    def get_clusters_Gagne2018b(self):
+        """
+        BANYAN. XIII.
 
         'J/ApJ/862/138/refs': 'References',
         """
@@ -771,33 +848,42 @@ class ClusterCatalog(CatalogDownloader):
         df["Name"] = df.SimbadName.apply(lambda x: " ".join(x.split(" ")[1:]))
         df = _decode_n_drop(df, ["_RA", "_DE", "SimbadName"])
         df = df.rename(
-            {  # 'Assoc':'Cluster',
+            columns={  # 'Assoc':'Cluster',
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "plx": "parallax",
                 "RVel": "RV",
-            },
-            axis=1,
+            }
         )
         return df
 
-    def get_members_Gagne2018(self):
-        """BANYAN. XII. New members from Gaia-Tycho data (Gagne+, 2018)
-        https://ui.adsabs.harvard.edu/abs/2018ApJ...860...43G/abstract
+    def get_members_Gagne2018b(self):
+        """
+        BANYAN XIII. A First Look at Nearby Young Associations with Gaia DR2
+        https://ui.adsabs.harvard.edu/abs/2018ApJ...862..138G/abstract
 
         'J/ApJ/862/138/table1': 'Nearby young associations considered here',
         'J/ApJ/862/138/table2': 'New candidates identified in this work',
         'J/ApJ/862/138/table3': 'Co-moving systems identified in this work',
         'J/ApJ/862/138/table5': 'New bona fide members'
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = _decode_n_drop(df, ["GaiaDR2"])
+        fp1 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab1 = Table.read(fp1, format="ascii").to_pandas()
+        fp2 = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        tab2 = Table.read(fp2, format="ascii").to_pandas()
+        fp3 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
+        tab3 = Table.read(fp3, format="ascii").to_pandas()
+        fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
+        tab4 = Table.read(fp4, format="ascii").to_pandas()
+        # tab4["Assoc"] = 'Upper Cr?'
+        df = pd.concat(
+            [tab1, tab2, tab3, tab4], axis=0, join="outer"
+        ).reset_index()
+        df = _decode_n_drop(df, ["GaiaDR2", "Auth", "BibCode"])
         df = df.rename(
-            {
+            columns={
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
                 "pmRA": "pmra",
@@ -809,6 +895,64 @@ class ClusterCatalog(CatalogDownloader):
         )
         return df
 
+    def get_members_Zuckerman2019(self):
+        """Argus assoc
+        https://ui.adsabs.harvard.edu/abs/2019ApJ...870...27Z/abstract
+        """
+        simbad_url = "http://simbad.u-strasbg.fr/simbad/sim-ref"
+        simbad_url += "?querymethod=bib&simbo=on&submit=submit"
+        simbad_url += "+bibcode&bibcode=2019ApJ...870...27Z"
+
+        d = pd.read_html(simbad_url)
+        return d[3]
+
+    def get_clusters_Murphy2013(self):
+        """Murphy+2013:
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        return df
+
+    def get_members_Murphy2013(self):
+        """Murphy+2013:
+        """
+        fp1 = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab1 = Table.read(fp1, format="ascii").to_pandas()
+        fp2 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab2 = Table.read(fp2, format="ascii").to_pandas()
+        df = pd.concat([tab1, tab2], axis=0, join="outer")
+        df = _decode_n_drop(df, ["Simbad"])
+        df = df.rename(
+            columns={
+                "RAJ2000": "ra",
+                "DEJ2000": "dec",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "ID": "epsCha_id",
+                "logTe": "logTeff",
+                "logLb": "logLbol",
+                "Dist": "distance",
+            }
+        )
+        return df
+
+    def get_clusters_Bell2015(self):
+        """Bell+2015:
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        return df
+
+    def get_members_Bell2015(self):
+        """Bell+2015:
+        """
+        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = Table.read(fp, format="ascii").to_pandas()
+        df = df.rename(columns={"_RA": "ra", "_DE": "dec", "Dist": "distance"})
+        return df
+
     def get_clusters_Sampedro2017(self):
         """
         """
@@ -817,7 +961,7 @@ class ClusterCatalog(CatalogDownloader):
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "File"])
         df = df.rename(
-            {
+            columns={
                 "Name": "Cluster",
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
@@ -837,7 +981,7 @@ class ClusterCatalog(CatalogDownloader):
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["GaiaDR2"])
         df = df.rename(
-            {
+            columns={
                 "RA_ICRS": "ra",
                 "DE_ICRS": "dec",
                 "pmRA": "pmra",

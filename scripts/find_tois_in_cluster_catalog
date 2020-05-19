@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+"""
+UNDER DEVELOPMENT 
+(based on seidan/toi/find gaia ID of tois in clusters.ipynb)
+"""
+from tqdm import tqdm
+import pandas as pd
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+
+import chronos as cr
+
+if __name__="__main__":
+    tois = cr.get_tois(clobber=True, verbose=True)
+    #update
+    tois_gaia = cr.query_gaia_params_of_all_tois(clobber=False, update=True)
+    tois_gaia.source_id = tois_gaia.source_id.astype(int)
+
+    cc = cr.ClusterCatalog()
+    df_mem = cc.query_catalog(return_members=True)
+    #df_mem.columns
+    idx1 = df_mem.source_id.isin(tois_gaia.source_id)
+    idx2 = tois_gaia.source_id.isin(df_mem.source_id)
+
+    #merge
+    # cols = ['source_id','clusters','reference','Cluster','k13_name_match','k13_logt','distance']
+    cols = df_mem.columns
+    short_list = pd.merge(left=tois_gaia.loc[idx2, 'source_id'].reset_index(),
+                        right=df_mem.loc[idx1, cols], 
+                        on='source_id')
+
+    short_list = short_list.loc[short_list.Cluster.dropna().index] 
+    toi_short_list = tois[tois.TOI.isin(short_list.TOI.tolist())]
+    short_list = pd.merge(left=short_list,
+                        right=toi_short_list, 
+                        on='TOI')
+
+    columns = ['TOI','RA','Dec','Cluster','reference','Comments']
+    if args.save_csv:
+        short_list[columns].to_csv('TOI_in_cluster_candidates.csv')
+
+    coords = SkyCoord(ra=short_list['RA'],
+            dec=short_list['Dec'], 
+            unit=('hourangle','degree'))
+    if args.verbose:
+        for toi in short_list.TOI:
+            t = cr.Target(toiid=toi,verbose=False)
+            _ = t.query_tic_catalog(return_nearest_xmatch=True)
+            print(toi, t.tic_params['ID'])
+    
+        #observable with MuSCATs
+        print(short_list[coords.dec.deg>-30][columns])

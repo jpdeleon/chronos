@@ -852,6 +852,55 @@ class Star(Target):
         else:
             return (Av, Av_errp, Av_errm)
 
+    def get_inclination(self, Prot=None, Rstar=None, vsini=None):
+        """estimate stellar inclination [deg]; queries vizier if
+        arguments are None
+        Prot : float
+            rotational period [days]
+        Rstar : float
+            stellar radius [Rsun]
+        vsini : float
+            projected rotational velocity [km/s]
+        """
+        if (Prot is None) or (Rstar is None) or (vsini is None):
+            if Prot is None:
+                res = self.query_vizier_param("Prot")
+                if len(res) == 0:
+                    errmsg = "No Prot found in literature. Provide Prot."
+                    print(errmsg)
+                else:
+                    print(f"Choose input for Prot:\n{res}")
+            if vsini is None:
+                res = self.query_vizier_param("vsini")
+                if len(res) == 0:
+                    errmsg = "No vsini found in literature. Provide vsini."
+                    print(errmsg)
+                else:
+                    print(f"Choose input for vsini:\n{res}")
+            else:
+                if vsini > 200:
+                    print("Note: vsini in km/s!")
+            if Rstar is None:
+                d = {}
+                if self.toi_Rstar is not None:
+                    d.update({"ticv8": self.toi_Rstar})
+                if self.gaia_params is None:
+                    g = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+                else:
+                    g = self.gaia_params
+                d.update({"gaia DR2": g.radius_val})
+                print(f"Choose input for Rstar:\n{d}")
+        else:
+            v_rad = (
+                2
+                * np.pi
+                * Rstar
+                * u.Rsun.to(u.km)
+                / (Prot * u.day.to(u.second))
+            )
+            i = np.arcsin(vsini / v_rad)
+            return np.rad2deg(i)
+
     def plot_flatchain(self, burnin=None):
         """
         useful to estimate burn-in
