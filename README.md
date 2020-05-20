@@ -7,8 +7,8 @@
 ## Installation
 ```bash
 $ git clone git@github.com:jpdeleon/chronos.git
-$ cd chronos && python setup.py install
-$ python setup.py develop (optional)
+$ cd chronos
+$ pip install -e .
 ```
 
 
@@ -31,16 +31,23 @@ $ pytest tests/
 
 
 ## Dependencies
-* `astropy` & `astroquery` for star bookkeeping
-* `lightkurve` & `wotan` for lightcurve analysis
+* `astropy` & `astroquery` for star and catalog bookkeeping
+* `lightkurve`, `transitleastsquares`, & `wotan` for lightcurve analysis
 * `emcee` & `corner` for MCMC analysis
 * `isochrones` for isochrones analysis
 * `dustmass` for extinction calculation
 * `stardate` for gyrochronology
 * `mrexo` for mass-radius relation
-* `maelstrom` for pulsating binary analysis
-* `triceratops` for FPP calculation based on lightcurve shape
 
+## For next update
+* `contaminante` for pixel level modeling 
+* `allesfitter` for lightcurve model fitting
+* `PyPopStar` for stellar population analysis
+* `sedfitter` for SED fitting
+* `vespa` & `triceratops` for FPP calculation based on lightcurve shape
+* `maelstrom` for pulsating binary analysis 
+* `stella` & `fleck` for flare detection and modeling
+* `eleanor` & `f3` for TESS FFI
 
 ## Examples
 Check [examples in nbviewer](https://nbviewer.jupyter.org/github/jpdeleon/chronos/tree/master/notebooks/).

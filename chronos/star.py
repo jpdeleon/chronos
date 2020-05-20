@@ -100,7 +100,7 @@ class Star(Target):
             else None
         )
 
-    def estimate_Av(self, map="sfd", constant=3.1):
+    def estimate_Av(self, map="sfd", constant=None):
         """
         compute the extinction Av from color index E(B-V)
         estimated from dustmaps via Av=constant*E(B-V)
@@ -108,7 +108,9 @@ class Star(Target):
         Parameters
         ----------
         map : str
-            dust map; see https://dustmaps.readthedocs.io/en/latest/maps.html
+            dust map
+        See below for conversion from E(B-V) to Av:
+        https://dustmaps.readthedocs.io/en/latest/examples.html
         """
         try:
             import dustmaps
@@ -120,13 +122,20 @@ class Star(Target):
 
             # sfd.fetch()
             dust_map = sfd.SFDQuery()
+            constant = 2.742 if constant is None else constant
         elif map == "planck":
             from dustmaps import planck
 
             # planck.fetch()
             dust_map = planck.PlanckQuery()
+            constant = 3.1 if constant is None else constant
+        elif map == "bayestar":
+            from dustmaps import bayestar
+
+            bayestar.BayestarQuery()
+            dust_map = 2.742 if constant is None else constant
         else:
-            raise ValueError(f"Available maps: (sfd,planck)")
+            raise ValueError(f"Available maps: (sfd,planck,bayestar)")
 
         ebv = dust_map(self.target_coord)
         Av = constant * ebv
@@ -606,6 +615,8 @@ class Star(Target):
                     "K": (tp["Kmag"], tp["e_Kmag"]),
                 }
             )
+        if self.ticid is not None:
+            params.update({"Tess": self.toi_Tmag})
         # remove nan if there is any
         iso_params = {}
         for k in params:
@@ -633,7 +644,8 @@ class Star(Target):
             if np.any(np.isnan(vals)):
                 print(f"{k} is ignored due to nan ({vals})")
             else:
-                par = k.title() if k not in ["parallax", "logg", "feh"] else k
+                par = k.upper() if k not in ["parallax", "logg", "feh"] else k
+                par = par.title() if par not in ["Teff"] else par
                 starfit_arr.append(f"{par} = {vals[0]}, {vals[1]}")
         outdir = target_name if outdir == "." else outdir
         outpath = Path(outdir, "star.ini")
@@ -652,11 +664,22 @@ class Star(Target):
         fpp_arr = []
         fpp_arr.append(f"name = {target_name}")
         fpp_arr.append(f"ra = {self.target_coord.ra.deg:.4f}")
-        fpp_arr.append(f"deg = {self.target_coord.dec.deg:.4f}")
-        if self.toi_period is not None:
+        fpp_arr.append(f"dec = {self.target_coord.dec.deg:.4f}")
+        if self.toi_period is None:
+            print("Manually append 'period' to file")
+        else:
             fpp_arr.append(f"period = {self.toi_period:.4f}")
         if self.toi_depth is not None:
+            print("Manually append 'rprs' to file")
+        else:
             fpp_arr.append(f"rprs = {np.sqrt(self.toi_depth):.2f}")
+        if self.mission == "TESS":
+            fpp_arr.append(f"cadence = {30*u.minutes.to(u.days):.2f}")
+            fpp_arr.append(f"band = TESS")
+        else:
+            fpp_arr.append(f"cadence = {30*u.minutes.to(u.days):.2f}")
+            fpp_arr.append(f"band = Kepler")
+        print("Double check entries for candence and band.")
         fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
         fpp_arr.append("[constraints]")
         fpp_arr.append(f"maxrad = 60.0")  # arcsec

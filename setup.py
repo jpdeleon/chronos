@@ -34,6 +34,9 @@ setup(
         "deepdish==0.3.6",
     ],
     extras_requires={
+        "contaminante": [
+            "git+https://github.com/christinahedges/contaminante#egg=contaminante"
+        ],
         "popstar": [
             "git+https://github.com/astropy/PyPopStar.git#egg=PyPopStar"
         ],
@@ -50,5 +53,6 @@ setup(
         "maelstrom": [
             "git+https://github.com/danhey/maelstrom.git#egg=maelstrom"
         ],
+        "fleck": ["git+https://github.com/bmorris3/fleck.git#egg=fleck"],
     },
 )

@@ -1000,6 +1000,10 @@ class Target:
         return specs_table[idx]
 
     @property
+    def toi_Tmag(self):
+        return None if self.toi_params is None else self.toi_params["TESS Mag"]
+
+    @property
     def toi_period(self):
         return (
             None
