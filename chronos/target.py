@@ -102,7 +102,8 @@ class Target:
             elif self.target_name[:4].lower() == "gaia":
                 if gaiaDR2id is None:
                     self.gaiaid = int(name.strip()[4:])
-
+        if self.target_name is None:
+            self.target_name = name
         if (self.ticid is not None) and (self.toiid is None):
             tois = get_tois(clobber=True, verbose=False)
             idx = tois["TIC ID"].isin([self.ticid])

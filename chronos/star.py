@@ -4,6 +4,7 @@ Stellar characterization module
 """
 # Import standard library
 from os.path import join
+from pathlib import Path
 
 # Import modules
 from pprint import pprint
@@ -510,6 +511,8 @@ class Star(Target):
         min_mag_err=0.01,
         add_jhk=False,
         inflate_plx_err=True,
+        save_ini=False,
+        outdir="."
         # phot_bands='G bp rp J H K'.split(),
         # star_params='teff logg parallax'.split()
     ):
@@ -519,9 +522,9 @@ class Star(Target):
         min_mag_err : float
             minimum magnitude error
         add_jhk : bool
-            appends JHKs photometry if True
+            appends JHKs photometry (default=False)
         inflate_plx_err : bool
-            adds 0.01 parallax error in quadrature if True
+            adds 0.01 parallax error in quadrature (default=True)
         """
         if self.gaia_params is None:
             gp = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
@@ -607,13 +610,28 @@ class Star(Target):
             )
         # remove nan if there is any
         iso_params = {}
+        iso_params_arr = []
         for k in params:
             vals = map_float(params[k])
             if np.any(np.isnan(vals)):
                 print(f"{k} is ignored due to nan ({vals})")
             else:
                 iso_params[k] = vals
+                iso_params_arr.append(
+                    "{} = {}, {}".format(k, vals[0], vals[1])
+                )
         self.iso_params = iso_params
+        if save_ini:
+            outdir = (
+                self.target_name.replace(" ", "") if outdir == "." else outdir
+            )
+            outpath = Path(outdir, "star.ini")
+            if not Path(outdir).exists():
+                Path(outdir).mkdir()
+            np.savetxt(
+                outpath, iso_params_arr, fmt="%2s", header=self.target_name
+            )
+            print(f"Saved: {outpath}\n")
         return iso_params
 
     def run_isochrones(

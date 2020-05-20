@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """
+UNDER DEVELOPMENT:
 Find the nearest cluster to target and optionally show cluster membership plots
 
 See outlier rejection here:
@@ -7,9 +8,8 @@ https://scikit-learn.org/stable/auto_examples/plot_anomaly_comparison.html#sphx-
 """
 from os.path import join
 from argparse import ArgumentParser
-
+import numpy as np
 import matplotlib.pyplot as pl
-
 import chronos as cr
 
 if __name__ == "__main__":
@@ -72,21 +72,25 @@ if __name__ == "__main__":
     )
 
     if args.cluster is None:
-        cluster_info = t.get_cluster_membership(catalog_name=args.catalog)
+        cluster_info, idxs = t.get_cluster_membership(
+            catalog_name=args.catalog, return_idxs=True, frac=0.5, sigma=5
+        )
         if cluster_info is None:
             raise ValueError("Target is unlikely a cluster member.")
         cluster_name = cluster_info.Cluster
     else:
         cluster_name = args.cluster
-    c = cr.Cluster(cluster_name=cluster_name, verbose=args.verbose)
-    df_mem = c.query_cluster_members()
-    # s = t.get_nearest_cluster_member(df=df_mem, match_id=~args.ignore_gaiaid)
-    # update members
-    # df_mem = t.nearest_cluster_members
 
     # print parameters of matched cluster member
     if (args.verbose is False) and (args.show_plot is False):
         print(cluster_info)
+
+    c = cr.Cluster(cluster_name=cluster_name)
+    df_target = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+    if np.isnan(df_target.radial_velocity):
+        rv = np.nanmean(list(t.query_vizier_param("RV").values()))
+        if not np.isnan(rv):
+            df_target.radial_velocity = rv
 
     if args.save or args.show_plot:
         # HR diagram
@@ -94,35 +98,29 @@ if __name__ == "__main__":
         if (len(matched_cname) == 0) or (matched_cname == "nan"):
             raise ValueError(f"nearest cluster match is NaN")
 
-        #
-        c = cr.Cluster(
-            cluster_name=t.nearest_cluster_name, verbose=args.verbose
+        ax = c.plot_cmd(
+            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
         )
-        # query radial_velocity for each star from gaia dr2 catalog
-
-        df_mem_gaia_params = c.query_cluster_members_gaia_params(
-            df=df_mem, gmag_cut=None, clobber=args.clobber
-        )
-        fig1 = cr.plot_cmd(df=df_mem_gaia_params, target_gaia_id=t.gaiaid)
-        fig1.axes[0].set_title(t.nearest_cluster_name)
+        ax.set_title(f"TOI {t.toiid} in {c.cluster_name}")
         if args.save:
             fp1 = join(args.outdir, f"{cluster_name}_hrd.png")
-            fig1.savefig(fp1)
+            ax.figure.savefig(fp1)
             print(f"Saved: {fp1}")
 
-        fig2 = cr.plot_rdp_pmrv(df=df_mem_gaia_params, target_gaia_id=t.gaiaid)
-        fig2.suptitle(t.nearest_cluster_name)
+        fig2 = c.plot_rdp_pmrv(
+            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+        )
+        fig2.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
         if args.save:
             fp2 = join(args.outdir, f"{cluster_name}_kinematics.png")
             fig2.savefig(fp2)
             print(f"Saved: {fp2}")
 
-        fig3 = cr.plot_xyz_uvw(
-            df=df_mem_gaia_params,
-            target_gaia_id=t.gaiaid,
-            verbose=args.verbose,
+        fig3 = c.plot_xyz_uvw(
+            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
         )
-        fig3.suptitle(t.nearest_cluster_name)
+
+        fig3.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
         if args.save:
             fp3 = join(args.outdir, f"{cluster_name}_xyz_uvw.png")
             fig3.savefig(fp3)
