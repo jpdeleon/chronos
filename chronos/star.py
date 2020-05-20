@@ -510,9 +510,7 @@ class Star(Target):
         feh=None,
         min_mag_err=0.01,
         add_jhk=False,
-        inflate_plx_err=True,
-        save_ini=False,
-        outdir="."
+        inflate_plx_err=True
         # phot_bands='G bp rp J H K'.split(),
         # star_params='teff logg parallax'.split()
     ):
@@ -610,30 +608,65 @@ class Star(Target):
             )
         # remove nan if there is any
         iso_params = {}
-        iso_params_arr = []
         for k in params:
             vals = map_float(params[k])
             if np.any(np.isnan(vals)):
                 print(f"{k} is ignored due to nan ({vals})")
             else:
                 iso_params[k] = vals
-                par = k.upper() if k != "parallax" else k
-                iso_params_arr.append(
-                    "{} = {}, {}".format(par, vals[0], vals[1])
-                )
         self.iso_params = iso_params
-        if save_ini:
-            outdir = (
-                self.target_name.replace(" ", "") if outdir == "." else outdir
-            )
-            outpath = Path(outdir, "star.ini")
-            if not Path(outdir).exists():
-                Path(outdir).mkdir()
-            np.savetxt(
-                outpath, iso_params_arr, fmt="%2s", header=self.target_name
-            )
-            print(f"Saved: {outpath}\n")
         return iso_params
+
+    def save_star_ini(self, outdir="."):
+        """star.ini file for isochrones starfit script
+        See:
+        https://github.com/timothydmorton/isochrones/blob/master/README.rst
+        """
+        target_name = self.target_name.replace(" ", "")
+        if self.iso_params is None:
+            iso_params = self.get_iso_params()
+        else:
+            iso_params = self.iso_params
+        starfit_arr = []
+        for k in iso_params:
+            vals = map_float(iso_params[k])
+            if np.any(np.isnan(vals)):
+                print(f"{k} is ignored due to nan ({vals})")
+            else:
+                par = k.title() if k not in ["parallax", "logg", "feh"] else k
+                starfit_arr.append(f"{par} = {vals[0]}, {vals[1]}")
+        outdir = target_name if outdir == "." else outdir
+        outpath = Path(outdir, "star.ini")
+        if not Path(outdir).exists():
+            Path(outdir).mkdir()
+        np.savetxt(outpath, starfit_arr, fmt="%2s", header=target_name)
+        print(f"Saved: {outpath}\n{starfit_arr}")
+
+    def save_fpp_ini(self, outdir="."):
+        """fpp.ini file for vespa calcfpp script
+        See:
+        https://github.com/timothydmorton/VESPA/blob/master/README.rst
+        """
+        target_name = self.target_name.replace(" ", "")
+
+        fpp_arr = []
+        fpp_arr.append(f"name = {target_name}")
+        fpp_arr.append(f"ra = {self.target_coord.ra.deg:.4f}")
+        fpp_arr.append(f"deg = {self.target_coord.dec.deg:.4f}")
+        if self.toi_period is not None:
+            fpp_arr.append(f"period = {self.toi_period:.4f}")
+        if self.toi_depth is not None:
+            fpp_arr.append(f"rprs = {np.sqrt(self.toi_depth):.2f}")
+        fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
+        fpp_arr.append("[constraints]")
+        fpp_arr.append(f"maxrad = 60.0")  # arcsec
+
+        outdir = target_name if outdir == "." else outdir
+        outpath = Path(outdir, "fpp.ini")
+        if not Path(outdir).exists():
+            Path(outdir).mkdir()
+        np.savetxt(outpath, fpp_arr, fmt="%2s", header=target_name)
+        print(f"Saved: {outpath}\n{fpp_arr}")
 
     def run_isochrones(
         self,
