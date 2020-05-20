@@ -617,8 +617,9 @@ class Star(Target):
                 print(f"{k} is ignored due to nan ({vals})")
             else:
                 iso_params[k] = vals
+                par = k.upper() if k != "parallax" else k
                 iso_params_arr.append(
-                    "{} = {}, {}".format(k, vals[0], vals[1])
+                    "{} = {}, {}".format(par, vals[0], vals[1])
                 )
         self.iso_params = iso_params
         if save_ini:
