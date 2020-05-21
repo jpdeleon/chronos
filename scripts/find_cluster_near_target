@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 """
-UNDER DEVELOPMENT:
 Find the nearest cluster to target and optionally show cluster membership plots
 
 See outlier rejection here:
 https://scikit-learn.org/stable/auto_examples/plot_anomaly_comparison.html#sphx-glr-auto-examples-plot-anomaly-comparison-py
 """
-from os.path import join
-from argparse import ArgumentParser
+import sys
+from pathlib import Path
+import argparse
 import numpy as np
 import matplotlib.pyplot as pl
 import chronos as cr
 
 if __name__ == "__main__":
-    ap = ArgumentParser()
+    ap = argparse.ArgumentParser()
     ap.add_argument("-toi", "--toiid", type=int, help="TOI id", default=None)
     ap.add_argument(
         "-g", "--gaiaid", type=int, help="target Gaia DR2 id", default=None
@@ -53,13 +53,9 @@ if __name__ == "__main__":
         "-s", "--save", action="store_true", default=False, help="save figures"
     )
     ap.add_argument(
-        "-o",
-        "--outdir",
-        type=str,
-        default=cr.DATA_PATH,
-        help="output directory",
+        "-o", "--outdir", type=str, default=".", help="output directory"
     )
-    args = ap.parse_args()
+    args = ap.parse_args(None if sys.argv[1:] else ["-h"])
     if (args.toiid is None) and (args.gaiaid is None):
         raise ValueError("Provide -toi or -gaia")
     if args.gaiaid:
@@ -72,8 +68,8 @@ if __name__ == "__main__":
     )
 
     if args.cluster is None:
-        cluster_info, idxs = t.get_cluster_membership(
-            catalog_name=args.catalog, return_idxs=True, frac=0.5, sigma=5
+        cluster_info = t.get_cluster_membership(
+            catalog_name=args.catalog, frac=0.5, sigma=5
         )
         if cluster_info is None:
             raise ValueError("Target is unlikely a cluster member.")
@@ -103,7 +99,7 @@ if __name__ == "__main__":
         )
         ax.set_title(f"TOI {t.toiid} in {c.cluster_name}")
         if args.save:
-            fp1 = join(args.outdir, f"{cluster_name}_hrd.png")
+            fp1 = Path(args.outdir, f"{cluster_name}_hrd.png")
             ax.figure.savefig(fp1)
             print(f"Saved: {fp1}")
 
@@ -112,7 +108,7 @@ if __name__ == "__main__":
         )
         fig2.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
         if args.save:
-            fp2 = join(args.outdir, f"{cluster_name}_kinematics.png")
+            fp2 = Path(args.outdir, f"{cluster_name}_kinematics.png")
             fig2.savefig(fp2)
             print(f"Saved: {fp2}")
 
@@ -122,7 +118,7 @@ if __name__ == "__main__":
 
         fig3.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
         if args.save:
-            fp3 = join(args.outdir, f"{cluster_name}_xyz_uvw.png")
+            fp3 = Path(args.outdir, f"{cluster_name}_xyz_uvw.png")
             fig3.savefig(fp3)
             print(f"Saved: {fp3}")
 
