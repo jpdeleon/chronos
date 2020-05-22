@@ -56,6 +56,7 @@ from chronos.config import DATA_PATH
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "get_nexsci_archive",
     "get_tess_ccd_info",
     "get_all_campaigns",
     "get_all_sectors",
@@ -119,6 +120,21 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_nexsci_archive(table="all"):
+    base_url = "https://exoplanetarchive.ipac.caltech.edu/"
+    settings = "cgi-bin/nstedAPI/nph-nstedAPI?table="
+    if table == "all":
+        url = base_url + settings + "exomultpars"
+    elif table == "confirmed":
+        url = base_url + settings + "exoplanets"
+    elif table == "composite":
+        url = base_url + settings + "compositepars"
+    else:
+        raise ValueError("table=[all, confirmed, composite]")
+    df = pd.read_csv(url)
+    return df
 
 
 def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):

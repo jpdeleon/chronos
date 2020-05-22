@@ -9,6 +9,7 @@ import astropy.units as u
 import pandas as pd
 import astropy.constants as c
 from astropy.visualization import hist
+from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive as nea
 from tqdm import tqdm
 
 from chronos.star import Star
@@ -30,6 +31,7 @@ class Planet(Star):
     def __init__(
         self,
         starname=None,
+        letter="b",
         toiid=None,
         ticid=None,
         epicid=None,
@@ -63,10 +65,27 @@ class Planet(Star):
             verbose=verbose,
             clobber=clobber,
         )
-        self.starname = None
+        self.starname = starname
+        self.letter = letter
         self.planet_params = None
         self.harps_bank_rv = None
         self.harps_bank_target_name = None
+        self.nea_params = None
+
+    def get_nea_params(self, query_string=None):
+        """
+        query_string : str
+            e.g. V1298 Tab b (case-sensitive)
+        """
+        if query_string is None:
+            query_string = f"{self.target_name.title()} {self.letter}"
+        params = nea.query_planet(query_string, all_columns=True).to_pandas()
+        # dataframe to series
+        if len(params) > 0:
+            params = params.T[0]
+            params.name = query_string
+            self.nea_params = params
+            return params
 
     def get_Rp_from_depth(
         self,

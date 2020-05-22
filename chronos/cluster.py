@@ -803,7 +803,7 @@ class ClusterCatalog(CatalogDownloader):
 
     def get_members_Gagne2018a(self):
         """
-        BANYAN XIII. A First Look at Nearby Young Associations with Gaia DR2
+        BANYAN XII
         https://ui.adsabs.harvard.edu/abs/2018ApJ...862..138G/abstract
         J/ApJ/860/43/table4 (c)Candidate members recovered in this work (708 rows)
         J/ApJ/860/43/seq1	*CMD for the bona fide members of young assoc – Ages<20Myr (100 rows)
@@ -822,9 +822,10 @@ class ClusterCatalog(CatalogDownloader):
         # fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
         # tab4 = Table.read(fp4, format="ascii").to_pandas()
         # df = pd.concat([tab0,tab1,tab2,tab3,tab4], axis=0, join="outer")).reset_index()
-        df = _decode_n_drop(tab0, ["SimbadName"])
+        df = _decode_n_drop(tab0, ["SimbadName", "Gaia", "_2M"])
         df = df.rename(
-            columns={  # 'Assoc':'Cluster',
+            columns={
+                "Assoc": "Cluster",
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
                 "pmRA": "pmra",
@@ -838,17 +839,18 @@ class ClusterCatalog(CatalogDownloader):
 
     def get_clusters_Gagne2018b(self):
         """
-        BANYAN. XIII.
+        BANYAN XIII. A First Look at Nearby Young Associations with Gaia DR2
+        https://ui.adsabs.harvard.edu/abs/2018ApJ...862..138G/abstract
 
-        'J/ApJ/862/138/refs': 'References',
+        'J/ApJ/862/138/table1': 'Nearby young associations considered here',
         """
         fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
-        df["Name"] = df.SimbadName.apply(lambda x: " ".join(x.split(" ")[1:]))
-        df = _decode_n_drop(df, ["_RA", "_DE", "SimbadName"])
+        df = _decode_n_drop(df, ["SimbadName"])
         df = df.rename(
-            columns={  # 'Assoc':'Cluster',
+            columns={
+                "Assoc": "Cluster",
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
                 "pmRA": "pmra",
@@ -864,10 +866,10 @@ class ClusterCatalog(CatalogDownloader):
         BANYAN XIII. A First Look at Nearby Young Associations with Gaia DR2
         https://ui.adsabs.harvard.edu/abs/2018ApJ...862..138G/abstract
 
-        'J/ApJ/862/138/table1': 'Nearby young associations considered here',
         'J/ApJ/862/138/table2': 'New candidates identified in this work',
         'J/ApJ/862/138/table3': 'Co-moving systems identified in this work',
         'J/ApJ/862/138/table5': 'New bona fide members'
+        'J/ApJ/862/138/refs': 'References',
         """
         fp1 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab1 = Table.read(fp1, format="ascii").to_pandas()
@@ -875,15 +877,14 @@ class ClusterCatalog(CatalogDownloader):
         tab2 = Table.read(fp2, format="ascii").to_pandas()
         fp3 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
         tab3 = Table.read(fp3, format="ascii").to_pandas()
-        fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
-        tab4 = Table.read(fp4, format="ascii").to_pandas()
+        # fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
+        # tab4 = Table.read(fp4, format="ascii").to_pandas()
         # tab4["Assoc"] = 'Upper Cr?'
-        df = pd.concat(
-            [tab1, tab2, tab3, tab4], axis=0, join="outer"
-        ).reset_index()
-        df = _decode_n_drop(df, ["GaiaDR2", "Auth", "BibCode"])
+        df = pd.concat([tab1, tab2, tab3], axis=0, join="outer").reset_index()
+        df = _decode_n_drop(df, ["index", "GaiaDR2", "Simbad"])
         df = df.rename(
             columns={
+                "Assoc": "Cluster",
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
                 "pmRA": "pmra",
@@ -891,6 +892,7 @@ class ClusterCatalog(CatalogDownloader):
                 "plx": "parallax",
                 "RVel": "RV",
                 "r_RVel": "r_RV",
+                "Gaia": "source_id",
             }
         )
         return df
@@ -1174,6 +1176,7 @@ class Cluster(ClusterCatalog):
         self,
         cluster_name,
         catalog_name="CantatGaudin2020",
+        mission="tess",
         data_loc=DATA_PATH,
         verbose=True,
         clobber=False,
@@ -1184,6 +1187,7 @@ class Cluster(ClusterCatalog):
             verbose=verbose,
             clobber=clobber,
         )
+        self.mission = mission
         self.cluster_name = cluster_name
 
         _ = self.query_catalog(return_members=True)
@@ -1275,7 +1279,6 @@ class Cluster(ClusterCatalog):
             query only bright stars in cluster (recommended for members>300)
         gmag_cut : float
             query only for stars brighter than gmag_cut (recommended for members>300)
-
         Returns
         -------
         tab : pandas.DataFrame
@@ -1318,7 +1321,11 @@ class Cluster(ClusterCatalog):
                     )
                     assert np.all(df.Cluster.isin([self.cluster_name])), errmsg
                     # query gaia to populate target parameters including its distance
-                    t = target.Target(gaiaDR2id=gaiaid, verbose=self.verbose)
+                    t = target.Target(
+                        gaiaDR2id=gaiaid,
+                        verbose=self.verbose,
+                        mission=self.mission,
+                    )
                     df_gaia = t.query_gaia_dr2_catalog(
                         radius=radius, return_nearest_xmatch=True
                     )

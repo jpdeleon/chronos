@@ -41,6 +41,7 @@ from chronos.utils import (
     get_between_limits,
     get_above_lower_limit,
     get_below_upper_limit,
+    flatten_list,
 )
 
 log = logging.getLogger(__name__)
@@ -76,6 +77,7 @@ class Target:
         self.verbose = verbose
         self.mission = mission.lower()
         self.toi_params = None
+        self.nea_params = None
         self.toiid = toiid  # e.g. 837
         self.ctoiid = ctoiid  # e.g. 364107753.01
         self.ticid = ticid  # e.g. 364107753
@@ -84,6 +86,7 @@ class Target:
         self.ra = ra_deg
         self.dec = dec_deg
         self.target_name = name  # e.g. Pi Mensae
+        # determine target name
         if self.toiid is not None:
             name = f"TOI {self.toiid}"
         elif self.ticid is not None:
@@ -91,6 +94,8 @@ class Target:
         elif self.epicid is not None:
             name = f"EPIC {self.epicid}"
             self.mission = "k2"
+        elif self.gaiaid is not None:
+            name = f"Gaia DR2 {self.gaiaid}"
         elif self.target_name is not None:
             if self.target_name[:2].lower() == "k2":
                 name = self.target_name.upper()
@@ -102,8 +107,10 @@ class Target:
             elif self.target_name[:4].lower() == "gaia":
                 if gaiaDR2id is None:
                     self.gaiaid = int(name.strip()[4:])
+        # specify name
         if self.target_name is None:
             self.target_name = name
+        # check if TIC is a TOI
         if (self.ticid is not None) and (self.toiid is None):
             tois = get_tois(clobber=True, verbose=False)
             idx = tois["TIC ID"].isin([self.ticid])
@@ -111,13 +118,14 @@ class Target:
                 self.toiid = tois.loc[idx, "TOI"].values[0]
                 if self.verbose:
                     print(f"TIC {self.ticid} is TOI {int(self.toiid)}!")
-
+        # query TOI params
         if self.toiid is not None:
             self.toi_params = get_toi(
                 toi=self.toiid, clobber=self.clobber, verbose=False
             ).iloc[0]
         if (self.ticid is None) and (self.toiid is not None):
             self.ticid = int(self.toi_params["TIC ID"])
+        # get coordinates
         self.target_coord = get_target_coord(
             ra=self.ra,
             dec=self.dec,
@@ -132,7 +140,11 @@ class Target:
             self.all_sectors = get_all_sectors(self.target_coord)
             self.tess_ccd_info = get_tess_ccd_info(self.target_coord)
         elif (self.mission == "k2") | (self.mission == "kepler"):
-            self.all_campaigns = get_all_campaigns(self.epicid)
+            try:
+                self.all_campaigns = get_all_campaigns(self.epicid)
+            except Exception:
+                # error when GaiaDR2id is only given
+                print("mission=Kepler/K2 but no epicid given.")
             # this does not throw an error
             # self.tess_ccd_info = tesscut.Tesscut.get_sectors(self.target_coord).to_pandas()
             # if self.tess_ccd_info is not None:
@@ -159,15 +171,22 @@ class Target:
         if self.verbose:
             print(f"Target: {name}")
 
-    # def __repr__(self):
-    #     # Override to print a readable string presentation of class
-    #     excluded_args = ['catalog_dict','catalog_list','data_loc','tables']
-    #     args = []
-    #     for key in self.__dict__:
-    #         if key not in excluded_args:
-    #             args.append(f"{key}={self.__dict__.get(key)}")
-    #     args = ", ".join(args)
-    #     return f"ClusterCatalog({args})"
+    def __repr__(self):
+        """Override to print a readable string representation of class
+        """
+        excluded_args = ["verbose", "clobber", "toi_params", "tess_ccd_info"]
+        args = []
+        for key in self.__dict__:
+            val = self.__dict__.get(key)
+            if key not in excluded_args:
+                if key == "target_coord":
+                    # format coord
+                    coord = self.target_coord.to_string("decimal")
+                    args.append(f"{key}=({coord.replace(' ',',')})")
+                elif val is not None:
+                    args.append(f"{key}={val}")
+        args = ", ".join(args)
+        return f"{type(self).__name__}({args})"
 
     # def __repr__(self):
     #     fields = signature(self.__init__).parameters
@@ -517,6 +536,8 @@ class Target:
         verbose=None,
     ):
         """
+        Check vizier if target is known as cluster/assoc;
+        Find cluster with matching kinematics in 6D
         """
         verbose = verbose if verbose is not None else self.verbose
         if self.gaia_params is None:
@@ -531,8 +552,19 @@ class Target:
         if self.cc is None:
             self.cc = ClusterCatalog(catalog_name=catalog_name, verbose=False)
         clusters = self.cc.query_catalog(return_members=False)
-
         members = self.cc.query_catalog(return_members=True)
+
+        idx = members.source_id.isin([gaia_params.source_id])
+        if idx.sum() > 0:
+            cluster_name = members.loc[idx, "Cluster"]
+            print(f"{self.target_name} is in {cluster_name}!")
+        # check if vizier if known cluster/assoc member
+        vizier_query = self.query_vizier_param("Assoc")
+        assoc_from_literature = np.unique(list(vizier_query.values()))
+        if len(assoc_from_literature) > 0:
+            print("Cluster/assoc from literature:\n", assoc_from_literature)
+            # if mem.Cluster.isin().sum():
+
         # estimate cluster parameter uncertainties from all members
         # err = pd.pivot_table(members, index=["Cluster"], aggfunc=np.median)[params]
         # err.columns = ['e_'+c for c in err_columns]
@@ -725,7 +757,7 @@ class Target:
                 self.nearest_cluster_name = cluster_name
                 if df is None:
                     df = Cluster(
-                        cluster_name, verbose=False
+                        cluster_name, mission=self.mission, verbose=False
                     ).query_cluster_members()
                 # make sure only one cluster
                 idx = df.Cluster == cluster_name
@@ -825,26 +857,32 @@ class Target:
             self.vizier_tables = tables
             return tables
 
-    def query_vizier_param(self, param, radius=3):
+    def query_vizier_param(self, param=None, radius=3):
         """looks for value of param in each vizier table
         """
         if self.vizier_tables is None:
             tabs = self.query_vizier(radius=radius, verbose=False)
         else:
             tabs = self.vizier_tables
-        idx = [param in i.columns for i in tabs]
-        vals = {
-            tabs.keys()[int(i)]: tabs[int(i)][param][0]
-            for i in np.argwhere(idx).flatten()
-        }
-        if self.verbose:
-            print(f"Found {sum(idx)} references with {param}")
-        return vals
+
+        if param is not None:
+            idx = [param in i.columns for i in tabs]
+            vals = {
+                tabs.keys()[int(i)]: tabs[int(i)][param][0]
+                for i in np.argwhere(idx).flatten()
+            }
+            if self.verbose:
+                print(f"Found {sum(idx)} references with {param}")
+            return vals
+        else:
+            cols = [i.to_pandas().columns.tolist() for i in tabs]
+            print(np.unique(flatten_list(cols)))
 
     def query_literature_photometry(
         self, catalogs=["tycho", "gaiadr2", "2mass", "wise"], add_err=True
     ):
         """
+        TODO: use sedfitter
         """
         if self.vizier_tables is None:
             tabs = self.query_vizier(verbose=False)
@@ -1002,6 +1040,14 @@ class Target:
     @property
     def toi_Tmag(self):
         return None if self.toi_params is None else self.toi_params["TESS Mag"]
+
+    @property
+    def toi_Tmag_err(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["TESS Mag err"]
+        )
 
     @property
     def toi_period(self):

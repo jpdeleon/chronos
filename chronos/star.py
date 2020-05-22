@@ -615,8 +615,13 @@ class Star(Target):
                     "K": (tp["Kmag"], tp["e_Kmag"]),
                 }
             )
-        if self.ticid is not None:
-            params.update({"Tess": self.toi_Tmag})
+        if (self.ticid is not None) and (self.toi_params is not None):
+            Tmag_err = (
+                self.toi_Tmag_err
+                if self.toi_Tmag_err > min_mag_err
+                else min_mag_err
+            )
+            params.update({"Tess": (self.toi_Tmag, Tmag_err)})
         # remove nan if there is any
         iso_params = {}
         for k in params:
