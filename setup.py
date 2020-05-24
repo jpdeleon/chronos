@@ -34,6 +34,9 @@ setup(
         "deepdish==0.3.6",
     ],
     extras_requires={
+        "triceratops": [
+            "git+https://github.com/stevengiacalone/triceratops.git#egg=triceratops"
+        ],
         "contaminante": [
             "git+https://github.com/christinahedges/contaminante#egg=contaminante"
         ],

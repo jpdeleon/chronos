@@ -38,13 +38,13 @@ $ pytest tests/
 * `dustmass` for extinction calculation
 * `stardate` for gyrochronology
 * `mrexo` for mass-radius relation
+* `triceratops` for FPP calculation based on lightcurve shape and contrast curve constraints
 
 ## For next update
 * `contaminante` for pixel level modeling 
 * `allesfitter` for lightcurve model fitting
 * `PyPopStar` for stellar population analysis
 * `sedfitter` for SED fitting
-* `vespa` & `triceratops` for FPP calculation based on lightcurve shape
 * `maelstrom` for pulsating binary analysis 
 * `stella` & `fleck` for flare detection and modeling
 * `eleanor` & `f3` for TESS FFI
