@@ -34,5 +34,7 @@ def test_planet_plot():
     # _ = p.get_Rp_from_depth(plot=True)
     # assert isinstance(fig1, Figure)
 
-    fig2 = p.plot_harps_rv()
+    fig2 = p.plot_harps_rv_scatter()
+    # fig3 = p.plot_harps_rv_gls()
+    # p.plot_harps_rv_corr_matrix()
     assert isinstance(fig2, Figure)

@@ -171,10 +171,23 @@ class Target:
         if self.verbose:
             print(f"Target: {name}")
 
-    def __repr__(self):
+    def __repr__(self, ignore_args=None):
         """Override to print a readable string representation of class
         """
-        excluded_args = ["verbose", "clobber", "toi_params", "tess_ccd_info"]
+        excluded_args = [
+            "verbose",
+            "clobber",
+            "toi_params",
+            "tess_ccd_info",
+            "vizier_tables",
+            "iso_params",
+            "iso_param_names",
+            "starhorse",
+            "alpha",
+            "slope",
+            "sigma_blur",
+            "use_skew_slope",
+        ]
         args = []
         for key in self.__dict__:
             val = self.__dict__.get(key)

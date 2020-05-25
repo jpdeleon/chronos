@@ -627,6 +627,9 @@ def get_absolute_gmag(gmag, distance, a_g):
     a_g : float
         extinction in the G-band
     """
+    assert (gmag is not None) & (str(gmag) != "nan")
+    assert (distance is not None) & (str(distance) != "nan")
+    assert (a_g is not None) & (str(a_g) != "nan")
     Gmag = gmag - 5.0 * np.log10(distance) + 5.0 - a_g
     return Gmag
 
@@ -640,6 +643,8 @@ def get_excess_from_extiction(A_g, color="bp_rp"):
     Compare the result to 'e_bp_min_rp_val' column in gaia table
     which is the estimate of redenning E[BP-RP] from Apsis-Priam.
     """
+    assert A_g is not None
+    assert str(A_g) != "nan"
     # ratio of A_X/A_V
     if color == "bp_rp":
         # E(Bp-Rp) = A_Bp-A_Rp
@@ -648,7 +653,8 @@ def get_excess_from_extiction(A_g, color="bp_rp"):
         Ar_Av = extinction_ratios["Rp"]
         Ab_minus_Ar = (A_g / Ag_Av) * (Ab_Av - Ar_Av)  # difference
     else:
-        raise NotImplementedError
+        errmsg = "color=bp_rp is only implemented"
+        raise NotImplementedError(errmsg)
     return Ab_minus_Ar
 
 
@@ -662,6 +668,9 @@ def get_absolute_color_index(A_g, bmag, rmag):
     Note that 'bmag-rmag' is same as bp_rp column in gaia table
     See also http://www.astro.ncu.edu.tw/~wchen/Courses/ISM/11.Extinction.pdf
     """
+    assert (A_g is not None) & (str(A_g) != "nan")
+    assert (bmag is not None) & (str(bmag) != "nan")
+    assert (rmag is not None) & (str(rmag) != "nan")
     # E(Bp-Rp) = A_Bp-A_Rp = (Bp-Rp)_obs - E(Bp-Rp)
     Ab_minus_Ar = get_excess_from_extiction(A_g)
     bp_rp = bmag - rmag  # color index
@@ -683,6 +692,8 @@ def get_distance(m, M, Av=0):
     M : absolute magnitude
     Av : extinction (in V band)
     """
+    assert (m is not None) & (str(m) != "nan")
+    assert (M is not None) & (str(M) != "nan")
     distance = 10 ** (0.2 * (m - M + 5 - Av))
     return distance
 

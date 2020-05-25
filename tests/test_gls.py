@@ -14,5 +14,5 @@ def test_gls():
 
     data = lc.time, lc.flux, lc.flux_err
     gls = Gls(data, Pbeg=1, verbose=False)
-    fig = gls.plot(block=False)
+    fig = gls.plot(block=True)
     assert isinstance(fig, Figure)

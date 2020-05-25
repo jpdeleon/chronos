@@ -26,6 +26,7 @@ from chronos.utils import (
     get_mag_err_from_flux,
     get_err_quadrature,
     map_float,
+    DATA_PATH,
 )
 
 
@@ -78,7 +79,7 @@ class Star(Target):
         self.sigma_blur = sigma_blur
         self.use_skew_slope = use_skew_slope
         self.nsamples = int(nsamples)
-        self.isochrones = None
+        self.isochrones_model = None
         self.stardate = None
         self.iso_params = None
         self.iso_param_names = [
@@ -99,6 +100,9 @@ class Star(Target):
             if "I/349/starhorse" in vizier.keys()
             else None
         )
+        fp = Path(DATA_PATH, "mist_eep_table.csv")
+        self.mist = None
+        self.mist_eep_table = pd.read_csv(fp, comment="#")
 
     def estimate_Av(self, map="sfd", constant=None):
         """
@@ -144,7 +148,7 @@ class Star(Target):
     def get_spectral_type(
         self,
         columns="Teff B-V J-H H-Ks".split(),
-        nsamples=int(1e5),
+        nsamples=int(1e4),
         return_samples=False,
         plot=False,
         clobber=False,
@@ -696,23 +700,16 @@ class Star(Target):
         np.savetxt(outpath, fpp_arr, fmt="%2s", header=target_name)
         print(f"Saved: {outpath}\n{fpp_arr}")
 
-    def run_isochrones(
+    def init_isochrones(
         self,
-        iso_params=None,
         model="mist",
+        iso_params=None,
+        maxAV=None,
+        max_distance=None,
         bands=None,
         binary_star=False,
-        nsteps=None,
     ):
-        """
-        https://isochrones.readthedocs.io/en/latest/quickstart.html#Fit-physical-parameters-of-a-star-to-observed-data
-
-        iso_params : dict
-            isochrone input
-
-        Note: See mod._priors for priors; for multi-star systems, see
-        https://isochrones.readthedocs.io/en/latest/multiple.html
-        FIXME: nsteps param in mod.fit() cannot be changed
+        """initialize parameters for isochrones
         """
         try:
             from isochrones import (
@@ -724,31 +721,109 @@ class Star(Target):
             cmd = "pip install isochrones"
             raise ModuleNotFoundError(cmd)
 
-        nsteps = nsteps if nsteps is not None else self.mcmc_steps
+        mist = get_ichrone(model, bands=bands)
+        self.mist = mist
+        iso_params = (
+            self.get_iso_params() if iso_params is None else iso_params
+        )
+        if binary_star:
+            model = BinaryStarModel
+        else:
+            model = SingleStarModel
+        self.isochrones_model = model(
+            self.mist,
+            maxAV=maxAV,
+            max_distance=max_distance,
+            ra=self.target_coord.ra.deg,
+            dec=self.target_coord.dec.deg,
+            name=self.target_name,
+            **iso_params,
+        )
+        return self.isochrones_model
 
+    def run_isochrones(
+        self,
+        iso_params=None,
+        binary_star=False,
+        nsteps=None,
+        overwrite=False,
+        **kwargs,
+    ):
+        """
+        Use `init_isochones` for detailed isochrones model initialization.
+
+        https://isochrones.readthedocs.io/en/latest/quickstart.html#Fit-physical-parameters-of-a-star-to-observed-data
+
+        iso_params : dict
+            isochrone input
+
+        Note: See mod._priors for priors; for multi-star systems, see
+        https://isochrones.readthedocs.io/en/latest/multiple.html
+        FIXME: nsteps param in mod.fit() cannot be changed
+        """
+        nsteps = nsteps if nsteps is not None else self.mcmc_steps
         # Create a dictionary of observables
         iso_params = (
             self.get_iso_params() if iso_params is None else iso_params
         )
-
-        mist = get_ichrone(model, bands=bands)
-        if binary_star:
-            self.isochrones = BinaryStarModel(mist, **iso_params)
+        if self.mist is None:
+            self.init_isochrones(iso_params=iso_params)
         else:
-            self.isochrones = SingleStarModel(mist, **iso_params)
-        self.isochrones.fit()  # niter=nsteps
+            print("Using previously initialized model.")
+        self.isochrones_model.fit(
+            overwrite=overwrite, **kwargs
+        )  # niter=nsteps
+        return self.isochrones_model
+
+    def get_isochrones_prior_samples(self, nsamples=int(1e4)):
+        """sample default priors
+        """
+        model = self.isochrones_model
+        errmsg = "self.run_isochrones"
+        assert model is not None, errmsg
+        samples = {}
+        for param in model._priors:
+            try:
+                samples[param] = model._priors[param].sample(nsamples)
+            except Exception as e:
+                print(e)
+        return pd.DataFrame(samples)
+
+    def plot_isochrones_priors(self, kind="kde"):
+        """plot default priors
+
+        TODO: add units and prior name
+        ChabrierPrior: LogNormalPrior+PowerLawPrior
+        FehPrior: feh PDF based on local SDSS distribution
+        AgePrior: FlatLogPrior, log10(age)
+        DistancePrior: PowerLawPrior
+        AVPrior: FlatPrior
+        EEP_prior: BoundedPrior (See self.mist_eep_table)
+        """
+        fig, axs = pl.subplots(2, 3, figsize=(8, 8), constrained_layout=True)
+        ax = axs.flatten()
+
+        df = self.get_isochrones_prior_samples()
+        for i, col in enumerate(df.columns):
+            _ = df[col].plot(kind=kind, ax=ax[i])
+            ax[i].set_title(col)
+            xlims = self.isochrones_model._priors[col].bounds
+            if np.isfinite(xlims).any():
+                ax[i].set_xlim(xlims)
+        fig.suptitle("Priors")
+        return fig
 
     # @classmethod
     def get_isochrones_results(self):
-        if self.isochrones is not None:
-            return self.isochrones.derived_samples
+        if self.isochrones_model is not None:
+            return self.isochrones_model.derived_samples
         else:
             raise ValueError("Try self.run_isochrones()")
 
     # @classmethod
     def get_isochrones_results_summary(self):
-        if self.isochrones is not None:
-            return self.isochrones.derived_samples.describe()
+        if self.isochrones_model is not None:
+            return self.isochrones_model.derived_samples.describe()
         else:
             raise ValueError("Try self.run_isochrones()")
 
@@ -1025,7 +1100,7 @@ class Star(Target):
             raise ValueError("pip install corner")
 
         errmsg = "Try run_isochrones() or run_stardate()"
-        assert (self.isochrones is not None) | (
+        assert (self.isochrones_model is not None) | (
             self.stardate is not None
         ), errmsg
 
@@ -1033,10 +1108,10 @@ class Star(Target):
         thin = thin if thin is not None else self.thin
 
         if use_isochrones:
-            if self.isochrones is None:
+            if self.isochrones_model is None:
                 raise ValueError("Try self.run_isochrones()")
             else:
-                star = self.isochrones
+                star = self.isochrones_model
 
             if posterior == "observed":
                 fig = star.corner_observed()
@@ -1045,7 +1120,7 @@ class Star(Target):
             elif posterior == "derived":
                 if columns is None:
                     print("Choose columns:")
-                    print(self.isochrones.derived_samples.columns)
+                    print(self.isochrones_model.derived_samples.columns)
                     return None
                 else:
                     fig = star.corner_derived(columns)
@@ -1082,11 +1157,35 @@ class Star(Target):
         )
 
     @property
+    def starhorse_Teff(self):
+        return (
+            None
+            if self.starhorse is None
+            else self.starhorse["teff50"].quantity[0].value
+        )
+
+    @property
     def starhorse_Mstar(self):
         return (
             None
             if self.starhorse is None
             else self.starhorse["mass50"].quantity[0].value
+        )
+
+    @property
+    def starhorse_logg(self):
+        return (
+            None
+            if self.starhorse is None
+            else self.starhorse["logg50"].quantity[0].value
+        )
+
+    @property
+    def starhorse_met(self):
+        return (
+            None
+            if self.starhorse is None
+            else self.starhorse["met50"].quantity[0].value
         )
 
     @property
