@@ -102,9 +102,10 @@ class Target:
                 self.mission = "k2"
                 self.epicid = get_epicid_from_k2name(name)
             elif self.target_name[:6].lower() == "kepler":
-                name = self.target_name.upper()
+                name = self.target_name.title()
                 self.mission = "kepler"
             elif self.target_name[:4].lower() == "gaia":
+                name = self.target_name.upper()
                 if gaiaDR2id is None:
                     self.gaiaid = int(name.strip()[4:])
         # specify name
@@ -187,6 +188,7 @@ class Target:
             "slope",
             "sigma_blur",
             "use_skew_slope",
+            "mist_eep_table",
         ]
         args = []
         for key in self.__dict__:

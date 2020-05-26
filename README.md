@@ -48,6 +48,7 @@ $ pytest tests/
 * `maelstrom` for pulsating binary analysis 
 * `stella` & `fleck` for flare detection and modeling
 * `eleanor` & `f3` for TESS FFI
+* `envelope` for planet's envelope fraction estimation using MESA simulations based on [Milholland+19,20](https://github.com/smillholland/Sub-Saturns.git)
 
 ## Examples
 Check [examples in nbviewer](https://nbviewer.jupyter.org/github/jpdeleon/chronos/tree/master/notebooks/).

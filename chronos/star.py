@@ -57,6 +57,12 @@ class Star(Target):
         verbose=True,
         clobber=True,
     ):
+        """
+        Attributes
+        ----------
+        See inherited class: Target
+        """
+        # https://docs.python.org/3/library/inspect.html#inspect.getdoc
         super().__init__(
             name=name,
             toiid=toiid,

@@ -57,6 +57,8 @@ def plot_cluster_map(
     offset=10,
     ax=None,
 ):
+    """
+    """
     tra = target_coord.ra.deg
     tdec = target_coord.dec.deg
     if ax is None:

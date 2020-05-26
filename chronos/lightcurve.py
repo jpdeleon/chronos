@@ -18,11 +18,13 @@ from astropy.timeseries import LombScargle
 from astropy.io import fits
 import lightkurve as lk
 from wotan import flatten
+from transitleastsquares import transitleastsquares
 
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
+from chronos.plot import plot_tls
 from chronos.utils import (
     remove_bad_data,
     parse_aperture_mask,
@@ -36,6 +38,7 @@ user = getpass.getuser()
 MISSION = "TESS"
 fitsoutdir = join("/home", user, "data/transit")
 
+pl.style.use("default")
 log = logging.getLogger(__name__)
 
 __all__ = ["ShortCadence", "LongCadence"]
@@ -121,6 +124,7 @@ class LongCadence(FFI_cutout):
         self.lc_cdips = None
         self.contratio = None
         self.cdips = None
+        self.tls_results = None
 
     def make_custom_lc(
         self,
@@ -265,93 +269,6 @@ class LongCadence(FFI_cutout):
         self.lc_cdips.targetid = self.ticid
         return cdips.lc
 
-    def get_flat_lc(
-        self,
-        lc,
-        window_length=None,
-        duration=None,
-        method="biweight",
-        return_trend=False,
-    ):
-        """
-        """
-        flat, trend = lc.flatten(return_trend=True)
-        duration = self.toi_duration if duration is None else duration
-        if duration < 1:
-            print("Duration should be in hours.")
-        if window_length is None:
-            window_length = 0.5 if duration is None else duration / 24 * 3
-        if self.verbose:
-            print(
-                f"Using {method} filter with window_length={window_length:.2f} day"
-            )
-        wflat, wtrend = flatten(
-            lc.time,
-            lc.flux,
-            method=method,
-            window_length=window_length,
-            return_trend=True,
-        )
-        flat.flux = wflat
-        trend.flux = wtrend
-        if return_trend:
-            return flat, trend
-        else:
-            return flat
-
-    def plot_trend_flat_lcs(
-        self, lc, period=None, epoch=None, duration=None, **kwargs
-    ):
-        """
-        plot trend and flat lightcurves (uses TOI ephemeris by default)
-        """
-        fig, axs = pl.subplots(
-            2, 1, figsize=(12, 10), constrained_layout=True, sharex=True
-        )
-        ax = axs.flatten()
-        period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        epoch -= TESS_TIME_OFFSET
-        duration = self.toi_duration if duration is None else duration
-        if duration < 1:
-            print("Duration should be in hours.")
-        assert (
-            (period is not None) & (epoch is not None) & (duration is not None)
-        )
-        if self.verbose:
-            print(
-                f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
-            )
-        tmask = get_transit_mask(
-            lc, period=period, epoch=epoch, duration_hours=duration
-        )
-        flat, trend = self.get_flat_lc(lc, return_trend=True, **kwargs)
-        lc[tmask].scatter(ax=ax[0], c="r", label="transit")
-        lc[~tmask].scatter(ax=ax[0], c="k", alpha=0.5, label="_nolegend_")
-        ax[0].set_title(self.target_name)
-        ax[0].set_xlabel("")
-        trend.plot(ax=ax[0], c="b", lw=2, label="trend")
-        flat.scatter(ax=ax[1], label="raw")
-        flat.bin(10).scatter(ax=ax[1], label="binned")
-        fig.subplots_adjust(hspace=0)
-        return fig
-
-    def plot_fold_lc(self, flat, period=None, epoch=None, ax=None):
-        """
-        plot folded lightcurve (uses TOI ephemeris by default)
-        """
-        if ax is None:
-            fig, ax = pl.subplots(figsize=(12, 8))
-        period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        epoch -= TESS_TIME_OFFSET
-        assert (period is not None) & (epoch is not None)
-        fold = flat.fold(period=period, t0=epoch)
-        fold.scatter(ax=ax, label="raw")
-        fold.bin(10).scatter(ax=ax, label="binned")
-        ax.set_title(self.target_name)
-        return ax
-
 
 class ShortCadence(Tpf):
     """
@@ -426,6 +343,7 @@ class ShortCadence(Tpf):
         self.lc_sap = None
         self.lc_pdcsap = None
         self.contratio = None
+        self.tls_results = None
 
     def get_lc(self, lctype="pdcsap", sector=None, quality_bitmask=None):
         """
@@ -649,102 +567,173 @@ class ShortCadence(Tpf):
         self,
         lc,
         window_length=None,
-        method="biweight",
         period=None,
         epoch=None,
         duration=None,
-        sigma_upper=None,
-        sigma_lower=None,
+        method="biweight",
         return_trend=False,
     ):
-        period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        duration = self.toi_duration if duration is None else duration
-        if duration < 1:
-            print("Duration should be in hours.")
-        if (period is not None) & (epoch is not None) & (duration is not None):
-            tmask = get_transit_mask(
-                lc,
-                period=period,
-                epoch=epoch - TESS_TIME_OFFSET,
-                duration_hours=duration,
-            )
-        else:
-            tmask = np.zeros_like(lc.time, dtype=bool)
-        if window_length is None:
-            window_length = 0.5 if duration is None else duration / 24 * 3
-        wflat, wtrend = flatten(
-            lc.time,
-            lc.flux,
-            mask=tmask,
-            method=method,
+        return get_flat_lc(
+            self=self,
+            lc=lc,
+            period=period,
+            epoch=epoch,
+            duration=duration,
             window_length=window_length,
-            break_tolerance=window_length,
-            return_trend=True,
+            method=method,
+            return_trend=return_trend,
         )
-        # dummy placeholder
-        flat, trend = lc.flatten(return_trend=True)
-        # overwrite
-        flat.flux = wflat
-        trend.flux = wtrend
-        # clean
-        flat = flat.remove_nans().remove_outliers(
-            sigma_upper=sigma_upper, sigma_lower=sigma_lower
-        )
-        if return_trend:
-            return flat, trend
-        else:
-            return flat
 
     def plot_trend_flat_lcs(
-        self, lc, period=None, epoch=None, duration=None, **kwargs
+        self, lc, period=None, epoch=None, duration=None, binsize=10, **kwargs
     ):
-        """
-        plot trend and falt lightcurves (uses TOI ephemeris by default)
-        """
-        fig, axs = pl.subplots(
-            2, 1, figsize=(12, 10), constrained_layout=True, sharex=True
-        )
-        ax = axs.flatten()
-        period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        duration = self.toi_duration if duration is None else duration
-        if duration < 1:
-            print("Duration should be in hours.")
-        assert (
-            (period is not None) & (epoch is not None) & (duration is not None)
-        )
-        tmask = get_transit_mask(
-            lc,
+        return plot_trend_flat_lcs(
+            self=self,
+            lc=lc,
             period=period,
-            epoch=epoch - TESS_TIME_OFFSET,
-            duration_hours=duration,
+            epoch=epoch,
+            duration=duration,
+            binsize=binsize,
+            **kwargs,
         )
-        flat, trend = self.get_flat_lc(lc, return_trend=True, **kwargs)
-        lc[tmask].scatter(ax=ax[0], c="r", label="transit")
-        lc[~tmask].scatter(ax=ax[0], c="k", alpha=0.5, label="_nolegend_")
-        ax[0].set_title(self.target_name)
-        ax[0].set_xlabel("")
-        trend.plot(ax=ax[0], c="b", lw=2, label="trend")
-        flat.scatter(ax=ax[1], label="raw")
-        flat.bin(10).scatter(ax=ax[1], label="binned")
-        fig.subplots_adjust(hspace=0)
-        return fig
 
     def plot_fold_lc(self, flat, period=None, epoch=None, ax=None):
+        return plot_fold_lc(
+            self=self, flat=flat, period=period, epoch=epoch, ax=ax
+        )
+
+    def run_tls(self, flat, plot=True, **tls_kwargs):
         """
-        plot folded lightcurve (uses TOI ephemeris by default)
         """
-        if ax is None:
-            fig, ax = pl.subplots(figsize=(12, 8))
-        period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        assert (period is not None) & (epoch is not None)
-        fold = flat.fold(period=period, t0=epoch - TESS_TIME_OFFSET)
-        fold.scatter(ax=ax, label="raw")
-        fold.bin(10).scatter(ax=ax, label="binned")
-        ax.set_title(self.target_name)
-        return ax
+        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls_results = tls.power(**tls_kwargs)
+        self.tls_results = tls_results
+        if plot:
+            fig = plot_tls(tls_results)
+            fig.axes[0].set_title(self.target_name)
+            return fig
+
+
+"""
+Functions below appear in both ShortCadence and LongCadence
+Either class inherits different classes
+"""
+
+
+def get_flat_lc(
+    self,
+    lc,
+    period=None,
+    epoch=None,
+    duration=None,
+    window_length=None,
+    method="biweight",
+    return_trend=False,
+):
+    """
+    """
+    period = self.toi_period if period is None else period
+    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    duration = self.toi_duration if duration is None else duration
+    if duration < 1:
+        print("Duration should be in hours.")
+    if window_length is None:
+        window_length = 0.5 if duration is None else duration / 24 * 3
+    if self.verbose:
+        print(
+            f"Using {method} filter with window_length={window_length:.2f} day"
+        )
+    if (period is not None) & (epoch is not None) & (duration is not None):
+        tmask = get_transit_mask(
+            lc, period=period, epoch=epoch, duration_hours=duration
+        )
+    else:
+        tmask = np.zeros_like(lc.time, dtype=bool)
+    # dummy holder
+    flat, trend = lc.flatten(return_trend=True)
+    # flatten using wotan
+    wflat, wtrend = flatten(
+        lc.time,
+        lc.flux,
+        method=method,
+        mask=tmask,
+        window_length=window_length,
+        return_trend=True,
+    )
+    # overwrite
+    flat.flux = wflat
+    trend.flux = wtrend
+    if return_trend:
+        return flat, trend
+    else:
+        return flat
+
+
+def plot_trend_flat_lcs(
+    self, lc, period=None, epoch=None, duration=None, binsize=10, **kwargs
+):
+    """
+    plot trend and flat lightcurves (uses TOI ephemeris by default)
+    """
+    period = self.toi_period if period is None else period
+    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    duration = self.toi_duration if duration is None else duration
+    if duration < 1:
+        print("Duration should be in hours.")
+    if self.verbose:
+        print(
+            f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
+        )
+    fig, axs = pl.subplots(
+        2, 1, figsize=(12, 10), constrained_layout=True, sharex=True
+    )
+
+    if (period is not None) & (epoch is not None) & (duration is not None):
+        tmask = get_transit_mask(
+            lc, period=period, epoch=epoch, duration_hours=duration
+        )
+    else:
+        tmask = np.zeros_like(lc.time, dtype=bool)
+    ax = axs.flatten()
+    flat, trend = self.get_flat_lc(
+        lc, period=period, duration=duration, return_trend=True, **kwargs
+    )
+    lc[tmask].scatter(ax=ax[0], zorder=5, c="r", label="transit")
+    if np.any(tmask):
+        lc[~tmask].scatter(ax=ax[0], c="k", alpha=0.5, label="_nolegend_")
+    ax[0].set_title(self.target_name)
+    ax[0].set_xlabel("")
+    trend.plot(ax=ax[0], c="b", lw=2, label="trend")
+
+    if (period is not None) & (epoch is not None) & (duration is not None):
+        tmask2 = get_transit_mask(
+            flat, period=period, epoch=epoch, duration_hours=duration
+        )
+    else:
+        tmask2 = np.zeros_like(lc.time, dtype=bool)
+    flat.scatter(ax=ax[1], c="k", alpha=0.5, label="flat")
+    if np.any(tmask2):
+        flat[tmask2].scatter(ax=ax[1], zorder=5, c="r", s=10, label="transit")
+    flat.bin(binsize).scatter(ax=ax[1], s=10, c="C1", label=f"bin ({binsize})")
+    fig.subplots_adjust(hspace=0)
+    return fig
+
+
+def plot_fold_lc(self, flat, period=None, epoch=None, binsize=10, ax=None):
+    """
+    plot folded lightcurve (uses TOI ephemeris by default)
+    """
+    if ax is None:
+        fig, ax = pl.subplots(figsize=(12, 8))
+    period = self.toi_period if period is None else period
+    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    errmsg = "Provide period and epoch."
+    assert (period is not None) & (epoch is not None), errmsg
+    fold = flat.fold(period=period, t0=epoch)
+    fold.scatter(ax=ax, c="k", alpha=0.5, label="raw")
+    fold.bin(binsize).scatter(ax=ax, s=20, c="C1", label=f"bin {binsize}")
+    ax.set_title(self.target_name)
+    return ax
 
 
 # class LightCurve(ShortCadence, LongCadence):

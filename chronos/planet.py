@@ -65,6 +65,14 @@ class Planet(Star):
             verbose=verbose,
             clobber=clobber,
         )
+        """
+        Attributes
+        ----------
+        starname : str
+            host star name
+        letter : str
+            planet letter (default=b)
+        """
         self.starname = starname
         self.letter = letter
         self.planet_params = None

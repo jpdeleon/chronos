@@ -68,7 +68,7 @@ class Tpf(Target):
         # limit=None,
     ):
         """
-        Parameters
+        Attributes
         ----------
         calc_fpp : bool
             instantiates triceratops
@@ -421,7 +421,7 @@ class FFI_cutout(Target):
         # limit=None,
     ):
         """
-        Parameters
+        Attributes
         ----------
         calc_fpp : bool
             instantiates triceratops
