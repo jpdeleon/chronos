@@ -320,7 +320,9 @@ class K2(Target):
             fig.axes[0].set_title(self.target_name)
             return fig
 
-    def plot_fold_lc(self, flat, period, epoch, binsize=10, ax=None):
+    def plot_fold_lc(
+        self, flat, period, epoch, duration=None, binsize=10, ax=None
+    ):
         """
         plot folded lightcurve (uses TOI ephemeris by default)
         """
@@ -333,6 +335,12 @@ class K2(Target):
         fold.bin(binsize).scatter(
             ax=ax, s=20, c="C1", label=f"bin ({binsize})"
         )
+        if duration is None:
+            if self.tls_results is not None:
+                duration = self.tls_results.duration
+        if duration is not None:
+            xlim = 3 * duration / period
+            ax.set_xlim(-xlim, xlim)
         ax.set_title(self.target_name)
         return ax
 

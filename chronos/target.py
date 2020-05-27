@@ -189,6 +189,8 @@ class Target:
             "sigma_blur",
             "use_skew_slope",
             "mist_eep_table",
+            # "everest",
+            # "k2sff"
         ]
         args = []
         for key in self.__dict__:
@@ -240,6 +242,9 @@ class Target:
         https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu3ast/sec_cu3ast_proc/ssec_cu3ast_proc_xmatch.html
         and
         https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu3ast/sec_cu3ast_cali/ssec_cu3ast_cali_frame.html
+
+        See also CDIPS gaia query:
+        https://github.com/lgbouma/cdips/blob/master/cdips/utils/gaiaqueries.py
         """
         radius = self.search_radius if radius is None else radius * u.arcsec
         verbose = verbose if verbose is not None else self.verbose
@@ -252,6 +257,12 @@ class Target:
         tab = Catalogs.query_region(
             self.target_coord, radius=radius, catalog="Gaia", version=2
         ).to_pandas()
+        # rename distance to separation because it is confusing
+        tab = tab.rename(columns={"distance": "separation"})
+        # convert from arcmin to arcsec
+        tab["separation"] = tab["separation"].apply(
+            lambda x: x * u.arcmin.to(u.arcsec)
+        )
         errmsg = f"No gaia star within {radius}. Use radius>{radius}"
         assert len(tab) > 0, errmsg
         tab["source_id"] = tab.source_id.astype(int)
@@ -309,6 +320,7 @@ class Target:
             target_dist = Distance(parallax=star["parallax"] * u.mas)
         else:
             target_dist = np.nan
+
         # redefine skycoord with coord and distance
         target_coord = SkyCoord(
             ra=self.target_coord.ra,
@@ -464,15 +476,12 @@ class Target:
         assert isinstance(d, pd.DataFrame), msg
         idx = d.source_id == gaiaid
         target_gmag = d.loc[idx, "phot_g_mean_mag"].values[0]
-        d["distance"] = d["distance"].apply(
-            lambda x: x * u.arcmin.to(u.arcsec)
-        )
         d["delta_Gmag"] = d["phot_g_mean_mag"] - target_gmag
         # compute dilution factor
         d["dilution"] = 1 + 10 ** (0.4 * d["delta_Gmag"])
         columns = [
             "source_id",
-            "distance",
+            "separation",
             "parallax",
             "phot_g_mean_mag",
             "delta_Gmag",

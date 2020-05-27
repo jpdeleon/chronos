@@ -26,6 +26,7 @@ from chronos.utils import (
     get_mag_err_from_flux,
     get_err_quadrature,
     map_float,
+    get_mist_eep_table,
     DATA_PATH,
 )
 
@@ -106,9 +107,8 @@ class Star(Target):
             if "I/349/starhorse" in vizier.keys()
             else None
         )
-        fp = Path(DATA_PATH, "mist_eep_table.csv")
         self.mist = None
-        self.mist_eep_table = pd.read_csv(fp, comment="#")
+        self.mist_eep_table = get_mist_eep_table()
 
     def estimate_Av(self, map="sfd", constant=None):
         """

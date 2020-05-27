@@ -721,7 +721,6 @@ class ClusterCatalog(CatalogDownloader):
         fp2 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
         tab2 = Table.read(fp2, format="ascii").to_pandas()
         df = pd.concat([tab1, tab2], axis=0, join="outer")
-        # df["distance"] = Distance(distmod=df["DM"]).pc
         df = _decode_n_drop(df, ["SimbadName"])
         df = df.rename(
             columns={
@@ -738,6 +737,7 @@ class ClusterCatalog(CatalogDownloader):
                 "plx": "parallax",
             }
         )
+        df["distance"] = Distance(parallax=df["parallax"].values * u.mas).pc
         return df
 
     def get_members_Babusiaux2018(self):
@@ -1142,6 +1142,7 @@ class ClusterCatalog(CatalogDownloader):
         else:
             ax = df.plot(kind="scatter", x=x, y=y, c=c, cmap=cmap)
             _ = df[[n, x, y]].apply(annotate_df, axis=1)
+            ax.set_title(f"{self.catalog_name} catalog")
             return ax
 
     # @property
@@ -1591,14 +1592,19 @@ def plot_hrd(
     df_target=None,
     target_label=None,
     target_color="r",
+    log_age=None,
+    feh=0.0,
+    max_eep=300,
     figsize=(8, 8),
     yaxis="lum_val",
     xaxis="teff_val",
     color="radius_val",
     cmap="viridis",
+    annotate_Sun=False,
     ax=None,
 ):
     """Plot HR diagram using luminosity and Teff
+    and optionally MIST isochrones if log_age is given
 
     Parameters
     ----------
@@ -1608,6 +1614,12 @@ def plot_hrd(
         checks if target gaiaid in df
     df_target : pd.Series
         info of target
+    log_age : float
+        isochrone age (default=None)
+    feh : float
+        isochrone metallicity
+    max_eep : float
+        maximum eep (default=300)
     xaxis, yaxis : str
         parameter to plot
 
@@ -1651,13 +1663,50 @@ def plot_hrd(
         fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
     else:
         ax.scatter(df[xaxis], df[yaxis], marker=".")
-    ax.set_ylabel(r"$\log(L/L_{\odot})$", fontsize=16)
+
+    if annotate_Sun:
+        assert (yaxis == "lum_val") & (xaxis == "teff_val")
+        ax.plot(5700, 1, marker=r"$\odot$", c="r", ms="15", label="Sun")
+    if log_age is not None:
+        # plot isochrones
+        try:
+            from isochrones.mist import MISTIsochroneGrid
+
+            iso_grid = MISTIsochroneGrid()
+        except Exception:
+            errmsg = "pip install isochrones"
+            raise ModuleNotFoundError(errmsg)
+        # check log_age
+        ages = iso_grid.df.index.get_level_values(0)
+        errmsg = f"log_age={log_age} not in:\n{ages.unique().tolist()}"
+        assert ages.isin([log_age]).any(), errmsg
+        # check feh
+        fehs = iso_grid.df.index.get_level_values(1)
+        errmsg = f"feh={feh} not in:\n{fehs.unique().tolist()}"
+        assert fehs.isin([feh]).any(), errmsg
+        # check eep
+        eeps = iso_grid.df.index.get_level_values(2)
+        min_EEP = eeps.min()
+        max_EEP = eeps.max()
+        errmsg = f"eep = [0, {max_eep}]"
+        assert min_EEP < max_eep < max_EEP, errmsg
+
+        iso_df = iso_grid.df.loc[log_age, feh]
+        iso_df["L"] = iso_df["logL"].apply(lambda x: 10 ** x)
+        iso_df["Teff"] = iso_df["logTeff"].apply(lambda x: 10 ** x)
+        label = f"log(t)={log_age:.2f}\nfeh={feh:.2f}\nmax_eep={max_eep}"
+        iso_df[iso_df.eep < max_eep].plot(
+            x="Teff", y="L", c="k", ax=ax, label=label
+        )
+        ax.legend(title="MIST isochrones")
+
+    ax.set_ylabel(r"$L/L_{\odot}$", fontsize=16)
     ax.invert_xaxis()
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel(r"$\log(T_{\rm{eff}}$/K)", fontsize=16)
+    ax.set_xlabel(r"$T_{\rm{eff}}$/K", fontsize=16)
     text = len(df[[xaxis, yaxis]].dropna())
-    ax.text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax.transAxes)
+    ax.text(0.8, 0.8, f"nstars={text}", fontsize=14, transform=ax.transAxes)
     return ax
 
 

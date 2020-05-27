@@ -104,6 +104,7 @@ __all__ = [
     "get_RM_K",
     "get_tois_mass_RV_K",
     "get_vizier_tables",
+    "get_mist_eep_table",
 ]
 
 # Ax/Av
@@ -120,6 +121,15 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_mist_eep_table():
+    """
+    For eep phases, see
+    http://waps.cfa.harvard.edu/MIST/README_tables.pdf
+    """
+    fp = Path(DATA_PATH, "mist_eep_table.csv")
+    return pd.read_csv(fp, comment="#")
 
 
 def get_nexsci_archive(table="all"):

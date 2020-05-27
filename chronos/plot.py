@@ -626,6 +626,8 @@ def plot_tls(results, period=None, plabel=None, figsize=None):
         alpha=0.5,
         zorder=2,
     )
+    xlim = 3 * results.duration / results.period
+    ax[n].set_xlim(-xlim, xlim)
     ax[n].set_xlabel("Phase")
     ax[n].set_ylabel("Relative flux")
     fig.tight_layout()

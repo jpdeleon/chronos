@@ -269,6 +269,63 @@ class LongCadence(FFI_cutout):
         self.lc_cdips.targetid = self.ticid
         return cdips.lc
 
+    def get_flat_lc(
+        self,
+        lc,
+        window_length=None,
+        period=None,
+        epoch=None,
+        duration=None,
+        method="biweight",
+        return_trend=False,
+    ):
+        return get_flat_lc(
+            self=self,
+            lc=lc,
+            period=period,
+            epoch=epoch,
+            duration=duration,
+            window_length=window_length,
+            method=method,
+            return_trend=return_trend,
+        )
+
+    def plot_trend_flat_lcs(
+        self, lc, period=None, epoch=None, duration=None, binsize=10, **kwargs
+    ):
+        return plot_trend_flat_lcs(
+            self=self,
+            lc=lc,
+            period=period,
+            epoch=epoch,
+            duration=duration,
+            binsize=binsize,
+            **kwargs,
+        )
+
+    def plot_fold_lc(
+        self, flat, period=None, epoch=None, duration=None, ax=None
+    ):
+        return plot_fold_lc(
+            self=self,
+            flat=flat,
+            period=period,
+            epoch=epoch,
+            duration=duration,
+            ax=ax,
+        )
+
+    def run_tls(self, flat, plot=True, **tls_kwargs):
+        """
+        """
+        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls_results = tls.power(**tls_kwargs)
+        self.tls_results = tls_results
+        if plot:
+            fig = plot_tls(tls_results)
+            fig.axes[0].set_title(self.target_name)
+            return fig
+
 
 class ShortCadence(Tpf):
     """
@@ -631,6 +688,8 @@ def get_flat_lc(
     return_trend=False,
 ):
     """
+    TODO: migrate self in class method;
+    See plot_hrd in cluster.py
     """
     period = self.toi_period if period is None else period
     epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
@@ -674,6 +733,9 @@ def plot_trend_flat_lcs(
 ):
     """
     plot trend and flat lightcurves (uses TOI ephemeris by default)
+
+    TODO: migrate self in class method;
+    See plot_hrd in cluster.py
     """
     period = self.toi_period if period is None else period
     epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
@@ -719,7 +781,9 @@ def plot_trend_flat_lcs(
     return fig
 
 
-def plot_fold_lc(self, flat, period=None, epoch=None, binsize=10, ax=None):
+def plot_fold_lc(
+    self, flat, period=None, epoch=None, duration=None, binsize=10, ax=None
+):
     """
     plot folded lightcurve (uses TOI ephemeris by default)
     """
@@ -727,11 +791,18 @@ def plot_fold_lc(self, flat, period=None, epoch=None, binsize=10, ax=None):
         fig, ax = pl.subplots(figsize=(12, 8))
     period = self.toi_period if period is None else period
     epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    duration = self.toi_duration if duration is None else duration
     errmsg = "Provide period and epoch."
     assert (period is not None) & (epoch is not None), errmsg
     fold = flat.fold(period=period, t0=epoch)
     fold.scatter(ax=ax, c="k", alpha=0.5, label="raw")
     fold.bin(binsize).scatter(ax=ax, s=20, c="C1", label=f"bin {binsize}")
+    if duration is None:
+        if self.tls_results is not None:
+            duration = self.tls_results.duration
+    if duration is not None:
+        xlim = 3 * duration / period
+        ax.set_xlim(-xlim, xlim)
     ax.set_title(self.target_name)
     return ax
 
