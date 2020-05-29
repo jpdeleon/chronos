@@ -17,7 +17,6 @@ import getpass
 import numpy as np
 import astropy.units as u
 import lightkurve as lk
-from triceratops import triceratops
 
 # Import from package
 from chronos.config import DATA_PATH
@@ -98,6 +97,11 @@ class Tpf(Target):
         self.tpf = None
         calc_fpp
         if calc_fpp:
+            try:
+                from triceratops import triceratops
+            except Exception:
+                errmsg = "pip install triceratops"
+                raise ModuleNotFoundError(errmsg)
             try:
                 self.triceratops = triceratops.target(
                     ID=self.ticid, sectors=self.all_sectors
@@ -451,6 +455,11 @@ class FFI_cutout(Target):
         self.apply_data_quality_mask = apply_data_quality_mask
         self.tpf_tesscut = None
         if calc_fpp:
+            try:
+                from triceratops import triceratops
+            except Exception:
+                errmsg = "pip install triceratops"
+                raise ModuleNotFoundError(errmsg)
             try:
                 self.triceratops = triceratops.target(
                     ID=self.ticid, sectors=self.all_sectors
