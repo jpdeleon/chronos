@@ -33,6 +33,27 @@ from chronos.utils import (
 
 __all__ = ["Star"]
 
+# latest catalogues: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, ALL-WISE, 2MASS
+# Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
+CATALOGS_STAR_PARMS = {
+    "Queiroz2020": "https://arxiv.org/abs/1710.09970",  # starhorse: using APOGEE+Gaia
+    "Anders2019": "https://arxiv.org/abs/1904.11302",  # panstarrs+2MASS+AllWISE+some APOGEE
+    "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper
+    # Sloan Digital Sky Survey Apache Point Observatory Galaxy Evolution Experiment (APOGEE)
+    "Ahumada2020": "https://arxiv.org/abs/1912.02905",  # SDSS DR16: using APOGEE DR2 -southern+eBOSS spectra
+    "Buder2018": "https://arxiv.org/abs/1804.06041",  # GALAH DR2
+    "Lin2020": "https://arxiv.org/abs/1911.05221",  # GALAH2=isochrone ages and init bulk met
+    # distance- and extinction-corrected CMD, extinction maps as a function of distance, and density maps
+    "Guiglion2020": "https://arxiv.org/abs/2004.12666",  # rave w/ CNN
+    # kinematic thin disc, thick disc, and halo membership probabilities
+    "McMillan2018": "https://arxiv.org/abs/1707.04554",  # TGAS+RAVE for radial velocities
+    "Casey2016": "https://arxiv.org/abs/1609.02914",  # RAVE-on, ages
+    "Auge2020": "https://arxiv.org/abs/2003.05459",  # M-giants asteroseismic distances
+    # ===with planet
+    "Wittenmyer2020": "https://arxiv.org/abs/2005.10959",  # K2C1-13+GALAH/HERMES
+    "HardegreeUllman2019": "https://arxiv.org/abs/1905.05900",  # keplerMdwarfs
+}
+
 
 class Star(Target):
     def __init__(
@@ -62,6 +83,9 @@ class Star(Target):
         Attributes
         ----------
         See inherited class: Target
+
+        See starfit:
+        https://github.com/timothydmorton/isochrones/blob/master/isochrones/starfit.py
         """
         # https://docs.python.org/3/library/inspect.html#inspect.getdoc
         super().__init__(
@@ -527,6 +551,7 @@ class Star(Target):
         teff=None,
         logg=None,
         feh=None,
+        add_dict=None,
         min_mag_err=0.01,
         add_jhk=False,
         inflate_plx_err=True
@@ -536,6 +561,8 @@ class Star(Target):
         """get parameters for isochrones
         teff, logg, feh: tuple
             'gaia' populates Teff from gaia DR2
+        add_dict : dict
+            additional params
         min_mag_err : float
             minimum magnitude error
         add_jhk : bool
@@ -632,6 +659,10 @@ class Star(Target):
                 else min_mag_err
             )
             params.update({"Tess": (self.toi_Tmag, Tmag_err)})
+        # TODO: add Kep mag too
+        if add_dict is not None:
+            assert isinstance(add_dict, dict)
+            params.update(add_dict)
         # remove nan if there is any
         iso_params = {}
         for k in params:

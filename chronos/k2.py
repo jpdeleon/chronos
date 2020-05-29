@@ -247,7 +247,9 @@ class K2(Target):
         # overwrite
         flat.flux = wflat
         trend.flux = wtrend
-        # clean
+        # clean lc
+        sigma_upper = 5 if sigma_upper is None else sigma_upper
+        sigma_lower = 10 if sigma_lower is None else sigma_lower
         flat = flat.remove_nans().remove_outliers(
             sigma_upper=sigma_upper, sigma_lower=sigma_lower
         )

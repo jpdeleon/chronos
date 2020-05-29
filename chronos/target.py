@@ -333,15 +333,24 @@ class Target:
         if return_nearest_xmatch or (nsources == 1):
             if nsources > 1:
                 print(f"There are {nsources} gaia sources within {radius}.")
+            target = tab.iloc[0]
             if self.gaiaid is not None:
-                id = int(tab.iloc[0]["source_id"])
+                id = int(target["source_id"])
                 msg = f"Nearest match ({id}) != {self.gaiaid}"
                 assert int(self.gaiaid) == id, msg
             else:
-                self.gaiaid = int(tab.iloc[0]["source_id"])
-            self.gaia_params = tab.iloc[0]
-            self.gmag = tab.iloc[0]["phot_g_mean_mag"]
-            return tab.iloc[0]  # return series of len 1
+                self.gaiaid = int(target["source_id"])
+            self.gaia_params = target
+            self.gmag = target["phot_g_mean_mag"]
+            if target["astrometric_excess_noise_sig"] >= 2:
+                msg = "Target has significant astrometric excess noise perhaps indicating binarity.\n"
+                print(msg)
+                if self.verbose:
+                    url = "https://gea.esac.esa.int/archive/documentation/GDR2/Gaia_archive/"
+                    url += "chap_datamodel/sec_dm_main_tables/ssec_dm_gaia_source.html"
+                    msg = f"See Gaia Data Release documentation:\n{url}"
+                    print(msg)
+            return target  # return series of len 1
         else:
             # if self.verbose:
             #     d = self.get_nearby_gaia_sources()
@@ -1041,25 +1050,32 @@ class Target:
         self.harps_bank_table = df
         return df
 
-    def query_specs_from_tfop(self, clobber=None):
+    def query_specs_from_tfop(self, clobber=None, mission=None):
         """
         """
-        base = "https://exofop.ipac.caltech.edu/tess/"
-        clobber = clobber if clobber is not None else self.clobber
-        specs_table = get_specs_table_from_tfop(
-            clobber=clobber, verbose=self.verbose
-        )
-        if self.ticid is None:
-            ticid = self.query_tic_catalog(return_nearest_xmatch=True)
-        else:
-            ticid = self.ticid
-
-        idx = specs_table["TIC ID"].isin([ticid])
-        if self.verbose:
-            print(
-                f"There are {idx.sum()} spectra in {base}target.php?id={ticid}\n"
+        mission = self.mission if mission is None else mission.lower()
+        base = f"https://exofop.ipac.caltech.edu/{mission}"
+        if mission == "tess":
+            clobber = clobber if clobber is not None else self.clobber
+            specs_table = get_specs_table_from_tfop(
+                clobber=clobber, verbose=self.verbose
             )
-        return specs_table[idx]
+            if self.ticid is None:
+                print(
+                    f"TIC ID of {self.target_name} will be inferred by cross-matching coordinates in TIC catalog."
+                )
+                ticid = self.query_tic_catalog(return_nearest_xmatch=True)
+            else:
+                ticid = self.ticid
+
+            idx = specs_table["TIC ID"].isin([ticid])
+            if self.verbose:
+                url = {base} + f"/target.php?id={ticid}"
+                print(f"There are {idx.sum()} spectra in {url}\n")
+            return specs_table[idx]
+        else:
+            url = base + f"/dit_target.php?id={self.epicid}"
+            print(f"Scraping not yet implemented.\nSee {url}")
 
     @property
     def toi_Tmag(self):
