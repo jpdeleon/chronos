@@ -801,7 +801,7 @@ def plot_fold_lc(
         if self.tls_results is not None:
             duration = self.tls_results.duration
     if duration is not None:
-        xlim = 3 * duration / period
+        xlim = 3 * duration / 24 / period
         ax.set_xlim(-xlim, xlim)
     ax.set_title(self.target_name)
     return ax

@@ -49,6 +49,7 @@ CATALOGS_STAR_PARMS = {
     "McMillan2018": "https://arxiv.org/abs/1707.04554",  # TGAS+RAVE for radial velocities
     "Casey2016": "https://arxiv.org/abs/1609.02914",  # RAVE-on, ages
     "Auge2020": "https://arxiv.org/abs/2003.05459",  # M-giants asteroseismic distances
+    "Sanders2018": "https://arxiv.org/abs/1806.02324",  # Isochrone ages for ∼3 million stars
     # ===with planet
     "Wittenmyer2020": "https://arxiv.org/abs/2005.10959",  # K2C1-13+GALAH/HERMES
     "HardegreeUllman2019": "https://arxiv.org/abs/1905.05900",  # keplerMdwarfs
