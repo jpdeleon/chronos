@@ -1070,7 +1070,7 @@ class Target:
 
             idx = specs_table["TIC ID"].isin([ticid])
             if self.verbose:
-                url = {base} + f"/target.php?id={ticid}"
+                url = base + f"/target.php?id={ticid}"
                 print(f"There are {idx.sum()} spectra in {url}\n")
             return specs_table[idx]
         else:

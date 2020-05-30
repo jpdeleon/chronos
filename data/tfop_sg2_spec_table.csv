@@ -606,7 +606,7 @@ TIC ID,TIC,TOI,Telescope,Instrument,Spectral resolution,Wavelength coverage,SNR/
 90448944,,,SMARTS (1.5 m),CHIRON,80000.0,4500 to 8900 Angstroms,30.8,5500 angstroms,N,2020-01-13,quinn,tfopwg,15758,
 91576611,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,43.8,5110 Angstroms,N,2019-09-12 03:01:13,bieryla,,5653,
 91576611,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,56.3,5110 Angstroms,N,2019-09-18 02:48:53,bieryla,,5728,
-91987762,TIC 91987762.01,,APF (2.4 m),Levy,114000.0,374 to 970 nm,,,Y,2020-04-30,dalba,,18902,4 RVs between Apr 27 and April 30 2020
+91987762,TIC 91987762.01,TOI 1898.01,APF (2.4 m),Levy,114000.0,374 to 970 nm,,,Y,2020-04-30,dalba,,18902,4 RVs between Apr 27 and April 30 2020
 92013169,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,40.9,5110 Angstroms,N,2019-09-17 10:57:42,bieryla,,5713,
 92352620,,,LCO (1 m),NRES,53000.0,380 to 860 nm,31.37,550 nm,N,2018-11-20 00:59:10,rabus,,6522,NRES
 92359850,,,FLWO (1.5 m),TRES,44000.0,3850 to 9096 Angstroms,37.4,5110 Angstroms,N,2019-02-02 02:43:58,bieryla,,1905,

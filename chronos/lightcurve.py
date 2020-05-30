@@ -24,7 +24,7 @@ from transitleastsquares import transitleastsquares
 from chronos.config import DATA_PATH
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
-from chronos.plot import plot_tls
+from chronos.plot import plot_tls, plot_odd_even
 from chronos.utils import (
     remove_bad_data,
     parse_aperture_mask,
@@ -304,7 +304,7 @@ class LongCadence(FFI_cutout):
         )
 
     def plot_fold_lc(
-        self, flat, period=None, epoch=None, duration=None, ax=None
+        self, flat=None, period=None, epoch=None, duration=None, ax=None
     ):
         return plot_fold_lc(
             self=self,
@@ -323,8 +323,37 @@ class LongCadence(FFI_cutout):
         self.tls_results = tls_results
         if plot:
             fig = plot_tls(tls_results)
-            fig.axes[0].set_title(self.target_name)
+            fig.axes[0].set_title(f"{self.target_name} (sector {flat.sector})")
             return fig
+
+    def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
+        """
+        """
+        period = self.toi_period if period is None else period
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        if (period is None) or (epoch is None):
+            if self.tls_results is None:
+                print("Running TLS")
+                _ = self.run_tls(flat, plot=False)
+            period = self.tls_results.period
+            epoch = self.tls_results.T0
+            ylim = self.tls_results.depth if ylim is None else ylim
+        if ylim is None:
+            ylim = 1 - self.toi_depth
+        fig = plot_odd_even(flat, period=period, epoch=epoch, yline=ylim)
+        fig.suptitle(f"{self.target_name} (sector {flat.sector})")
+        return fig
+
+    def get_transit_mask(self, lc, period=None, epoch=None, duration=None):
+        """
+        """
+        period = self.toi_period if period is None else period
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        duration = self.toi_duration if duration is None else duration
+        tmask = get_transit_mask(
+            lc, period=period, epoch=epoch, duration_hours=duration
+        )
+        return tmask
 
 
 class ShortCadence(Tpf):
@@ -667,8 +696,37 @@ class ShortCadence(Tpf):
         self.tls_results = tls_results
         if plot:
             fig = plot_tls(tls_results)
-            fig.axes[0].set_title(self.target_name)
+            fig.axes[0].set_title(f"{self.target_name} (sector {flat.sector})")
             return fig
+
+    def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
+        """
+        """
+        period = self.toi_period if period is None else period
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        if (period is None) or (epoch is None):
+            if self.tls_results is None:
+                print("Running TLS")
+                _ = self.run_tls(flat, plot=False)
+            period = self.tls_results.period
+            epoch = self.tls_results.T0
+            ylim = self.tls_results.depth if ylim is None else ylim
+        if ylim is None:
+            ylim = 1 - self.toi_depth
+        fig = plot_odd_even(flat, period=period, epoch=epoch, yline=ylim)
+        fig.suptitle(f"{self.target_name} (sector {flat.sector})")
+        return fig
+
+    def get_transit_mask(self, lc, period=None, epoch=None, duration=None):
+        """
+        """
+        period = self.toi_period if period is None else period
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        duration = self.toi_duration if duration is None else duration
+        tmask = get_transit_mask(
+            lc, period=period, epoch=epoch, duration_hours=duration
+        )
+        return tmask
 
 
 """
@@ -763,7 +821,7 @@ def plot_trend_flat_lcs(
     lc[tmask].scatter(ax=ax[0], zorder=5, c="r", label="transit")
     if np.any(tmask):
         lc[~tmask].scatter(ax=ax[0], c="k", alpha=0.5, label="_nolegend_")
-    ax[0].set_title(self.target_name)
+    ax[0].set_title(f"{self.target_name} (sector {lc.sector})")
     ax[0].set_xlabel("")
     trend.plot(ax=ax[0], c="b", lw=2, label="trend")
 
@@ -803,7 +861,7 @@ def plot_fold_lc(
     if duration is not None:
         xlim = 3 * duration / 24 / period
         ax.set_xlim(-xlim, xlim)
-    ax.set_title(self.target_name)
+    ax.set_title(f"{self.target_name} (sector {flat.sector})")
     return ax
 
 

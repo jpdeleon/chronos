@@ -1045,7 +1045,7 @@ class Star(Target):
         else:
             return (Av, Av_errp, Av_errm)
 
-    def get_inclination(self, Prot=None, Rstar=None, vsini=None):
+    def get_star_inclination(self, Prot=None, Rstar=None, vsini=None):
         """estimate stellar inclination [deg]; queries vizier if
         arguments are None
         Prot : float

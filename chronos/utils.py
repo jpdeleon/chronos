@@ -496,6 +496,11 @@ def get_transit_mask(lc, period, epoch, duration_hours):
     return  np.array(mask)
     """
     assert isinstance(lc, lk.LightCurve)
+    assert (
+        (period is not None)
+        & (epoch is not None)
+        & (duration_hours is not None)
+    )
     temp_fold = lc.fold(period, t0=epoch)
     fractional_duration = (duration_hours / 24.0) / period
     phase_mask = np.abs(temp_fold.phase) < (fractional_duration * 1.5)
@@ -1583,7 +1588,7 @@ def query_gaia_params_of_all_tois(
         toi_gaia_params = {}
         for toi in tqdm(toiids):
             try:
-                t = target.Target(toiid=toi, verbose=verbose)
+                t = target.Target(toiid=toi, verbose=False)
                 # query gaia dr2 catalog to get gaia id
                 df_gaia = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
                 # t.target_coord.distance = Distance(parallax=df_gaia.parallax*u.mas)

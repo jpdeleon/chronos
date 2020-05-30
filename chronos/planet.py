@@ -80,6 +80,22 @@ class Planet(Star):
         self.harps_bank_target_name = None
         self.nea_params = None
 
+    def describe_system(self):
+        Rp, Rp_err = self.toi_Rp, self.toi_Rp_err
+        rearth = r"R$_{\oplus}$"
+        Porb = self.toi_period
+        Rstar, Rstar_err = self.toi_Rstar, self.toi_Rstar_err
+        rsun = r"R$_{\odot}$"
+        Mstar = self.starhorse_Mstar
+        msun = r"M$_{\odot}$"
+        spec_type = self.get_spectral_type()
+        desc = f"A {Rp:.1f}+/-{Rp_err:.1f} {rearth} planet orbiting an {spec_type} "
+        desc += (
+            f"({Rstar:.1f}+/-{Rstar_err:.1f} {rsun}, {Mstar:.1f} {msun}) star "
+        )
+        desc += f"every {Porb:.2f} d."
+        print(r"{}".format(desc))
+
     def get_nea_params(self, query_string=None):
         """
         query_string : str
@@ -247,7 +263,7 @@ class Planet(Star):
             Ms_Msun = self.starhorse_Mstar
             Ms_Msun_err = 0.1
             if self.verbose:
-                print(f"P from TOI: {P_days:.4f}+/-{P_days_err:.4f} d")
+                print(f"Porb from TOI: {P_days:.4f}+/-{P_days_err:.4f} d")
                 print(f"Rp from TOI: {Rp:.2f}+/-{Rp_err:.2f} Rearth")
                 print(
                     f"Mp estimate using Rp via MR relation: {mp_Mearth:.2f}-{Mp_siglo:.2f}+{Mp_sighi:.2f} Mearth"
@@ -258,6 +274,11 @@ class Planet(Star):
             assert not (
                 (P_days is None) & (Ms_Msun is None) & (mp_Mearth is None)
             )
+        else:
+            P_days, P_days_err = P_days[0], P_days[1]
+            mp_Mearth, mp_Mearth_err = mp_Mearth[0], mp_Mearth[1]
+            Ms_Msun, Ms_Msun_err = Ms_Msun[0], Ms_Msun[1]
+
         results = get_RV_K(
             P_days=(P_days, P_days_err),
             mp_Mearth=(mp_Mearth, mp_Mearth_err),

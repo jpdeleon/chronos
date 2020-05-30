@@ -15,16 +15,26 @@ import logging
 # Import library
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as pl
 import astropy.units as u
 from lightkurve import TessLightCurve
 from astroquery.mast import Observations
 from astropy.io import fits
+from wotan import flatten
+from transitleastsquares import transitleastsquares
 
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
 from chronos.tpf import FFI_cutout
-from chronos.utils import get_ctois, get_sector_cam_ccd, parse_aperture_mask
+from chronos.plot import plot_tls, plot_odd_even
+from chronos.utils import (
+    get_ctois,
+    get_sector_cam_ccd,
+    parse_aperture_mask,
+    get_transit_mask,
+)
+from chronos.constants import TESS_TIME_OFFSET
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +60,9 @@ class _TessLightCurve(TessLightCurve):
             # add 1 if even
             half += 1
         return lc.flatten(
-            window_length=half, polyorder=polyorder, break_tolerance=break_tolerance
+            window_length=half,
+            polyorder=polyorder,
+            break_tolerance=break_tolerance,
         )
 
 
@@ -123,9 +135,13 @@ class CDIPS(Target):
                     msg = f"CDIPS lc is currently available for sectors={CDIPS_SECTORS}\n"
                     raise ValueError(msg)
                 if sum(idx) == 1:
-                    self.sector = self.all_sectors[idx][0] #get first available
+                    self.sector = self.all_sectors[idx][
+                        0
+                    ]  # get first available
                 else:
-                    self.sector = self.all_sectors[idx][0] #get first available
+                    self.sector = self.all_sectors[idx][
+                        0
+                    ]  # get first available
                     # get first available
                     print(
                         f"CDIPS lc may be available for sectors {self.all_sectors[idx]}"
@@ -331,27 +347,195 @@ class CDIPS(Target):
         #         e = e/f
         return (t[idx], f[idx], e[idx])
 
-    def get_aper_mask_cdips(self, sap_mask='round'):
-        #self.hdulist[1].data.names does not contain aperture
-        #estimate aperture
-        print("CDIPS has no aperture info in fits. Estimating aperture instead.")
-        #first download tpf cutout
+    def get_aper_mask_cdips(self, sap_mask="round"):
+        # self.hdulist[1].data.names does not contain aperture
+        # estimate aperture
+        print(
+            "CDIPS has no aperture info in fits. Estimating aperture instead."
+        )
+        # first download tpf cutout
         self.ffi_cutout = FFI_cutout(
-                        sector=self.sector,
-                        gaiaDR2id=self.gaiaid,
-                        toiid=self.toiid,
-                        ticid=self.ticid,
-                        search_radius=self.search_radius,
-                        quality_bitmask=self.quality_bitmask,
-                        )
+            sector=self.sector,
+            gaiaDR2id=self.gaiaid,
+            toiid=self.toiid,
+            ticid=self.ticid,
+            search_radius=self.search_radius,
+            quality_bitmask=self.quality_bitmask,
+        )
         tpf = self.ffi_cutout.get_tpf_tesscut()
-        idx = int(self.aper_idx)-1 #
+        idx = int(self.aper_idx) - 1  #
         aper_mask = parse_aperture_mask(
-                tpf,
-                sap_mask=sap_mask,
-                aper_radius=CDIPS_APER_PIX[idx],
-                )
+            tpf, sap_mask=sap_mask, aper_radius=CDIPS_APER_PIX[idx]
+        )
         return aper_mask
+
+    def get_flat_lc(
+        self,
+        lc,
+        period=None,
+        epoch=None,
+        duration=None,
+        window_length=None,
+        method="biweight",
+        sigma_upper=None,
+        sigma_lower=None,
+        return_trend=False,
+    ):
+        """
+        """
+        if duration < 1:
+            print("Duration should be in hours.")
+        if window_length is None:
+            window_length = 0.5 if duration is None else duration / 24 * 3
+        if self.verbose:
+            print(
+                f"Using {method} filter with window_length={window_length:.2f} day"
+            )
+        if (period is not None) & (epoch is not None) & (duration is not None):
+            tmask = get_transit_mask(
+                lc, period=period, epoch=epoch, duration_hours=duration
+            )
+        else:
+            tmask = np.zeros_like(lc.time, dtype=bool)
+        # dummy holder
+        flat, trend = lc.flatten(return_trend=True)
+        # flatten using wotan
+        wflat, wtrend = flatten(
+            lc.time,
+            lc.flux,
+            method=method,
+            window_length=window_length,
+            mask=tmask,
+            return_trend=True,
+        )
+        # overwrite
+        flat.flux = wflat
+        trend.flux = wtrend
+        # clean lc
+        sigma_upper = 5 if sigma_upper is None else sigma_upper
+        sigma_lower = 10 if sigma_lower is None else sigma_lower
+        flat = flat.remove_nans().remove_outliers(
+            sigma_upper=sigma_upper, sigma_lower=sigma_lower
+        )
+        if return_trend:
+            return flat, trend
+        else:
+            return flat
+
+    def plot_trend_flat_lcs(
+        self, lc, period, epoch, duration, binsize=10, **kwargs
+    ):
+        """
+        plot trend and falt lightcurves (uses TOI ephemeris by default)
+        """
+        if duration < 1:
+            print("Duration should be in hours.")
+        assert (
+            (period is not None) & (epoch is not None) & (duration is not None)
+        )
+        if self.verbose:
+            print(
+                f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
+            )
+        fig, axs = pl.subplots(
+            2, 1, figsize=(12, 10), constrained_layout=True, sharex=True
+        )
+
+        if (period is not None) & (epoch is not None) & (duration is not None):
+            tmask = get_transit_mask(
+                lc, period=period, epoch=epoch, duration_hours=duration
+            )
+        else:
+            tmask = np.zeros_like(lc.time, dtype=bool)
+        ax = axs.flatten()
+        flat, trend = self.get_flat_lc(
+            lc, period=period, duration=duration, return_trend=True, **kwargs
+        )
+        lc[tmask].scatter(ax=ax[0], c="r", zorder=5, label="transit")
+        if np.any(tmask):
+            lc[~tmask].scatter(ax=ax[0], c="k", alpha=0.5, label="_nolegend_")
+        ax[0].set_title(f"{self.target_name} (sector {lc.sector})")
+        ax[0].set_xlabel("")
+        trend.plot(ax=ax[0], c="b", lw=2, label="trend")
+
+        if (period is not None) & (epoch is not None) & (duration is not None):
+            tmask2 = get_transit_mask(
+                flat, period=period, epoch=epoch, duration_hours=duration
+            )
+        else:
+            tmask2 = np.zeros_like(lc.time, dtype=bool)
+        flat.scatter(ax=ax[1], c="k", alpha=0.5, label="flat")
+        if np.any(tmask2):
+            flat[tmask2].scatter(
+                ax=ax[1], zorder=5, c="r", s=10, label="transit"
+            )
+        flat.bin(binsize).scatter(
+            ax=ax[1], s=10, c="C1", label=f"bin ({binsize})"
+        )
+        fig.subplots_adjust(hspace=0)
+        return fig
+
+    def run_tls(self, flat, plot=True, **tls_kwargs):
+        """
+        """
+        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls_results = tls.power(**tls_kwargs)
+        self.tls_results = tls_results
+        if plot:
+            fig = plot_tls(tls_results)
+            fig.axes[0].set_title(f"{self.target_name} (sector {flat.sector})")
+            return fig
+
+    def plot_fold_lc(
+        self, flat, period, epoch, duration=None, binsize=10, ax=None
+    ):
+        """
+        plot folded lightcurve (uses TOI ephemeris by default)
+        """
+        if ax is None:
+            fig, ax = pl.subplots(figsize=(12, 8))
+        errmsg = "Provide period and epoch."
+        assert (period is not None) & (epoch is not None), errmsg
+        fold = flat.fold(period=period, t0=epoch)
+        fold.scatter(ax=ax, c="k", alpha=0.5, label="folded")
+        fold.bin(binsize).scatter(
+            ax=ax, s=20, c="C1", label=f"bin ({binsize})"
+        )
+        if duration is None:
+            if self.tls_results is not None:
+                duration = self.tls_results.duration
+        if duration is not None:
+            xlim = 3 * duration / period
+            ax.set_xlim(-xlim, xlim)
+        ax.set_title(f"{self.target_name} (sector {flat.sector})")
+        return ax
+
+    def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
+        """
+        """
+        period = self.toi_period if period is None else period
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        if (period is None) or (epoch is None):
+            if self.tls_results is None:
+                print("Running TLS")
+                _ = self.run_tls(flat, plot=False)
+            period = self.tls_results.period
+            epoch = self.tls_results.T0
+            ylim = self.tls_results.depth if ylim is None else ylim
+        if ylim is None:
+            ylim = 1 - self.toi_depth
+        fig = plot_odd_even(flat, period=period, epoch=epoch, yline=ylim)
+        fig.suptitle(f"{self.target_name} (sector {flat.sector})")
+        return fig
+
+    def get_transit_mask(self, lc, period, epoch, duration_hours):
+        """
+        """
+        tmask = get_transit_mask(
+            lc, period=period, epoch=epoch, duration_hours=duration_hours
+        )
+        return tmask
+
 
 def get_cdips_inventory(fp=None, verbose=True, clobber=False):
     if fp is None:

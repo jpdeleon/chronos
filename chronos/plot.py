@@ -634,11 +634,13 @@ def plot_tls(results, period=None, plabel=None, figsize=None):
     return fig
 
 
-def plot_odd_even(flat, tls_results, yline=None, figsize=(8, 4)):
+def plot_odd_even(flat, period, epoch, yline=None, figsize=(8, 4)):
     """
     """
-    fig, axs = pl.subplots(1, 2, figsize=figsize, sharey=True)
-    fold = flat.fold(period=tls_results.period, t0=tls_results.T0)
+    fig, axs = pl.subplots(
+        1, 2, figsize=figsize, sharey=True, constrained_layout=True
+    )
+    fold = flat.fold(period=period, t0=epoch)
 
     ax = axs[0]
     fold[fold.even_mask].scatter(label="even", ax=ax)
@@ -649,6 +651,8 @@ def plot_odd_even(flat, tls_results, yline=None, figsize=(8, 4)):
     fold[fold.odd_mask].scatter(label="odd", ax=ax)
     if yline is not None:
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
+    ax.set_ylabel("")
+    fig.subplots_adjust(wspace=0)
     return fig
 
 

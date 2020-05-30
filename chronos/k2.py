@@ -21,7 +21,7 @@ from transitleastsquares import transitleastsquares
 from chronos.config import DATA_PATH
 from chronos.target import Target
 from chronos.constants import K2_TIME_OFFSET
-from chronos.plot import plot_tls
+from chronos.plot import plot_tls, plot_odd_even
 from chronos.utils import detrend, get_all_campaigns, get_transit_mask
 
 pl.style.use("default")
@@ -290,7 +290,7 @@ class K2(Target):
         lc[tmask].scatter(ax=ax[0], c="r", zorder=5, label="transit")
         if np.any(tmask):
             lc[~tmask].scatter(ax=ax[0], c="k", alpha=0.5, label="_nolegend_")
-        ax[0].set_title(self.target_name)
+        ax[0].set_title(f"{self.target_name} (campaign {lc.campaign})")
         ax[0].set_xlabel("")
         trend.plot(ax=ax[0], c="b", lw=2, label="trend")
 
@@ -319,7 +319,9 @@ class K2(Target):
         self.tls_results = tls_results
         if plot:
             fig = plot_tls(tls_results)
-            fig.axes[0].set_title(self.target_name)
+            fig.axes[0].set_title(
+                f"{self.target_name} (campaign {flat.campaign})"
+            )
             return fig
 
     def plot_fold_lc(
@@ -343,8 +345,32 @@ class K2(Target):
         if duration is not None:
             xlim = 3 * duration / period
             ax.set_xlim(-xlim, xlim)
-        ax.set_title(self.target_name)
+        ax.set_title(f"{self.target_name} (campaign {flat.campaign})")
         return ax
+
+    def plot_odd_even(self, flat, period, epoch, ylim=None):
+        """
+        """
+        if (period is None) or (epoch is None):
+            if self.tls_results is None:
+                print("Running TLS")
+                _ = self.run_tls(flat, plot=False)
+            period = self.tls_results.period
+            epoch = self.tls_results.T0
+            ylim = self.tls_results.depth if ylim is None else ylim
+        if ylim is None:
+            ylim = 1 - self.toi_depth
+        fig = plot_odd_even(flat, period=period, epoch=epoch, yline=ylim)
+        fig.suptitle(f"{self.target_name} (campaign {flat.campaign})")
+        return fig
+
+    def get_transit_mask(self, lc, period, epoch, duration_hours):
+        """
+        """
+        tmask = get_transit_mask(
+            lc, period=period, epoch=epoch, duration_hours=duration_hours
+        )
+        return tmask
 
 
 class Everest(K2):
