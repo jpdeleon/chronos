@@ -10,6 +10,7 @@ from .cluster import *
 from .tpf import *
 from .lightcurve import *
 from .cdips import *
+from .pathos import *
 from .k2 import *
 from .plot import *
 from .transit import *

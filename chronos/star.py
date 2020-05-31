@@ -55,6 +55,10 @@ CATALOGS_STAR_PARMS = {
     "HardegreeUllman2019": "https://arxiv.org/abs/1905.05900",  # keplerMdwarfs
 }
 
+#
+# https://docs.google.com/document/d/1s6OgiJlBVwonAYvQ3VONB4ioWOn0SHtJesrnaXJETBA/edit
+CATALOG_EB = {"": ""}  # parametees of EB in APOGEE16 stars
+
 
 class Star(Target):
     def __init__(

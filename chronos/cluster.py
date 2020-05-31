@@ -1205,6 +1205,25 @@ class Cluster(ClusterCatalog):
         # Clear memory
         self.all_members = None
 
+    def get_cluster_age(self, cluster_name=None):
+        """
+        log10(age) is taken from Bossini+2019 catalog
+        """
+        cluster_name = (
+            self.cluster_name if cluster_name is None else cluster_name
+        )
+        cluster_name = cluster_name.lower().replace("_", "").strip()
+        cc = ClusterCatalog(catalog_name="Bossini2019")
+        cat = cc.query_catalog()
+        cat.Cluster = cat.Cluster.apply(
+            lambda x: x.lower().replace("_", "").strip()
+        )
+        idx = cat.Cluster.str.contains(cluster_name)
+        d = cat.loc[idx, ["Cluster", "log10_age"]]
+        log10age = d.log10_age.values[0]
+        print(f"log10(age)={log10age:.2f} yr = {(10**log10age)/1e6:.2f} Myr")
+        return log10age
+
     def query_cluster_members(self):
         """
         Note: this just method is defined just to follow the api in ClusterCatalog;

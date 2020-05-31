@@ -342,14 +342,16 @@ class Target:
                 self.gaiaid = int(target["source_id"])
             self.gaia_params = target
             self.gmag = target["phot_g_mean_mag"]
-            if target["astrometric_excess_noise_sig"] >= 2:
-                msg = "Target has significant astrometric excess noise perhaps indicating binarity.\n"
+            ens = target["astrometric_excess_noise_sig"]
+            if ens >= 5:
+                msg = "astrometric_excess_noise_sig>{ens:.2f} (>5 hints binarity).\n"
                 print(msg)
-                if self.verbose:
-                    url = "https://gea.esac.esa.int/archive/documentation/GDR2/Gaia_archive/"
-                    url += "chap_datamodel/sec_dm_main_tables/ssec_dm_gaia_source.html"
-                    msg = f"See Gaia Data Release documentation:\n{url}"
-                    print(msg)
+            gof = target["astrometric_gof_al"]
+            if gof >= 20:
+                msg = "astrometric_gof_al>{gof:.2f} (>20 hints binarity).\n"
+                print(msg)
+            if (ens >= 5) or (gof >= 20):
+                print("See https://arxiv.org/pdf/1804.11082.pdf")
             return target  # return series of len 1
         else:
             # if self.verbose:
