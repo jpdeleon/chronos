@@ -24,9 +24,14 @@ from transitleastsquares import transitleastsquares
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
-from chronos.constants import K2_TIME_OFFSET, TESS_pix_scale
+from chronos.constants import K2_TIME_OFFSET, Kepler_pix_scale
 from chronos.plot import plot_tls, plot_odd_even
-from chronos.utils import detrend, get_all_campaigns, get_transit_mask
+from chronos.utils import (
+    detrend,
+    get_all_campaigns,
+    get_transit_mask,
+    PadWithZeros,
+)
 
 pl.style.use("default")
 log = logging.getLogger(__name__)
@@ -686,18 +691,13 @@ class K2sff(K2):
 
     def plot_gaia_sources_on_survey(
         self,
-        # tpf,
-        # target_gaiaid,
         gaia_sources=None,
         fov_rad=None,
         depth=0.0,
         kmax=1.0,
-        # sap_mask="pipeline",
         survey="DSS2 Red",
-        # verbose=True,
         ax=None,
         figsize=None,
-        # **mask_kwargs,
     ):
         """Plot (superpose) Gaia sources on archival image
 
@@ -725,7 +725,7 @@ class K2sff(K2):
 
         if fov_rad is None:
             diag = np.sqrt(nx ** 2 + ny ** 2)
-            fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcsec)
+            fov_rad = (diag * Kepler_pix_scale).to(u.arcsec)
         if gaia_sources is None:
             gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
         if self.gaiaid is None:
@@ -736,12 +736,11 @@ class K2sff(K2):
 
         assert len(gaia_sources) > 1, "gaia_sources contains single entry"
         # make aperture mask
-        mask = np.array(self.k2sff_best_aper_mask, dtype=bool)
         maskhdr = tpf.hdu[2].header  # self.k2sff_header
         # make aperture mask outline
         contour = np.zeros((ny, nx))
-        contour[np.where(mask)] = 1
-        #     contour = np.lib.pad(contour, 1, PadWithZeros)
+        contour[np.where(self.k2sff_best_aper_mask)] = 1
+        contour = np.lib.pad(contour, 1, PadWithZeros)
         highres = zoom(contour, 100, order=0, mode="nearest")
         extent = np.array([-1, nx, -1, ny])
 
@@ -752,13 +751,20 @@ class K2sff(K2):
         # -----------create figure---------------#
         if ax is None:
             # get img hdu for subplot projection
-            hdu = SkyView.get_images(
+            results = SkyView.get_images(
                 position=self.target_coord.icrs,
                 coordinates="icrs",
                 survey=survey,
                 radius=fov_rad,
                 grid=False,
-            )[0][0]
+            )
+            if len(results) > 0:
+                hdu = results[0][0]
+            else:
+                errmsg = (
+                    "SkyView returned empty result. Try a different survey."
+                )
+                raise ValueError(errmsg)
             # create figure with subplot projection
             fig = pl.figure(figsize=figsize)
             ax = fig.add_subplot(111, projection=WCS(hdu.header))
