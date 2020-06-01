@@ -12,15 +12,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
 import astropy.units as u
+from scipy.ndimage import zoom
 import lightkurve as lk
 from astropy.io import fits
 from wotan import flatten
+from astropy.wcs import WCS
+from astroquery.skyview import SkyView
+from astroplan.plots import plot_finder_image
 from transitleastsquares import transitleastsquares
 
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
-from chronos.constants import K2_TIME_OFFSET
+from chronos.constants import K2_TIME_OFFSET, TESS_pix_scale
 from chronos.plot import plot_tls, plot_odd_even
 from chronos.utils import detrend, get_all_campaigns, get_transit_mask
 
@@ -90,6 +94,8 @@ class K2(Target):
             print(f"Available campaigns: {self.all_campaigns}")
             print(f"Using campaign={self.campaign}.")
         self.tls_results = None
+        if self.verbose:
+            print(f"Target: {name}")
 
     def get_tpf(self):
         """
@@ -567,6 +573,9 @@ class K2sff(K2):
         self.filename = filename
         self.quality = None
         self.cadenceno = None
+        self.k2sff_best_aper_mask = None
+        self.k2sff_header = None
+        self.k2sff_recarray = None
         time, flux = self.get_k2sff_lc()
         # hack
         self.lc_k2sff = _KeplerLightCurve(
@@ -637,10 +646,29 @@ class K2sff(K2):
 
         try:
             url, fn = self.get_k2sff_url_and_fn(campaign)
-            with fits.open(url) as hl:
+            with fits.open(url) as hdulist:
+                # stacked_img = hdulist[24].data
+                # hdr = hdulist[24].header
+                prf_apertures = hdulist[23].data
+                cir_apertures = hdulist[22].data
+                # best lc using best aperture mask
+                lc_hdr = hdulist[1].header
+                self.k2sff_header = lc_hdr
+                best_aper_mask_shape = lc_hdr["MASKTYPE"][:3].lower()
+                best_aper_mask_idx = lc_hdr["MASKINDE"]
                 if self.verbose:
-                    print(hl.info())
-                recarray = hl[1].data
+                    print(hdulist.info())
+                    print(
+                        f"best aperture: {best_aper_mask_shape} (idx={best_aper_mask_idx})"
+                    )
+                if best_aper_mask_shape == "cir":
+                    best_aper_mask = cir_apertures[best_aper_mask_idx]
+                else:
+                    best_aper_mask = prf_apertures[best_aper_mask_idx]
+                # lightcurves
+                self.k2sff_best_aper_mask = best_aper_mask
+                recarray = hdulist[1].data
+                self.k2sff_recarray = recarray
                 cols = recarray.columns.names
                 assert (
                     flux_type in cols
@@ -655,3 +683,141 @@ class K2sff(K2):
             return time, flux
         except Exception as e:
             print(e)
+
+    def plot_gaia_sources_on_survey(
+        self,
+        # tpf,
+        # target_gaiaid,
+        gaia_sources=None,
+        fov_rad=None,
+        depth=0.0,
+        kmax=1.0,
+        # sap_mask="pipeline",
+        survey="DSS2 Red",
+        # verbose=True,
+        ax=None,
+        figsize=None,
+        # **mask_kwargs,
+    ):
+        """Plot (superpose) Gaia sources on archival image
+
+        Parameters
+        ----------
+        gaia_sources : pd.DataFrame
+            gaia sources table
+        fov_rad : astropy.unit
+            FOV radius
+        survey : str
+            image survey; see from astroquery.skyview import SkyView;
+            SkyView.list_surveys()
+        ax : axis
+            subplot axis
+        Returns
+        -------
+        ax : axis
+            subplot axis
+        """
+        if self.tpf is None:
+            tpf = self.get_tpf()
+        else:
+            tpf = self.tpf
+        ny, nx = tpf.flux.shape[1:]
+
+        if fov_rad is None:
+            diag = np.sqrt(nx ** 2 + ny ** 2)
+            fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcsec)
+        if gaia_sources is None:
+            gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
+        if self.gaiaid is None:
+            # _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+            target_gaiaid = gaia_sources.loc[0, "source_id"]
+        else:
+            target_gaiaid = self.gaiaid
+
+        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
+        # make aperture mask
+        mask = np.array(self.k2sff_best_aper_mask, dtype=bool)
+        maskhdr = tpf.hdu[2].header  # self.k2sff_header
+        # make aperture mask outline
+        contour = np.zeros((ny, nx))
+        contour[np.where(mask)] = 1
+        #     contour = np.lib.pad(contour, 1, PadWithZeros)
+        highres = zoom(contour, 100, order=0, mode="nearest")
+        extent = np.array([-1, nx, -1, ny])
+
+        if self.verbose:
+            print(
+                f"Querying {survey} ({fov_rad:.2f} x {fov_rad:.2f}) archival image"
+            )
+        # -----------create figure---------------#
+        if ax is None:
+            # get img hdu for subplot projection
+            hdu = SkyView.get_images(
+                position=self.target_coord.icrs,
+                coordinates="icrs",
+                survey=survey,
+                radius=fov_rad,
+                grid=False,
+            )[0][0]
+            # create figure with subplot projection
+            fig = pl.figure(figsize=figsize)
+            ax = fig.add_subplot(111, projection=WCS(hdu.header))
+        # plot survey img
+        nax, hdu = plot_finder_image(
+            self.target_coord,
+            ax=ax,
+            fov_radius=fov_rad,
+            survey=survey,
+            reticle=False,
+        )
+        imgwcs = WCS(hdu.header)
+        mx, my = hdu.data.shape
+        # plot mask
+        _ = ax.contour(
+            highres,
+            levels=[0.5],
+            extent=extent,
+            origin="lower",
+            colors="C0",
+            transform=ax.get_transform(WCS(maskhdr)),
+        )
+        idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+        target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
+
+        for index, row in gaia_sources.iterrows():
+            marker, s = "o", 100
+            r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
+            pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
+            if int(id) != int(target_gaiaid):
+                gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
+                if depth > kmax / gamma:
+                    # too deep to have originated from secondary star
+                    edgecolor = "C1"
+                    alpha = 1  # 0.5
+                else:
+                    # possible NEBs
+                    edgecolor = "C3"
+                    alpha = 1
+            else:
+                s = 200
+                edgecolor = "C2"
+                marker = "s"
+                alpha = 1
+            nax.scatter(
+                pix[0],
+                pix[1],
+                marker=marker,
+                s=s,
+                edgecolor=edgecolor,
+                alpha=alpha,
+                facecolor="none",
+            )
+        # set img limits
+        pl.setp(
+            nax,
+            xlim=(0, mx),
+            ylim=(0, my),
+            title=self.target_name
+            # title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
+        )
+        return ax

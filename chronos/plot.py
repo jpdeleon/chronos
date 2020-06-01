@@ -15,6 +15,7 @@ from astropy.visualization import ZScaleInterval
 from astroquery.mast import Catalogs
 from astropy.wcs import WCS
 import astropy.units as u
+from astroquery.skyview import SkyView
 from astroplan.plots import plot_finder_image
 from astropy.timeseries import LombScargle
 from mpl_toolkits.mplot3d import Axes3D
@@ -23,6 +24,7 @@ import deepdish as dd
 
 # Import from package
 from chronos.cluster import ClusterCatalog, Cluster
+from chronos.constants import TESS_pix_scale
 from chronos.utils import (
     get_toi,
     get_tois,
@@ -33,8 +35,6 @@ from chronos.utils import (
     get_fluxes_within_mask,
     get_rotation_period,
 )
-
-TESS_pix_scale = 21 * u.arcsec  # /pix
 
 __all__ = [
     "plot_tls",
@@ -354,17 +354,20 @@ def plot_gaia_sources_on_survey(
         print(
             f"Querying {survey} ({fov_rad:.2f} x {fov_rad:.2f}) archival image"
         )
-    # get img hdu
-    nax, hdu = plot_finder_image(
-        target_coord, fov_radius=fov_rad, survey=survey, reticle=True
-    )
-    pl.close()
-
     # -----------create figure---------------#
     if ax is None:
+        # get img hdu for subplot projection
+        hdu = SkyView.get_images(
+            position=target_coord.icrs,
+            coordinates="icrs",
+            survey=survey,
+            radius=fov_rad,
+            grid=False,
+        )[0][0]
         fig = pl.figure(figsize=figsize)
         # define scaling in projection
         ax = fig.add_subplot(111, projection=WCS(hdu.header))
+    # plot survey img
     nax, hdu = plot_finder_image(
         target_coord, ax=ax, fov_radius=fov_rad, survey=survey, reticle=False
     )
@@ -377,7 +380,7 @@ def plot_gaia_sources_on_survey(
         extent=extent,
         origin="lower",
         colors="C0",
-        transform=nax.get_transform(WCS(maskhdr)),
+        transform=ax.get_transform(WCS(maskhdr)),
     )
     idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]

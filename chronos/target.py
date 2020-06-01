@@ -78,10 +78,10 @@ class Target:
         self.mission = mission.lower()
         self.toi_params = None
         self.nea_params = None
-        self.toiid = toiid  # e.g. 837
+        self.toiid = toiid if toiid is None else int(toiid)  # e.g. 837
         self.ctoiid = ctoiid  # e.g. 364107753.01
-        self.ticid = ticid  # e.g. 364107753
-        self.epicid = epicid  # 201270176
+        self.ticid = ticid if ticid is None else int(ticid)  # e.g. 364107753
+        self.epicid = epicid if epicid is None else int(epicid)  # 201270176
         self.gaiaid = gaiaDR2id  # e.g. Gaia DR2 5251470948229949568
         self.ra = ra_deg
         self.dec = dec_deg
