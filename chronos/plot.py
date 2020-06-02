@@ -361,7 +361,7 @@ def plot_gaia_sources_on_survey(
     if ax is None:
         # get img hdu for subplot projection
         hdu = SkyView.get_images(
-            position=target_coord.icrs,
+            position=target_coord.icrs.to_string(),
             coordinates="icrs",
             survey=survey,
             radius=fov_rad,
@@ -371,6 +371,8 @@ def plot_gaia_sources_on_survey(
         # define scaling in projection
         ax = fig.add_subplot(111, projection=WCS(hdu.header))
     # plot survey img
+    if str(target_coord.distance) == "nan":
+        target_coord = SkyCoord(ra=target_coord.ra, dec=target_coord.dec)
     nax, hdu = plot_finder_image(
         target_coord, ax=ax, fov_radius=fov_rad, survey=survey, reticle=False
     )

@@ -17,7 +17,9 @@ import lightkurve as lk
 from astropy.io import fits
 from wotan import flatten
 from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
 from astroquery.skyview import SkyView
+from astroplan import FixedTarget
 from astroplan.plots import plot_finder_image
 from transitleastsquares import transitleastsquares
 
@@ -753,7 +755,7 @@ class K2sff(K2):
         if ax is None:
             # get img hdu for subplot projection
             results = SkyView.get_images(
-                position=self.target_coord.icrs,
+                position=self.target_coord.icrs.to_string(),
                 coordinates="icrs",
                 survey=survey,
                 radius=fov_rad,
@@ -770,8 +772,11 @@ class K2sff(K2):
             fig = pl.figure(figsize=figsize)
             ax = fig.add_subplot(111, projection=WCS(hdu.header))
         # plot survey img
+        # FIXME: SkyView throws error when self.target_coord.distance=nan
+        coord = SkyCoord(ra=self.target_coord.ra, dec=self.target_coord.dec)
+        fixed_target = FixedTarget(coord, name=self.target_name)
         nax, hdu = plot_finder_image(
-            self.target_coord,
+            fixed_target,
             ax=ax,
             fov_radius=fov_rad,
             survey=survey,

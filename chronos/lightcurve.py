@@ -261,6 +261,8 @@ class LongCadence(FFI_cutout):
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
             self.gaiaid = int(d.source_id)
         cdips = CDIPS(
+            toiid=self.toiid,
+            ticid=self.ticid,
             gaiaDR2id=self.gaiaid,
             sector=sector,
             aper_idx=aper_idx,
@@ -281,6 +283,8 @@ class LongCadence(FFI_cutout):
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
             self.gaiaid = int(d.source_id)
         pathos = PATHOS(
+            toiid=self.toiid,
+            ticid=self.ticid,
             gaiaDR2id=self.gaiaid,
             sector=sector,
             aper_idx=aper_idx,
