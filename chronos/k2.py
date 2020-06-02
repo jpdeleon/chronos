@@ -422,23 +422,8 @@ class Everest(K2):
         self.filename = filename
         self.quality = None
         self.cadenceno = None
-        time, flux, err = self.get_everest_lc()
-        # hack
-        self.lc_everest = _KeplerLightCurve(
-            time=time,
-            flux=flux,
-            flux_err=err,
-            flux_unit=u.Unit("electron/second"),
-            # FIXME: only day works when using lc.to_periodogram()
-            time_format="jd",  # TIMEUNIT?
-            time_scale="tdb",  # TIMESYS?
-            centroid_col=None,
-            centroid_row=None,
-            quality=None,  # self.quality,
-            quality_bitmask=None,  # self.quality_bitmask,
-            cadenceno=self.cadenceno,
-            targetid=self.epicid,
-        )
+        self.everest_recarray = None
+        self.lc_everest = self.get_everest_lc()
 
     def get_everest_url_and_fn(self, campaign=None):
         """
@@ -474,7 +459,7 @@ class Everest(K2):
         flux_type=None,
         quality_bitmask=None,
         normalize=True,
-        return_err=True,
+        remove_nans=True,
     ):
         """
         see also https://archive.stsci.edu/k2/hlsp/everest/search.php
@@ -485,8 +470,6 @@ class Everest(K2):
             divide flux (and err) by its median
         quality: str
             option to choose which cadences will be masked
-        return_err : bool
-            returns time, flux, err if True; time and flux only otherwise
         return_mask : bool
             returns time, flux, (err,) mask
         """
@@ -506,6 +489,7 @@ class Everest(K2):
                 if self.verbose:
                     print(hl.info())
                 recarray = hl[1].data
+                self.everest_recarray = recarray
                 cols = recarray.columns.names
                 assert (
                     flux_type in cols
@@ -525,16 +509,30 @@ class Everest(K2):
                 #     qmask = qf.create_quality_mask(self.quality, bitmask)
                 #     time, flux, err = time[qmask], flux[qmask], err[qmask]
             # remove nans
-            idx = np.isfinite(time) & np.isfinite(flux)
-            time, flux, err = time[idx], flux[idx], err[idx]
+            if remove_nans:
+                idx = np.isfinite(time) & np.isfinite(flux)
+                time, flux, err = time[idx], flux[idx], err[idx]
             if normalize:
                 err /= np.median(flux)  # divide by median of raw flux
                 flux /= np.median(flux)
             time += K2_TIME_OFFSET
-            if return_err:
-                return (time, flux, err)
-            else:
-                return (time, flux)
+            # hack
+            lc = _KeplerLightCurve(
+                time=time,
+                flux=flux,
+                flux_err=err,
+                flux_unit=u.Unit("electron/second"),
+                # FIXME: only day works when using lc.to_periodogram()
+                time_format="jd",  # TIMEUNIT?
+                time_scale="tdb",  # TIMESYS?
+                centroid_col=None,
+                centroid_row=None,
+                quality=None,  # self.quality,
+                quality_bitmask=None,  # self.quality_bitmask,
+                cadenceno=self.cadenceno,
+                targetid=self.epicid,
+            )
+            return lc
         except Exception as e:
             print(e)
 
@@ -581,23 +579,7 @@ class K2sff(K2):
         self.k2sff_best_aper_mask = None
         self.k2sff_header = None
         self.k2sff_recarray = None
-        time, flux = self.get_k2sff_lc()
-        # hack
-        self.lc_k2sff = _KeplerLightCurve(
-            time=time,
-            flux=flux,
-            # flux_err=err,
-            flux_unit=u.Unit("electron/second"),
-            # FIXME: only day works when using lc.to_periodogram()
-            time_format="jd",  # TIMEUNIT?
-            time_scale="tdb",  # TIMESYS?
-            centroid_col=None,
-            centroid_row=None,
-            quality=None,  # self.quality,
-            quality_bitmask=None,  # self.quality_bitmask,
-            cadenceno=self.cadenceno,
-            targetid=self.epicid,
-        )
+        self.lc_k2sff = self.get_k2sff_lc()
 
     def get_k2sff_url_and_fn(self, campaign=None, filetype="fits"):
         """
@@ -632,7 +614,9 @@ class K2sff(K2):
             )
         return url + fn, fn
 
-    def get_k2sff_lc(self, campaign=None, flux_type="fcor", normalize=True):
+    def get_k2sff_lc(
+        self, campaign=None, flux_type="fcor", normalize=True, remove_nans=True
+    ):
         """
         see also https://archive.stsci.edu/k2/hlsp/k2sff/search.php
 
@@ -680,12 +664,29 @@ class K2sff(K2):
                 ), f"flux_type={flux_type} not in {cols}"
                 time = recarray["T"]
                 flux = recarray[flux_type]
-            idx = np.isfinite(time) & np.isfinite(flux)
-            time, flux = time[idx], flux[idx]
+            if remove_nans:
+                idx = np.isfinite(time) & np.isfinite(flux)
+                time, flux = time[idx], flux[idx]
             if normalize:
                 flux /= np.median(flux)
             time += K2_TIME_OFFSET
-            return time, flux
+            # hack
+            lc = _KeplerLightCurve(
+                time=time,
+                flux=flux,
+                # flux_err=err,
+                flux_unit=u.Unit("electron/second"),
+                # FIXME: only day works when using lc.to_periodogram()
+                time_format="jd",  # TIMEUNIT?
+                time_scale="tdb",  # TIMESYS?
+                centroid_col=None,
+                centroid_row=None,
+                quality=None,  # self.quality,
+                quality_bitmask=None,  # self.quality_bitmask,
+                cadenceno=self.cadenceno,
+                targetid=self.epicid,
+            )
+            return lc
         except Exception as e:
             print(e)
 

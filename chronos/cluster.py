@@ -117,11 +117,6 @@ class CatalogDownloader:
         self.data_loc = join(data_loc, self.catalog_name)
         self.tables = None
 
-    def __repr__(self):
-        fields = signature(self.__init__).parameters
-        values = [repr(getattr(self, f)) for f in fields]
-        return f"{type(self).__name__}(catalog_name={values[0]})"
-
     def get_tables_from_vizier(self, row_limit=50, save=False, clobber=None):
         """row_limit-1 to download all rows"""
         clobber = self.clobber if clobber is None else clobber
@@ -170,6 +165,23 @@ class CatalogDownloader:
         base_url = "https://vizier.u-strasbg.fr/viz-bin/VizieR?-source="
         vizier_key = self.catalog_dict[catalog_name]
         return base_url + vizier_key
+
+    def __repr__(self):
+        """Override to print a readable string representation of class
+        """
+        included_args = ["catalog_name", "cluster_name"]
+        args = []
+        for key in self.__dict__.keys():
+            val = self.__dict__.get(key)
+            if key in included_args:
+                if key == "target_coord":
+                    # format coord
+                    coord = self.target_coord.to_string("decimal")
+                    args.append(f"{key}=({coord.replace(' ',',')})")
+                elif val is not None:
+                    args.append(f"{key}={val}")
+        args = ", ".join(args)
+        return f"{type(self).__name__}({args})"
 
 
 class ClusterCatalog(CatalogDownloader):

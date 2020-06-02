@@ -5,6 +5,7 @@ classes for searching object
 """
 
 # Import standard library
+# from inspect import signature
 from os.path import join, exists
 import warnings
 from pprint import pprint
@@ -172,30 +173,42 @@ class Target:
         if self.verbose:
             print(f"Target: {name}")
 
-    def __repr__(self, ignore_args=None):
+    def __repr__(self):
         """Override to print a readable string representation of class
         """
-        excluded_args = [
-            "verbose",
-            "clobber",
-            "toi_params",
-            "tess_ccd_info",
-            "vizier_tables",
-            "iso_params",
-            "iso_param_names",
-            "starhorse",
-            "alpha",
-            "slope",
-            "sigma_blur",
-            "use_skew_slope",
-            "mist_eep_table",
-            # "everest",
-            # "k2sff"
+        # params = signature(self.__init__).parameters
+        # val = repr(getattr(self, key))
+
+        included_args = [
+            # ===target attributes===
+            "name",
+            "toiid",
+            "ctoiid",
+            "ticid",
+            "epicid",
+            "gaiaDR2id",
+            "ra_deg",
+            "dec_deg",
+            "target_coord",
+            "search_radius",
+            "mission",
+            "campaign",
+            "all_sectors",
+            "all_campaigns",
+            # ===tpf attributes===
+            "sap_mask",
+            "quality_bitmask",
+            "calc_fpp",
+            # 'aper_radius', 'threshold_sigma', 'percentile' #if sap_mask!='pipeline'
+            # cutout_size #for FFI
+            # ===lightcurve===
+            "lctype",
+            "aper_idx",
         ]
         args = []
-        for key in self.__dict__:
+        for key in self.__dict__.keys():
             val = self.__dict__.get(key)
-            if key not in excluded_args:
+            if key in included_args:
                 if key == "target_coord":
                     # format coord
                     coord = self.target_coord.to_string("decimal")
@@ -206,9 +219,9 @@ class Target:
         return f"{type(self).__name__}({args})"
 
     # def __repr__(self):
-    #     fields = signature(self.__init__).parameters
-    #     values = ', '.join(repr(getattr(self, f)) for f in fields)
-    #     return f"{type(self).__name__}({values})"
+    #     params = signature(self.__init__).parameters
+    #     values = (f"{p}={repr(getattr(self, p))}" for p in params)
+    #     return f"{type(self).__name__}({', '.join(values)})"
 
     def query_gaia_dr2_catalog(
         self, radius=None, return_nearest_xmatch=False, verbose=None
