@@ -12,11 +12,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
-
-# import astropy.units as u
 from lightkurve import TessLightCurve
-
-# from astroquery.mast import Observations
 from astropy.io import fits
 from wotan import flatten
 from transitleastsquares import transitleastsquares
@@ -25,9 +21,9 @@ from transitleastsquares import transitleastsquares
 from chronos.config import DATA_PATH
 from chronos.target import Target
 
-# from chronos.tpf import FFI_cutout
+from chronos.tpf import FFI_cutout
 from chronos.plot import plot_tls, plot_odd_even
-from chronos.utils import get_transit_mask
+from chronos.utils import get_transit_mask, parse_aperture_mask
 from chronos.constants import TESS_TIME_OFFSET
 
 PATHOS_SECTORS = np.arange(1, 14, 1)
@@ -71,7 +67,7 @@ class PATHOS(Target):
         quality_bitmask=None,
         search_radius=3,
         lctype="corr",
-        aper_idx=1,
+        aper_idx=4,
         mission="tess",
         verbose=True,
         clobber=False,
@@ -96,6 +92,10 @@ class PATHOS(Target):
 
         Attributes
         ----------
+        aper_idx : int
+            PATHOS aperture index: [1,2,3,4] pix in radius
+        lctype: str
+            PATHOS lc types: ["raw", "corr"]
         """
         self.sector = sector
         if self.sector is None:
@@ -133,7 +133,7 @@ class PATHOS(Target):
             "2",
             "3",
             "4",
-        ], "PATHOS has only [1,2,3,4] aperture indices"
+        ], "PATHOS has only [1,2,3,4] pix aperture radius"
         self.fits_url = None
         self.header0 = None  # target header
         self.hdulist = None
@@ -247,6 +247,29 @@ class PATHOS(Target):
             label=None,
             meta=None,
         ).normalize()
+
+    def get_aper_mask_pathos(self, sap_mask="round"):
+        """
+        This is an estimate of PATHOS aperture only
+        """
+        print(
+            "PATHOS has no aperture info in fits. Estimating aperture instead."
+        )
+        # first download tpf cutout
+        self.ffi_cutout = FFI_cutout(
+            sector=self.sector,
+            gaiaDR2id=self.gaiaid,
+            toiid=self.toiid,
+            ticid=self.ticid,
+            search_radius=self.search_radius,
+            quality_bitmask=self.quality_bitmask,
+        )
+        tpf = self.ffi_cutout.get_tpf_tesscut()
+        idx = int(self.aper_idx) - 1  #
+        aper_mask = parse_aperture_mask(
+            tpf, sap_mask=sap_mask, aper_radius=idx
+        )
+        return aper_mask
 
     def validate_target_header(self):
         """

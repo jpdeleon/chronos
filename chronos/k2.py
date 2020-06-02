@@ -24,9 +24,14 @@ from transitleastsquares import transitleastsquares
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
-from chronos.constants import K2_TIME_OFFSET, TESS_pix_scale
+from chronos.constants import K2_TIME_OFFSET, Kepler_pix_scale
 from chronos.plot import plot_tls, plot_odd_even
-from chronos.utils import detrend, get_all_campaigns, get_transit_mask
+from chronos.utils import (
+    detrend,
+    get_all_campaigns,
+    get_transit_mask,
+    PadWithZeros,
+)
 
 pl.style.use("default")
 log = logging.getLogger(__name__)
@@ -417,23 +422,8 @@ class Everest(K2):
         self.filename = filename
         self.quality = None
         self.cadenceno = None
-        time, flux, err = self.get_everest_lc()
-        # hack
-        self.lc_everest = _KeplerLightCurve(
-            time=time,
-            flux=flux,
-            flux_err=err,
-            flux_unit=u.Unit("electron/second"),
-            # FIXME: only day works when using lc.to_periodogram()
-            time_format="jd",  # TIMEUNIT?
-            time_scale="tdb",  # TIMESYS?
-            centroid_col=None,
-            centroid_row=None,
-            quality=None,  # self.quality,
-            quality_bitmask=None,  # self.quality_bitmask,
-            cadenceno=self.cadenceno,
-            targetid=self.epicid,
-        )
+        self.everest_recarray = None
+        self.lc_everest = self.get_everest_lc()
 
     def get_everest_url_and_fn(self, campaign=None):
         """
@@ -469,7 +459,7 @@ class Everest(K2):
         flux_type=None,
         quality_bitmask=None,
         normalize=True,
-        return_err=True,
+        remove_nans=True,
     ):
         """
         see also https://archive.stsci.edu/k2/hlsp/everest/search.php
@@ -480,8 +470,6 @@ class Everest(K2):
             divide flux (and err) by its median
         quality: str
             option to choose which cadences will be masked
-        return_err : bool
-            returns time, flux, err if True; time and flux only otherwise
         return_mask : bool
             returns time, flux, (err,) mask
         """
@@ -501,6 +489,7 @@ class Everest(K2):
                 if self.verbose:
                     print(hl.info())
                 recarray = hl[1].data
+                self.everest_recarray = recarray
                 cols = recarray.columns.names
                 assert (
                     flux_type in cols
@@ -520,16 +509,30 @@ class Everest(K2):
                 #     qmask = qf.create_quality_mask(self.quality, bitmask)
                 #     time, flux, err = time[qmask], flux[qmask], err[qmask]
             # remove nans
-            idx = np.isfinite(time) & np.isfinite(flux)
-            time, flux, err = time[idx], flux[idx], err[idx]
+            if remove_nans:
+                idx = np.isfinite(time) & np.isfinite(flux)
+                time, flux, err = time[idx], flux[idx], err[idx]
             if normalize:
                 err /= np.median(flux)  # divide by median of raw flux
                 flux /= np.median(flux)
             time += K2_TIME_OFFSET
-            if return_err:
-                return (time, flux, err)
-            else:
-                return (time, flux)
+            # hack
+            lc = _KeplerLightCurve(
+                time=time,
+                flux=flux,
+                flux_err=err,
+                flux_unit=u.Unit("electron/second"),
+                # FIXME: only day works when using lc.to_periodogram()
+                time_format="jd",  # TIMEUNIT?
+                time_scale="tdb",  # TIMESYS?
+                centroid_col=None,
+                centroid_row=None,
+                quality=None,  # self.quality,
+                quality_bitmask=None,  # self.quality_bitmask,
+                cadenceno=self.cadenceno,
+                targetid=self.epicid,
+            )
+            return lc
         except Exception as e:
             print(e)
 
@@ -576,23 +579,7 @@ class K2sff(K2):
         self.k2sff_best_aper_mask = None
         self.k2sff_header = None
         self.k2sff_recarray = None
-        time, flux = self.get_k2sff_lc()
-        # hack
-        self.lc_k2sff = _KeplerLightCurve(
-            time=time,
-            flux=flux,
-            # flux_err=err,
-            flux_unit=u.Unit("electron/second"),
-            # FIXME: only day works when using lc.to_periodogram()
-            time_format="jd",  # TIMEUNIT?
-            time_scale="tdb",  # TIMESYS?
-            centroid_col=None,
-            centroid_row=None,
-            quality=None,  # self.quality,
-            quality_bitmask=None,  # self.quality_bitmask,
-            cadenceno=self.cadenceno,
-            targetid=self.epicid,
-        )
+        self.lc_k2sff = self.get_k2sff_lc()
 
     def get_k2sff_url_and_fn(self, campaign=None, filetype="fits"):
         """
@@ -627,7 +614,9 @@ class K2sff(K2):
             )
         return url + fn, fn
 
-    def get_k2sff_lc(self, campaign=None, flux_type="fcor", normalize=True):
+    def get_k2sff_lc(
+        self, campaign=None, flux_type="fcor", normalize=True, remove_nans=True
+    ):
         """
         see also https://archive.stsci.edu/k2/hlsp/k2sff/search.php
 
@@ -675,29 +664,41 @@ class K2sff(K2):
                 ), f"flux_type={flux_type} not in {cols}"
                 time = recarray["T"]
                 flux = recarray[flux_type]
-            idx = np.isfinite(time) & np.isfinite(flux)
-            time, flux = time[idx], flux[idx]
+            if remove_nans:
+                idx = np.isfinite(time) & np.isfinite(flux)
+                time, flux = time[idx], flux[idx]
             if normalize:
                 flux /= np.median(flux)
             time += K2_TIME_OFFSET
-            return time, flux
+            # hack
+            lc = _KeplerLightCurve(
+                time=time,
+                flux=flux,
+                # flux_err=err,
+                flux_unit=u.Unit("electron/second"),
+                # FIXME: only day works when using lc.to_periodogram()
+                time_format="jd",  # TIMEUNIT?
+                time_scale="tdb",  # TIMESYS?
+                centroid_col=None,
+                centroid_row=None,
+                quality=None,  # self.quality,
+                quality_bitmask=None,  # self.quality_bitmask,
+                cadenceno=self.cadenceno,
+                targetid=self.epicid,
+            )
+            return lc
         except Exception as e:
             print(e)
 
     def plot_gaia_sources_on_survey(
         self,
-        # tpf,
-        # target_gaiaid,
         gaia_sources=None,
         fov_rad=None,
         depth=0.0,
         kmax=1.0,
-        # sap_mask="pipeline",
         survey="DSS2 Red",
-        # verbose=True,
         ax=None,
         figsize=None,
-        # **mask_kwargs,
     ):
         """Plot (superpose) Gaia sources on archival image
 
@@ -725,7 +726,7 @@ class K2sff(K2):
 
         if fov_rad is None:
             diag = np.sqrt(nx ** 2 + ny ** 2)
-            fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcsec)
+            fov_rad = (diag * Kepler_pix_scale).to(u.arcsec)
         if gaia_sources is None:
             gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
         if self.gaiaid is None:
@@ -736,12 +737,11 @@ class K2sff(K2):
 
         assert len(gaia_sources) > 1, "gaia_sources contains single entry"
         # make aperture mask
-        mask = np.array(self.k2sff_best_aper_mask, dtype=bool)
         maskhdr = tpf.hdu[2].header  # self.k2sff_header
         # make aperture mask outline
         contour = np.zeros((ny, nx))
-        contour[np.where(mask)] = 1
-        #     contour = np.lib.pad(contour, 1, PadWithZeros)
+        contour[np.where(self.k2sff_best_aper_mask)] = 1
+        contour = np.lib.pad(contour, 1, PadWithZeros)
         highres = zoom(contour, 100, order=0, mode="nearest")
         extent = np.array([-1, nx, -1, ny])
 
@@ -752,13 +752,20 @@ class K2sff(K2):
         # -----------create figure---------------#
         if ax is None:
             # get img hdu for subplot projection
-            hdu = SkyView.get_images(
+            results = SkyView.get_images(
                 position=self.target_coord.icrs,
                 coordinates="icrs",
                 survey=survey,
                 radius=fov_rad,
                 grid=False,
-            )[0][0]
+            )
+            if len(results) > 0:
+                hdu = results[0][0]
+            else:
+                errmsg = (
+                    "SkyView returned empty result. Try a different survey."
+                )
+                raise ValueError(errmsg)
             # create figure with subplot projection
             fig = pl.figure(figsize=figsize)
             ax = fig.add_subplot(111, projection=WCS(hdu.header))

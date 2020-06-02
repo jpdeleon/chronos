@@ -24,6 +24,7 @@ from transitleastsquares import transitleastsquares
 from chronos.config import DATA_PATH
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
+from chronos.pathos import PATHOS
 from chronos.plot import plot_tls, plot_odd_even
 from chronos.utils import (
     remove_bad_data,
@@ -122,8 +123,10 @@ class LongCadence(FFI_cutout):
         self.lc_custom = None
         self.lc_custom_raw = None
         self.lc_cdips = None
+        self.lc_pathos = None
         self.contratio = None
         self.cdips = None
+        self.pathos = None
         self.tls_results = None
 
     def make_custom_lc(
@@ -269,6 +272,26 @@ class LongCadence(FFI_cutout):
         self.lc_cdips.targetid = self.ticid
         return cdips.lc
 
+    def get_pathos_lc(
+        self, sector=None, aper_idx=4, lctype="corr", verbose=False
+    ):
+        verbose = verbose if verbose is not None else self.verbose
+        sector = sector if sector is not None else self.sector
+        if self.gaiaid is None:
+            d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+            self.gaiaid = int(d.source_id)
+        pathos = PATHOS(
+            gaiaDR2id=self.gaiaid,
+            sector=sector,
+            aper_idx=aper_idx,
+            lctype=lctype,
+            verbose=verbose,
+        )
+        self.pathos = pathos
+        self.lc_pathos = pathos.lc
+        self.lc_pathos.targetid = self.ticid
+        return pathos.lc
+
     def get_flat_lc(
         self,
         lc,
@@ -354,6 +377,10 @@ class LongCadence(FFI_cutout):
             lc, period=period, epoch=epoch, duration_hours=duration
         )
         return tmask
+
+    @property
+    def cadence(self):
+        return "long"
 
 
 class ShortCadence(Tpf):
@@ -727,6 +754,10 @@ class ShortCadence(Tpf):
             lc, period=period, epoch=epoch, duration_hours=duration
         )
         return tmask
+
+    @property
+    def cadence(self):
+        return "short"
 
 
 """

@@ -24,10 +24,11 @@ import deepdish as dd
 
 # Import from package
 from chronos.cluster import ClusterCatalog, Cluster
-from chronos.constants import TESS_pix_scale
+from chronos.constants import Kepler_pix_scale, TESS_pix_scale
 from chronos.utils import (
     get_toi,
     get_tois,
+    PadWithZeros,
     get_mamajek_table,
     parse_aperture_mask,
     is_point_inside_mask,
@@ -142,6 +143,7 @@ def plot_gaia_sources_on_tpf(
     cmap="viridis",
     figsize=None,
     ax=None,
+    pix_scale=TESS_pix_scale,
     **mask_kwargs,
 ):
     """
@@ -162,7 +164,7 @@ def plot_gaia_sources_on_tpf(
     if fov_rad is None:
         nx, ny = tpf.shape[1:]
         diag = np.sqrt(nx ** 2 + ny ** 2)
-        fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcmin)
+        fov_rad = (0.4 * diag * pix_scale).to(u.arcmin)
 
     if gaia_sources is None:
         target_coord = SkyCoord(
@@ -283,8 +285,8 @@ def plot_gaia_sources_on_tpf(
         )
     ax.legend(fancybox=True, framealpha=0.5)
     # set img limits
-    xdeg = (nx * TESS_pix_scale).to(u.arcmin)
-    ydeg = (ny * TESS_pix_scale).to(u.arcmin)
+    xdeg = (nx * pix_scale).to(u.arcmin)
+    ydeg = (ny * pix_scale).to(u.arcmin)
     pl.setp(
         ax, xlim=(0, nx), ylim=(0, ny), xlabel=f"({xdeg:.2f} x {ydeg:.2f})"
     )
@@ -303,6 +305,7 @@ def plot_gaia_sources_on_survey(
     verbose=True,
     ax=None,
     figsize=None,
+    pix_scale=TESS_pix_scale,
     **mask_kwargs,
 ):
     """Plot (superpose) Gaia sources on archival image
@@ -333,7 +336,7 @@ def plot_gaia_sources_on_survey(
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:
         diag = np.sqrt(nx ** 2 + ny ** 2)
-        fov_rad = (0.4 * diag * TESS_pix_scale).to(u.arcmin)
+        fov_rad = (0.4 * diag * pix_scale).to(u.arcmin)
     target_coord = SkyCoord(ra=tpf.ra * u.deg, dec=tpf.dec * u.deg)
     if gaia_sources is None:
         gaia_sources = Catalogs.query_region(
@@ -346,7 +349,7 @@ def plot_gaia_sources_on_survey(
     # make aperture mask outline
     contour = np.zeros((ny, nx))
     contour[np.where(mask)] = 1
-    #     contour = np.lib.pad(contour, 1, PadWithZeros)
+    contour = np.lib.pad(contour, 1, PadWithZeros)
     highres = zoom(contour, 100, order=0, mode="nearest")
     extent = np.array([-1, nx, -1, ny])
 

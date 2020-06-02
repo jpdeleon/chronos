@@ -335,8 +335,10 @@ class CDIPS(Target):
         ).normalize()
 
     def get_aper_mask_cdips(self, sap_mask="round"):
-        # self.hdulist[1].data.names does not contain aperture
-        # estimate aperture
+        """
+        This is an estimate of CDIPS aperture since
+        self.hdulist[1].data.names does not contain aperture
+        """
         print(
             "CDIPS has no aperture info in fits. Estimating aperture instead."
         )
