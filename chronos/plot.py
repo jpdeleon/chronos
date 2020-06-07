@@ -23,6 +23,7 @@ from skimage import measure
 import deepdish as dd
 
 # Import from package
+from chronos.target import Target
 from chronos.cluster import ClusterCatalog, Cluster
 from chronos.constants import Kepler_pix_scale, TESS_pix_scale
 from chronos.utils import (
@@ -48,6 +49,8 @@ __all__ = [
     "plot_aperture_outline",
     "plot_gaia_sources_on_survey",
     "plot_gaia_sources_on_tpf",
+    "plot_cluster_kinematics",
+    "df_to_gui",
 ]
 
 
@@ -729,6 +732,61 @@ def plot_hrd_spectral_types(
     return fig
 
 
+def plot_cluster_kinematics(toiid, savefig=False, rv=None):
+    t = Target(toiid=toiid)
+    cluster, idxs = t.get_cluster_membership(
+        catalog_name="CantatGaudin2020", return_idxs=True, frac=0.5, sigma=5
+    )
+    c = Cluster(cluster_name=Cluster)
+    df_target = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+
+    if rv is not None:
+        df_target.radial_velocity = rv
+    else:
+        if np.isnan(df_target.radial_velocity):
+            rv = np.nanmean(list(t.query_vizier_param("RV").values()))
+            if not np.isnan(rv):
+                df_target.radial_velocity = rv
+    try:
+        fig1 = c.plot_xyz_uvw(
+            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+        )
+        fig1.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
+        if savefig:
+            fp1 = f"{t.target_name}_galactocentric.png"
+            fig1.savefig(fp1, bbox_inches="tight")
+    except Exception as e:
+        print(e)
+    # ==============
+    try:
+        fig2 = c.plot_rdp_pmrv(
+            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+        )
+        fig2.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
+        if savefig:
+            fp2 = f"{t.target_name}_kinematics.png"
+            fig2.savefig(fp2, bbox_inches="tight")
+    except Exception as e:
+        print(e)
+    # ==============
+    try:
+        # TODO: AG50 doesn't yield G consistent with cmd
+        if str(df_target.a_g_val) == "nan":
+            vq = t.query_vizier_param("AG50")
+            if "I/349/starhorse" in vq:
+                df_target.a_g_val = vq["I/349/starhorse"]
+                print("Using AG from starhorse.")
+        ax = c.plot_cmd(
+            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+        )
+        ax.set_title(f"TOI {t.toiid} in {c.cluster_name}")
+        if savefig:
+            fp3 = f"{t.target_name}_cmd.png"
+            ax.figure.savefig(fp3, bbox_inches="tight")
+    except Exception as e:
+        print(e)
+
+
 def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     """
     gaia_catalog : pandas.DataFrame
@@ -888,3 +946,24 @@ def plot_interactive(
     )
 
     return chart2 + chart1 + chart0
+
+
+def df_to_gui(df):
+    """
+    turn df columns into interactive 2D plots
+    """
+    try:
+        import panel as pn
+        import hvplot.pandas
+    except Exception:
+        cmd = "pip install hvplot panel"
+        raise ModuleNotFoundError(cmd)
+
+    x = pn.widgets.Select(name="x", options=df.columns.tolist())
+    y = pn.widgets.Select(name="y", options=df.columns.tolist())
+    kind = pn.widgets.Select(
+        name="kind", value="scatter", options=["bivariate", "scatter"]
+    )
+
+    plot = df.hvplot(x=x, y=y, kind=kind, colorbar=False, width=600)
+    return pn.Row(pn.WidgetBox(x, y, kind), plot)

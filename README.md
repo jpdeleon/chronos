@@ -43,14 +43,17 @@ $ pytest tests/
 
 ## For next update
 * [`theJoker`](https://github.com/adrn/thejoker) for two-body MCMC sampler
-* `contaminante` for pixel level modeling 
+* `contaminante` for pixel level modeling
 * `allesfitter` for lightcurve model fitting
 * `PyPopStar` for stellar population analysis
 * `sedfitter` for SED fitting
-* `maelstrom` for pulsating binary analysis 
+* `maelstrom` for pulsating binary analysis
 * `stella` & `fleck` for flare detection and modeling
 * `eleanor` & `f3` for TESS FFI
 * `envelope` for planet's envelope fraction estimation using MESA simulations based on [Milholland+19,20](https://github.com/smillholland/Sub-Saturns.git)
+* [`splat`](https://github.com/aburgasser/splat) for spectral analysis
 
 ## Examples
 Check [examples in nbviewer](https://nbviewer.jupyter.org/github/jpdeleon/chronos/tree/master/notebooks/).
+
+See also [tql](https://github.com/jpdeleon/tql) for TESS Quick Look plotting.

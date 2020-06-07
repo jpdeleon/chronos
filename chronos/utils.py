@@ -47,9 +47,8 @@ from astroquery.gaia import Gaia
 import deepdish as dd
 
 # Import from package
-from chronos import target, cluster
-
-# from chronos import planet
+from chronos import target
+from chronos import cluster
 from chronos import gls
 from chronos.config import DATA_PATH
 

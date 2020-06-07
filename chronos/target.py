@@ -361,10 +361,14 @@ class Target:
                 print(msg)
             gof = target["astrometric_gof_al"]
             if gof >= 20:
-                msg = "astrometric_gof_al>{gof:.2f} (>20 hints binarity).\n"
+                msg = "astrometric_gof_al>{gof:.2f} (>20 hints binarity)."
                 print(msg)
             if (ens >= 5) or (gof >= 20):
-                print("See https://arxiv.org/pdf/1804.11082.pdf")
+                print("See https://arxiv.org/pdf/1804.11082.pdf\n")
+            if target["visibility_periods_used"] < 6:
+                msg = "visibility_periods_used<6 so no astrometric solution\n"
+                msg += "See https://arxiv.org/pdf/1804.09378.pdf\n"
+                print(msg)
             return target  # return series of len 1
         else:
             # if self.verbose:
@@ -502,26 +506,31 @@ class Target:
         target_gmag = d.loc[idx, "phot_g_mean_mag"].values[0]
         d["delta_Gmag"] = d["phot_g_mean_mag"] - target_gmag
         # compute dilution factor
-        d["dilution"] = 1 + 10 ** (0.4 * d["delta_Gmag"])
+        d["gamma_pri"] = 1 + 10 ** (-0.4 * d["delta_Gmag"])
+        d["gamma_sec"] = 1 + 10 ** (0.4 * d["delta_Gmag"])
         columns = [
             "source_id",
-            "separation",
             "parallax",
+            "separation",
             "phot_g_mean_mag",
             "delta_Gmag",
-            "dilution",
+            "gamma_pri",
+            "gamma_sec",
         ]
-        col = "depth*dilution>1(cleared?)"
         if depth is None:
             if self.toi_depth is not None:
                 depth = self.toi_depth
-                d["true_depth"] = d["dilution"] * depth
-                columns.append("true_depth")
-                columns.append(col)
             else:
                 print("Supply depth, else depth=0")
                 depth = 0
-        d[col] = depth * d.dilution > 1
+        if depth is not None:
+            d["true_depth_pri"] = d["gamma_pri"] * depth
+            d["true_depth_sec"] = d["gamma_sec"] * depth
+            columns.append("true_depth_pri")
+            columns.append("true_depth_sec")
+            col = "true_depth_sec>1(cleared?)"
+            columns.append(col)
+            d[col] = depth * d.true_depth_sec > 1
 
         if add_column is not None:
             assert (isinstance(add_column, str)) & (add_column in d.columns)
