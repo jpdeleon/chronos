@@ -299,14 +299,15 @@ class Tpf(Target):
 
         if mask is None:
             if self.tpf is not None:
-                mask = np.nonzero(self.tpf.pipeline_mask)
+                pix_xy = np.nonzero(self.tpf.pipeline_mask)
+                # pixel locations of aperture
+                aper = np.c_[
+                    pix_xy[0] + self.tpf.column, pix_xy[1] + self.tpf.row
+                ]
             else:
                 raise ValueError("Use get_tpf().")
-        # if mask[0].dtype=='bool':
-        # convert bool to pixel locations of aperture
-        aper = np.c_[mask[0] + self.tpf.column, mask[1] + self.tpf.row]
-        # else:
-        #     aper = mask
+        else:
+            aper = mask
         sector = self.sector if sector is None else sector
         self.triceratops.plot_field(sector=sector, ap_pixels=aper)
         # return fig
@@ -321,10 +322,13 @@ class Tpf(Target):
         if mask is None:
             if self.tpf is not None:
                 mask = np.nonzero(self.tpf.pipeline_mask)
+                # pixel locations of aperture
+                aper = np.c_[mask[0] + self.tpf.column, mask[1] + self.tpf.row]
             else:
                 raise ValueError("Use get_tpf().")
-        # pixel locations of aperture
-        aper = np.c_[mask[0] + self.tpf.column, mask[1] + self.tpf.row]
+        else:
+            aper = mask
+
         depth = self.toi_depth if depth is None else depth
         if (self.triceratops.stars is not None) or recalc:
             self.triceratops.calc_depths(tdepth=depth, all_ap_pixels=[aper])
@@ -554,13 +558,12 @@ class FFI_cutout(Target):
         errmsg = "Instantiate FFI_cutout(calc_fpp=True)"
         assert self.calc_fpp, errmsg
         # pixel locations of aperture
-        # if mask[0].dtype=='bool':
-        # convert bool to pixel locations of aperture
+        pix_xy = np.nonzero(mask)
+        # pixel locations of aperture
         aper = np.c_[
-            mask[0] + self.tpf_tesscut.column, mask[1] + self.tpf_tesscut.row
+            pix_xy[0] + self.tpf_tesscut.column,
+            pix_xy[1] + self.tpf_tesscut.row,
         ]
-        # else:
-        #     aper = mask
         sector = self.sector if sector is None else sector
         self.triceratops.plot_field(sector=sector, ap_pixels=aper)
         # return fig
@@ -572,8 +575,11 @@ class FFI_cutout(Target):
         errmsg = "Instantiate FFI_cutout(calc_fpp=True)"
         assert self.calc_fpp, errmsg
         # pixel locations of aperture
+        pix_xy = np.nonzero(mask)
+        # pixel locations of aperture
         aper = np.c_[
-            mask[0] + self.tpf_tesscut.column, mask[1] + self.tpf_tesscut.row
+            pix_xy[0] + self.tpf_tesscut.column,
+            pix_xy[1] + self.tpf_tesscut.row,
         ]
         depth = self.toi_depth if depth is None else depth
         self.triceratops.calc_depths(tdepth=depth, all_ap_pixels=[aper])
@@ -583,15 +589,17 @@ class FFI_cutout(Target):
         self,
         flat=None,
         fold=None,
+        bin=None,
         period=None,
         epoch=None,
+        cc_file=None,
         plot=True,
         recalc=False,
     ):
         """
         calc_probs method of triceratops
         """
-        errmsg = "Instantiate FFI_cutout(calc_fpp=True)"
+        errmsg = "Instantiate Tpf(calc_fpp=True)"
         assert self.calc_fpp, errmsg
 
         period = self.toi_period if period is None else period
@@ -600,16 +608,36 @@ class FFI_cutout(Target):
             fold = flat.fold(period=period, t0=epoch - TESS_TIME_OFFSET)
         if fold is not None:
             fold = fold.remove_nans()
+        else:
+            errmsg = "Provide flat or fold lc."
+            assert ValueError(errmsg)
+
+        if bin is None:
             time, flux, flux_err = fold.time, fold.flux, fold.flux_err
+        else:
+            time, flux, flux_err = (
+                fold.bin(bin).time,
+                fold.bin(bin).flux,
+                fold.bin(bin).flux_err,
+            )
 
         if (not hasattr(self.triceratops, "probs")) or recalc:
             if self.verbose:
-                print("Calculating all scenarios take at least 2 minutes.")
+                nstars = self.triceratops.stars.shape[0]
+                print(f"ETA: {nstars/10} mins")
+            time_start = timer()
             self.triceratops.calc_probs(
-                time=time, flux_0=flux, flux_err_0=flux_err, P_orb=period
+                time=time,
+                flux_0=flux,
+                flux_err_0=flux_err,
+                P_orb=period,
+                # contrast_curve_file=cc_file,
             )
+            hours, rem = divmod(timer() - time_start, 3600)
+            minutes, seconds = divmod(rem, 60)
         fpp = self.triceratops.FPP
         if self.verbose:
+            print(f"Run time: {int(minutes)}min {int(seconds)}sec")
             print(f"FPP={fpp:.4f}")
         errmsg = "Check fold lc for NaNs."
         assert not np.isnan(fpp), errmsg

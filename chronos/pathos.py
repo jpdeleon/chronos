@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
 from lightkurve import TessLightCurve
+from astroquery.mast import Observations
 from astropy.io import fits
 from wotan import flatten
 from transitleastsquares import transitleastsquares
@@ -97,6 +98,8 @@ class PATHOS(Target):
         lctype: str
             PATHOS lc types: ["raw", "corr"]
         """
+        if self.verbose:
+            print("Using PATHOS lightcurve.")
         self.sector = sector
         if self.sector is None:
             print(f"Available sectors: {self.all_sectors}")
@@ -123,6 +126,7 @@ class PATHOS(Target):
                         f"PATHOS lc may be available for sectors {self.all_sectors[idx]}"
                     )
             print(f"Using sector={self.sector}.")
+        self.mast_table = self.get_mast_table()
         if self.gaiaid is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
         self.lctype = lctype
@@ -154,6 +158,24 @@ class PATHOS(Target):
             if self.clobber:
                 print("Loaded: ", fp)
         return d
+
+    def get_mast_table(self):
+        """https://archive.stsci.edu/hlsp/cdips
+        """
+        if self.gaia_params is None:
+            _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+        if self.tic_params is None:
+            _ = self.query_tic_catalog(return_nearest_xmatch=True)
+        if not self.validate_gaia_tic_xmatch():
+            raise ValueError("Gaia and Tic Catalog match failed")
+        mast_table = Observations.query_criteria(
+            target_name=self.ticid, provenance_name="PATHOS"
+        )
+        if len(mast_table) == 0:
+            raise ValueError("No PATHOS lightcurve in MAST.")
+        else:
+            print(f"Found {len(mast_table)} PATHOS lightcurves.")
+        return mast_table.to_pandas()
 
     def get_pathos_url(self):
         """
@@ -276,6 +298,18 @@ class PATHOS(Target):
         see self.header0['sector']==self.sector
         """
         raise NotImplementedError()
+
+    def plot_all_lcs(self):
+        """
+        """
+        pathos_lcs = {}
+        fig, ax = pl.subplots(1, 1, figsize=(10, 6))
+        for aper in [1, 2, 3]:
+            lc = self.get_pathos_lc(aper_idx=aper)
+            lc.plot(ax=ax, label=f"aper={aper}")
+            pathos_lcs[aper] = lc
+        ax.set_title(f"{self.target_name} (sector {self.sector})")
+        return fig
 
     def get_flat_lc(
         self,

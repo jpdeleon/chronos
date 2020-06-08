@@ -25,7 +25,7 @@ from chronos.config import DATA_PATH
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
 from chronos.pathos import PATHOS
-from chronos.plot import plot_tls, plot_odd_even
+from chronos.plot import plot_tls, plot_odd_even, plot_aperture_outline
 from chronos.utils import (
     remove_bad_data,
     parse_aperture_mask,
@@ -129,6 +129,9 @@ class LongCadence(FFI_cutout):
         self.pathos = None
         self.tls_results = None
 
+        if self.verbose:
+            print(f"Using {self.mission.upper()} long cadence.\n")
+
     def make_custom_lc(
         self,
         sector=None,
@@ -168,6 +171,8 @@ class LongCadence(FFI_cutout):
         -------
         corrected_lc : lightkurve object
         """
+        if self.verbose:
+            print("Using lightcurve with custom aperture.")
         sector = sector if sector is not None else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius
@@ -296,6 +301,55 @@ class LongCadence(FFI_cutout):
         self.lc_pathos.targetid = self.ticid
         return pathos.lc
 
+    def plot_lc_per_aperture(
+        self,
+        sector=None,
+        kwargs={"aper_radius": 1, "percentile": 84, "threshold_sigma": 3},
+        apertures=["round", "square", "percentile", "threshold"],
+        return_lcs=False,
+    ):
+        """
+        plot lightcurves with varying aperture shapes
+        """
+        sector = self.sector if sector is None else sector
+        nrows = len(apertures)
+        fig, axs = pl.subplots(
+            nrows=nrows,
+            ncols=2,
+            figsize=(10, nrows * 2),
+            constrained_layout=True,
+            gridspec_kw={"width_ratios": [3, 1], "hspace": 0, "wspace": 0},
+        )
+        custom_lcs = {}
+        for n, sap_mask in enumerate(apertures):
+            ax1 = axs[n, 0]
+            lc = self.make_custom_lc(
+                sector=sector, sap_mask=sap_mask, **kwargs
+            )
+            lc.scatter(ax=ax1, label=sap_mask)
+            print(f"mask={sap_mask}; contratio={self.contratio:.2f}")
+            custom_lcs[sap_mask] = lc
+            if n != len(apertures) - 1:
+                ax1.set_xlabel("")
+                ax1.set_xticklabels("")
+            if n == 0:
+                ax1.set_title(f"{self.target_name} (sector {sector})")
+            if self.tpf_tesscut is None:
+                tpf = self.get_tpf_tesscut()
+            else:
+                tpf = self.tpf_tesscut
+            img = np.median(self.tpf_tesscut.flux, axis=0)
+
+            ax2 = axs[n, 1]
+            ax = plot_aperture_outline(
+                img, mask=self.aper_mask, imgwcs=tpf.wcs, ax=ax2
+            )
+            ax.axis("off")
+        if return_lcs:
+            return fig, custom_lcs
+        else:
+            return fig
+
     def get_flat_lc(
         self,
         lc,
@@ -357,7 +411,9 @@ class LongCadence(FFI_cutout):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        epoch = self.toi_epoch if epoch is None else epoch
+        # if epoch is not None:
+        #     epoch-=TESS_TIME_OFFSET
         if (period is None) or (epoch is None):
             if self.tls_results is None:
                 print("Running TLS")
@@ -375,7 +431,9 @@ class LongCadence(FFI_cutout):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        epoch = self.toi_epoch if epoch is None else epoch
+        # if epoch is not None:
+        #     epoch-=TESS_TIME_OFFSET
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
             lc, period=period, epoch=epoch, duration_hours=duration
@@ -461,6 +519,9 @@ class ShortCadence(Tpf):
         self.lc_pdcsap = None
         self.contratio = None
         self.tls_results = None
+
+        if self.verbose:
+            print(f"Using {self.mission.upper()} short cadence.\n")
 
     def get_lc(self, lctype="pdcsap", sector=None, quality_bitmask=None):
         """
@@ -587,6 +648,8 @@ class ShortCadence(Tpf):
         -------
         corrected_lc : lightkurve object
         """
+        if self.verbose:
+            print("Using lightcurve with custom aperture.")
         sector = sector if sector is not None else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius
@@ -680,6 +743,55 @@ class ShortCadence(Tpf):
         lc.detrend = lambda: detrend(lc)
         return lc
 
+    def plot_lc_per_aperture(
+        self,
+        sector=None,
+        kwargs={"aper_radius": 1, "percentile": 84, "threshold_sigma": 3},
+        apertures=["pipeline", "round", "square", "percentile", "threshold"],
+        return_lcs=False,
+    ):
+        """
+        plot lightcurves with varying aperture shapes
+        """
+        sector = self.sector if sector is None else sector
+        nrows = len(apertures)
+        fig, axs = pl.subplots(
+            nrows=nrows,
+            ncols=2,
+            figsize=(10, nrows * 2),
+            constrained_layout=True,
+            gridspec_kw={"width_ratios": [3, 1], "hspace": 0, "wspace": 0},
+        )
+        custom_lcs = {}
+        for n, sap_mask in enumerate(apertures):
+            ax1 = axs[n, 0]
+            lc = self.make_custom_lc(
+                sector=sector, sap_mask=sap_mask, **kwargs
+            )
+            lc.scatter(ax=ax1, label=sap_mask)
+            print(f"mask={sap_mask}; contratio={self.contratio:.2f}")
+            custom_lcs[sap_mask] = lc
+            if n != len(apertures) - 1:
+                ax1.set_xlabel("")
+                ax1.set_xticklabels("")
+            if n == 0:
+                ax1.set_title(f"{self.target_name} (sector {sector})")
+            if self.tpf is None:
+                tpf = self.get_tpf()
+            else:
+                tpf = self.tpf
+            img = np.median(self.tpf.flux, axis=0)
+
+            ax2 = axs[n, 1]
+            ax = plot_aperture_outline(
+                img, mask=self.aper_mask, imgwcs=tpf.wcs, ax=ax2
+            )
+            ax.axis("off")
+        if return_lcs:
+            return fig, custom_lcs
+        else:
+            return fig
+
     def get_flat_lc(
         self,
         lc,
@@ -734,7 +846,9 @@ class ShortCadence(Tpf):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        epoch = self.toi_epoch if epoch is None else epoch
+        # if epoch is not None:
+        #     epoch-=TESS_TIME_OFFSET
         if (period is None) or (epoch is None):
             if self.tls_results is None:
                 print("Running TLS")
@@ -752,7 +866,9 @@ class ShortCadence(Tpf):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        epoch = self.toi_epoch if epoch is None else epoch
+        # if epoch is not None:
+        #     epoch-=TESS_TIME_OFFSET
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
             lc, period=period, epoch=epoch, duration_hours=duration
@@ -785,10 +901,13 @@ def get_flat_lc(
     See plot_hrd in cluster.py
     """
     period = self.toi_period if period is None else period
-    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    epoch = self.toi_epoch if epoch is None else epoch
+    # if epoch is not None:
+    #     epoch-=TESS_TIME_OFFSET
     duration = self.toi_duration if duration is None else duration
-    if duration < 1:
-        print("Duration should be in hours.")
+    if duration is not None:
+        if duration < 1:
+            print("Duration should be in hours.")
     if window_length is None:
         window_length = 0.5 if duration is None else duration / 24 * 3
     if self.verbose:
@@ -831,10 +950,13 @@ def plot_trend_flat_lcs(
     See plot_hrd in cluster.py
     """
     period = self.toi_period if period is None else period
-    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    epoch = self.toi_epoch if epoch is None else epoch
+    # if epoch is not None:
+    #     epoch-=TESS_TIME_OFFSET
     duration = self.toi_duration if duration is None else duration
-    if duration < 1:
-        print("Duration should be in hours.")
+    if duration is not None:
+        if duration < 1:
+            print("Duration should be in hours.")
     if self.verbose:
         print(
             f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
@@ -883,7 +1005,9 @@ def plot_fold_lc(
     if ax is None:
         fig, ax = pl.subplots(figsize=(12, 8))
     period = self.toi_period if period is None else period
-    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+    epoch = self.toi_epoch if epoch is None else epoch
+    # if epoch is not None:
+    #     epoch-=TESS_TIME_OFFSET
     duration = self.toi_duration if duration is None else duration
     errmsg = "Provide period and epoch."
     assert (period is not None) & (epoch is not None), errmsg

@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ["CDIPS", "get_cdips_inventory", "get_url_in_cdips_inventory"]
 
-CDIPS_SECTORS = [6, 7, 8, 9, 10, 11]
+CDIPS_SECTORS = [6, 7, 8, 9, 10, 11, 12, 13]
 CDIPS_APER_PIX = [1, 1.5, 2.25]
 CDIPS_PAPER = "https://ui.adsabs.harvard.edu/abs/2019ApJS..245...13B/abstract"
 CDIPS_REPORT = "http://lgbouma.com/cdips_documentation/20191127_vetting_report_description_document.pdf"
@@ -116,6 +116,8 @@ class CDIPS(Target):
         lctype: str
             CDIPS lc types: ["flux", "mag", "tfa", "pca"]
         """
+        if self.verbose:
+            print("Using CDIPS lightcurve.")
         self.sector = sector
         if self.sector is None:
             print(f"Available sectors: {self.all_sectors}")
@@ -229,10 +231,11 @@ class CDIPS(Target):
         assert self.ccd is not None
         assert self.gaiaid is not None
         sec = str(self.sector).zfill(4)
+        gid = str(self.gaiaid).zfill(22)
         fp = (
             base
             + f"s{sec}/cam{self.cam}_ccd{self.ccd}"
-            + f"/hlsp_cdips_tess_ffi_gaiatwo000{self.gaiaid}-"
+            + f"/hlsp_cdips_tess_ffi_gaiatwo{gid}-"
             + f"{sec}-cam{self.cam}-ccd{self.ccd}"
             + f"_tess_v01_llc.fits"
         )
@@ -357,6 +360,18 @@ class CDIPS(Target):
             tpf, sap_mask=sap_mask, aper_radius=CDIPS_APER_PIX[idx]
         )
         return aper_mask
+
+    def plot_all_lcs(self):
+        """
+        """
+        cdips_lcs = {}
+        fig, ax = pl.subplots(1, 1, figsize=(10, 6))
+        for aper in [1, 2, 3]:
+            lc = self.get_cdips_lc(aper_idx=aper)
+            lc.plot(ax=ax, label=f"aper={aper}")
+            cdips_lcs[aper] = lc
+        ax.set_title(f"{self.target_name} (sector {self.sector})")
+        return fig
 
     def get_flat_lc(
         self,

@@ -357,11 +357,11 @@ class Target:
             self.gmag = target["phot_g_mean_mag"]
             ens = target["astrometric_excess_noise_sig"]
             if ens >= 5:
-                msg = "astrometric_excess_noise_sig>{ens:.2f} (>5 hints binarity).\n"
+                msg = f"astrometric_excess_noise_sig>{ens:.2f} (>5 hints binarity).\n"
                 print(msg)
             gof = target["astrometric_gof_al"]
             if gof >= 20:
-                msg = "astrometric_gof_al>{gof:.2f} (>20 hints binarity)."
+                msg = f"astrometric_gof_al>{gof:.2f} (>20 hints binarity)."
                 print(msg)
             if (ens >= 5) or (gof >= 20):
                 print("See https://arxiv.org/pdf/1804.11082.pdf\n")
