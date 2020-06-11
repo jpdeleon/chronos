@@ -36,16 +36,18 @@ __all__ = ["Star"]
 # latest catalogues: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, ALL-WISE, 2MASS
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
 CATALOGS_STAR_PARMS = {
+    "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
     "Queiroz2020": "https://arxiv.org/abs/1710.09970",  # starhorse: using APOGEE+Gaia
+    "HardegreeUllman2020": "https://arxiv.org/abs/2001.11511",  # Gaia2+LAMOST for K2 host stars (TICv8)
     "Anders2019": "https://arxiv.org/abs/1904.11302",  # panstarrs+2MASS+AllWISE+some APOGEE
-    "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper
+    # kinematic thin disc, thick disc, and halo membership probabilities:
+    # https://zenodo.org/record/3546184#.Xt-UFIFq1Ol
     # Sloan Digital Sky Survey Apache Point Observatory Galaxy Evolution Experiment (APOGEE)
     "Ahumada2020": "https://arxiv.org/abs/1912.02905",  # SDSS DR16: using APOGEE DR2 -southern+eBOSS spectra
     "Buder2018": "https://arxiv.org/abs/1804.06041",  # GALAH DR2
     "Lin2020": "https://arxiv.org/abs/1911.05221",  # GALAH2=isochrone ages and init bulk met
     # distance- and extinction-corrected CMD, extinction maps as a function of distance, and density maps
     "Guiglion2020": "https://arxiv.org/abs/2004.12666",  # rave w/ CNN
-    # kinematic thin disc, thick disc, and halo membership probabilities
     "McMillan2018": "https://arxiv.org/abs/1707.04554",  # TGAS+RAVE for radial velocities
     "Casey2016": "https://arxiv.org/abs/1609.02914",  # RAVE-on, ages
     "Auge2020": "https://arxiv.org/abs/2003.05459",  # M-giants asteroseismic distances
@@ -292,6 +294,8 @@ class Star(Target):
         plot=False,
     ):
         """
+        Parameters
+        ----------
         method : str
             (default) isochrones
         """
@@ -322,6 +326,8 @@ class Star(Target):
         Smoothed rotation amplitude: See Morris+2020
         and references therein
 
+        Parameters
+        ----------
         lc : lk.lightcurve
                 lightcurve to be folded
         prot : tuple
@@ -402,6 +408,8 @@ class Star(Target):
         plot=False,
     ):
         """
+        Parameters
+        ----------
         lc : lk.LightCurve
             lightcurve object that contains time and flux
         prot : tuple
@@ -486,6 +494,8 @@ class Star(Target):
         """
         See https://ui.adsabs.harvard.edu/abs/2019AJ....158..173A/abstract
 
+        Parameters
+        ----------
         prot : tuple
             stellar rotation period
         """
@@ -564,6 +574,9 @@ class Star(Target):
         # star_params='teff logg parallax'.split()
     ):
         """get parameters for isochrones
+
+        Parameters
+        ----------
         teff, logg, feh: tuple
             'gaia' populates Teff from gaia DR2
         add_dict : dict
@@ -574,6 +587,10 @@ class Star(Target):
             appends JHKs photometry (default=False)
         inflate_plx_err : bool
             adds 0.01 parallax error in quadrature (default=True)
+
+        Returns
+        -------
+        iso_params : dict
         """
         if self.gaia_params is None:
             gp = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
@@ -744,14 +761,30 @@ class Star(Target):
 
     def init_isochrones(
         self,
-        model="mist",
         iso_params=None,
+        model="mist",
         maxAV=None,
         max_distance=None,
         bands=None,
         binary_star=False,
     ):
         """initialize parameters for isochrones
+
+        Parameters
+        ----------
+        iso_params : dict
+            isochrone input
+        model : str
+            stellar evolution model grid (default=mist)
+        maxAV : float
+            maximum extinction [mag]
+        max_distance : float
+            maximum distance [pc]
+        binary_star : bool
+            use binary star model if True else False (default=False)
+        Returns
+        -------
+        isochrones_model
         """
         try:
             from isochrones import (
@@ -768,6 +801,8 @@ class Star(Target):
         iso_params = (
             self.get_iso_params() if iso_params is None else iso_params
         )
+        if self.verbose:
+            print(iso_params)
         if binary_star:
             model = BinaryStarModel
         else:
@@ -792,14 +827,22 @@ class Star(Target):
         **kwargs,
     ):
         """
-        Use `init_isochones` for detailed isochrones model initialization.
-
-        https://isochrones.readthedocs.io/en/latest/quickstart.html#Fit-physical-parameters-of-a-star-to-observed-data
-
+        Parameters
+        ----------
         iso_params : dict
             isochrone input
+        binary_star : bool
+            use binary star model if True else False (default=False)
+        overwrite : bool
+            re-run isochrones from scratch
+        Returns
+        -------
+        isochrones_model
+        Note:
+        * Use `init_isochones` for detailed isochrones model initialization.
+        https://isochrones.readthedocs.io/en/latest/quickstart.html#Fit-physical-parameters-of-a-star-to-observed-data
 
-        Note: See mod._priors for priors; for multi-star systems, see
+        * See mod._priors for priors; for multi-star systems, see
         https://isochrones.readthedocs.io/en/latest/multiple.html
         FIXME: nsteps param in mod.fit() cannot be changed
         """
@@ -812,6 +855,13 @@ class Star(Target):
             self.init_isochrones(iso_params=iso_params)
         else:
             print("Using previously initialized model.")
+
+        if (self.isochrones_model.derived_samples is not None) & (
+            not overwrite
+        ):
+            if self.verbose:
+                print("Loading previous samples. Otherwise, overwrite=True.")
+
         self.isochrones_model.fit(
             overwrite=overwrite, **kwargs
         )  # niter=nsteps
@@ -819,6 +869,8 @@ class Star(Target):
 
     def get_isochrones_prior_samples(self, nsamples=int(1e4)):
         """sample default priors
+
+        Returns dataframe
         """
         model = self.isochrones_model
         errmsg = "self.run_isochrones"
@@ -881,12 +933,15 @@ class Star(Target):
         nthin=None,
     ):
         """
+        Parameters
+        ----------
         iso_params : dict
             isochrones parameters
         iso_params0 : list
             isochrones initial guesses
         optimize : bool
             optimize first before MCMC
+        Returns None
         """
         try:
             import stardate as sd
@@ -982,8 +1037,7 @@ class Star(Target):
             return (mid, errp, errm)
 
     def get_mass(self, burnin=None, return_samples=False):
-        """
-        """
+        """get max aposteriori mass from stardate samples"""
         if self.stardate is None:
             raise ValueError("Try self.run_stardate()")
         else:
@@ -1018,6 +1072,7 @@ class Star(Target):
             return (feh, feh_errp, feh_errm)
 
     def get_distance(self, burnin=None, return_samples=False):
+        """get max aposteriori age from stardate samples"""
         if self.stardate is None:
             raise ValueError("Try self.run_stardate()")
         else:
@@ -1037,6 +1092,7 @@ class Star(Target):
             return (lnd, lnd_errp, lnd_errm)
 
     def get_Av(self, burnin=None, return_samples=False):
+        """get max aposteriori Av from stardate samples"""
         if self.stardate is None:
             raise ValueError("Try self.run_stardate()")
         else:
@@ -1233,3 +1289,7 @@ class Star(Target):
     @property
     def starhorse_Mstar_err(self):
         raise ValueError("starhorse table has no error!")
+
+    # @property
+    # def TGv8(self):
+    #     pass

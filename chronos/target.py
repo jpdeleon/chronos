@@ -6,11 +6,10 @@ classes for searching object
 
 # Import standard library
 # from inspect import signature
-from os.path import join, exists
+from pathlib import Path
 import warnings
 from pprint import pprint
 import logging
-import re
 
 # Import modules
 # from matplotlib.figure import Figure
@@ -22,12 +21,13 @@ from astroquery.vizier import Vizier
 from astroquery.simbad import Simbad
 from astroquery.mast import Observations, Catalogs
 from astropy.coordinates import SkyCoord, Distance
+from astropy.io import fits
 import astropy.units as u
 import lightkurve as lk
 
-# from lightkurve.search import _query_mast as query_mast
 # Import from package
 from chronos.cluster import ClusterCatalog, Cluster
+from chronos.config import DATA_PATH
 from chronos.utils import (
     get_all_campaigns,
     get_all_sectors,
@@ -222,6 +222,55 @@ class Target:
     #     params = signature(self.__init__).parameters
     #     values = (f"{p}={repr(getattr(self, p))}" for p in params)
     #     return f"{type(self).__name__}({', '.join(values)})"
+
+    def query_TGv8_catalog(self, gaiaid=None, data_path=None):
+        """
+        Stellar parameters of TESS host stars (TICv8)
+        using Gaia2+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper;
+        See Carillo2020: https://arxiv.org/abs/1911.07825
+        Parameter
+        ---------
+        gaiaid : int
+            Gaia DR2 source id (optional)
+        data_path : str
+            path to data
+
+        Returns
+        -------
+        pandas.Series
+        """
+        zenodo_url = "https://zenodo.org/record/3546184#.Xt-UFIFq1Ol"
+        if data_path is None:
+            fp = Path(DATA_PATH, "TGv8sample_vs_surveys.fits")
+        else:
+            fp = Path(data_path, "TGv8sample_vs_surveys.fits")
+
+        if not Path(fp).exists():
+            errmsg = f"Data is not found in {DATA_PATH}\n"
+            errmsg += f"Download it first from {zenodo_url} (size~1Gb)"
+            raise FileNotFoundError(errmsg)
+
+        with fits.open(fp) as hdulist:
+            # print(hdulist.info())
+            data = hdulist[1].data
+
+        if gaiaid is None:
+            if self.gaiaid is None:
+                errmsg = "Provide gaiaid or try `self.query_gaia_dr2_catalog"
+                errmsg += "(return_nearest_xmatch=True)`"
+                raise ValueError(errmsg)
+            else:
+                gaiaid = self.gaiaid
+
+        index = np.where(data["Gaia source id"] == int(gaiaid))[0]
+        if len(index) > 0:
+            vals = {}
+            for col in data.columns.names:
+                col2 = col.replace(" ", "_")
+                vals[col2] = data[col][index][0]
+            return pd.Series(vals)
+        else:
+            print(f"Gaia DR2 {gaiaid} not found in TGv8 catalog.")
 
     def query_gaia_dr2_catalog(
         self, radius=None, return_nearest_xmatch=False, verbose=None
@@ -587,14 +636,27 @@ class Target:
     def get_cluster_membership(
         self,
         catalog_name="CantatGaudin2020",
-        frac=0.1,
+        frac_err=0.1,
         sigma=5,
         return_idxs=False,
         verbose=None,
     ):
         """
-        Check vizier if target is known as cluster/assoc;
-        Find cluster with matching kinematics in 6D
+        Check vizier if target is known as a cluster/assoc member.
+        Find the cluster that matches the 6D kinematics of the target
+        Parameters
+        ----------
+        catalog_name : str
+            cluster catalog to search for
+        frac_err : float
+            minimum fractional error of the parameter;
+            parameters greater than frac_err are ignored
+        sigma : float
+            minimum sigma of a parameter;
+            parameters greater than `sigma` away from
+            the cluster parameter distribution are not member
+        return_idxs : bool
+            return indexes if True
         """
         verbose = verbose if verbose is not None else self.verbose
         if self.gaia_params is None:
@@ -649,9 +711,9 @@ class Target:
             star_std = gaia_params[gparam + "_error"]
 
             # remove rows with large parameter uncertainty
-            if frac is not None:
+            if frac_err is not None:
                 idx1 = clusters.apply(
-                    lambda x: (x["e_" + param] / x[param]) < frac, axis=1
+                    lambda x: (x["e_" + param] / x[param]) < frac_err, axis=1
                 )
             #             print(f"{param}: {sum(~idx1)} removed")
             #             clusters[param].isnull().sum()/clusters.shape[0]
@@ -935,7 +997,7 @@ class Target:
             cols = [i.to_pandas().columns.tolist() for i in tabs]
             print(np.unique(flatten_list(cols)))
 
-    def query_literature_photometry(
+    def query_vizier_mags(
         self, catalogs=["tycho", "gaiadr2", "2mass", "wise"], add_err=True
     ):
         """
@@ -943,12 +1005,13 @@ class Target:
         """
         if self.vizier_tables is None:
             tabs = self.query_vizier(verbose=False)
-
+        else:
+            tabs = self.vizier_tables
         refs = {
             "tycho": {"tabid": "I/259/tyc2", "cols": ["BTmag", "VTmag"]},
             "gaiadr2": {
                 "tabid": "I/345/gaia2",
-                "cols": ["Gmag", "BPmag", "RPmag", "Plx"],
+                "cols": ["Gmag", "BPmag", "RPmag"],
             },
             "2mass": {"tabid": "II/246/out", "cols": ["Jmag", "Hmag", "Kmag"]},
             "wise": {
@@ -959,19 +1022,26 @@ class Target:
 
         phot = []
         for cat in catalogs:
-            tabid = refs[cat]["tabid"]
-            cols = refs[cat]["cols"]
-            d = tabs[tabid].to_pandas()[cols]
-            phot.append(d)
-            if add_err:
-                ecols = ["e_" + col for col in refs[cat]["cols"]]
-                if cat != "tycho":
-                    e = tabs[tabid].to_pandas()[ecols]
-                    phot.append(e)
-        return pd.concat(phot, axis=1)
+            if cat in refs.keys():
+                tabid = refs[cat]["tabid"]
+                cols = refs[cat]["cols"]
+                if tabid in tabs.keys():
+                    d = tabs[tabid].to_pandas()[cols]
+                    phot.append(d)
+                    if add_err:
+                        ecols = ["e_" + col for col in refs[cat]["cols"]]
+                        if cat != "tycho":
+                            e = tabs[tabid].to_pandas()[ecols]
+                            phot.append(e)
+                else:
+                    print(f"No {cat} data in vizier")
+        d = pd.concat(phot, axis=1).squeeze()
+        d.name = self.target_name
+        return d
 
     def query_eso(self, diameter=3, instru=None, min_snr=1):
         """
+        search spectra in ESO database
         """
         try:
             import pyvo as vo
@@ -1067,6 +1137,9 @@ class Target:
             print("No result from ESO")
 
     def query_harps_bank_table(self, **kwargs):
+        """
+        search HARPS RV from Trifonov's database
+        """
         if self.harps_bank_table is None:
             df = get_harps_bank(self.target_coord, **kwargs)
         else:

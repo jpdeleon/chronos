@@ -7,7 +7,6 @@ import numpy as np
 import matplotlib.pyplot as pl
 import pandas as pd
 import lightkurve as lk
-from scipy.ndimage import zoom
 
 # from transitleastsquares import final_T0_fit
 from astropy.coordinates import Angle, SkyCoord, Distance
@@ -15,6 +14,7 @@ from astropy.visualization import ZScaleInterval
 from astroquery.mast import Catalogs
 from astropy.wcs import WCS
 import astropy.units as u
+from scipy.ndimage import zoom
 from astroquery.skyview import SkyView
 from astroplan.plots import plot_finder_image
 from astropy.timeseries import LombScargle
@@ -47,6 +47,7 @@ __all__ = [
     "plot_possible_NEBs",
     "plot_interactive",
     "plot_aperture_outline",
+    "plot_aperture_outline2",
     "plot_gaia_sources_on_survey",
     "plot_gaia_sources_on_tpf",
     "plot_cluster_kinematics",
@@ -103,7 +104,7 @@ def plot_orientation_on_tpf(tpf, ax=None):
     """
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=(5, 5))
-    mean_tpf = np.mean(tpf.flux, axis=0)
+    mean_tpf = np.nanmean(tpf.flux, axis=0)
     zmin, zmax = ZScaleInterval(contrast=0.5)
     ax.matshow(mean_tpf, vmin=zmin, vmax=zmax, origin="lower")
     _ = plot_orientation(tpf, ax=ax)
@@ -363,13 +364,17 @@ def plot_gaia_sources_on_survey(
     # -----------create figure---------------#
     if ax is None:
         # get img hdu for subplot projection
-        hdu = SkyView.get_images(
-            position=target_coord.icrs.to_string(),
-            coordinates="icrs",
-            survey=survey,
-            radius=fov_rad,
-            grid=False,
-        )[0][0]
+        try:
+            hdu = SkyView.get_images(
+                position=target_coord.icrs.to_string(),
+                coordinates="icrs",
+                survey=survey,
+                radius=fov_rad,
+                grid=False,
+            )[0][0]
+        except Exception:
+            errmsg = "survey image not available"
+            raise FileNotFoundError(errmsg)
         fig = pl.figure(figsize=figsize)
         # define scaling in projection
         ax = fig.add_subplot(111, projection=WCS(hdu.header))
@@ -421,6 +426,10 @@ def plot_gaia_sources_on_survey(
             alpha=alpha,
             facecolor="none",
         )
+    # orient such that north is up; left is east
+    ax.invert_yaxis()
+    ax.coords[0].set_major_formatter("dd:mm")
+    ax.coords[1].set_major_formatter("dd:mm")
     # set img limits
     pl.setp(
         nax,
@@ -441,7 +450,7 @@ def plot_aperture_outline(
     ny, nx = mask.shape
     contour = np.zeros((ny, nx))
     contour[np.where(mask)] = 1
-    #     contour = np.lib.pad(contour, 1, PadWithZeros)
+    contour = np.lib.pad(contour, 1, PadWithZeros)
     highres = zoom(contour, 100, order=0, mode="nearest")
     extent = np.array([-1, nx, -1, ny])
 
@@ -453,8 +462,8 @@ def plot_aperture_outline(
         ax.set_ylabel("Dec")
     _ = ax.contour(
         highres,
-        # levels=[0.5],
-        linewidths=3,
+        levels=[0.5],
+        linewidths=[3],
         extent=extent,
         origin="lower",
         colors="C6",
@@ -464,6 +473,44 @@ def plot_aperture_outline(
         img, origin="lower", cmap=cmap, vmin=zmin, vmax=zmax, extent=extent
     )
     # verts = cs.allsegs[0][0]
+    return ax
+
+
+def plot_aperture_outline2(
+    img, mask, ax=None, imgwcs=None, cmap="viridis", color="pink", figsize=None
+):
+    """
+    see https://github.com/afeinstein20/eleanor/blob/master/eleanor/visualize.py#L78
+    """
+    interval = ZScaleInterval(contrast=0.5)
+    f = lambda x, y: mask[int(y), int(x)]
+    g = np.vectorize(f)
+
+    if ax is None:
+        fig, ax = pl.subplots(
+            subplot_kw={"projection": imgwcs}, figsize=figsize
+        )
+        ax.set_xlabel("RA")
+        ax.set_ylabel("Dec")
+    x = np.linspace(0, mask.shape[1], mask.shape[1] * 100)
+    y = np.linspace(0, mask.shape[0], mask.shape[0] * 100)
+    extent = [0 - 0.5, x[:-1].max() - 0.5, 0 - 0.5, y[:-1].max() - 0.5]
+    X, Y = np.meshgrid(x[:-1], y[:-1])
+    Z = g(X[:-1], Y[:-1])
+    # plot contour
+    _ = ax.contour(
+        Z[::-1],
+        levels=[0.5],
+        colors="C6",
+        linewidths=[3],
+        extent=extent,
+        origin="lower",
+    )
+    zmin, zmax = interval.get_limits(img)
+    # plot image
+    ax.matshow(
+        img, origin="lower", cmap=cmap, vmin=zmin, vmax=zmax, extent=extent
+    )
     return ax
 
 

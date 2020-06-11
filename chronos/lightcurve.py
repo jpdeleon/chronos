@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 import astropy.units as u
 
-# from scipy.signal import detrend
+from scipy.signal import detrend as linear_detrend
 from astropy.timeseries import LombScargle
 from astropy.io import fits
 import lightkurve as lk
@@ -338,7 +338,7 @@ class LongCadence(FFI_cutout):
                 tpf = self.get_tpf_tesscut()
             else:
                 tpf = self.tpf_tesscut
-            img = np.median(self.tpf_tesscut.flux, axis=0)
+            img = np.nanmedian(self.tpf_tesscut.flux, axis=0)
 
             ax2 = axs[n, 1]
             ax = plot_aperture_outline(
@@ -780,7 +780,7 @@ class ShortCadence(Tpf):
                 tpf = self.get_tpf()
             else:
                 tpf = self.tpf
-            img = np.median(self.tpf.flux, axis=0)
+            img = np.nanmedian(self.tpf.flux, axis=0)
 
             ax2 = axs[n, 1]
             ax = plot_aperture_outline(
@@ -957,15 +957,16 @@ def plot_trend_flat_lcs(
     if duration is not None:
         if duration < 1:
             print("Duration should be in hours.")
-    if self.verbose:
-        print(
-            f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
-        )
+
     fig, axs = pl.subplots(
         2, 1, figsize=(12, 10), constrained_layout=True, sharex=True
     )
 
     if (period is not None) & (epoch is not None) & (duration is not None):
+        if self.verbose:
+            print(
+                f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
+            )
         tmask = get_transit_mask(
             lc, period=period, epoch=epoch, duration_hours=duration
         )
@@ -1022,6 +1023,48 @@ def plot_fold_lc(
         ax.set_xlim(-xlim, xlim)
     ax.set_title(f"{self.target_name} (sector {flat.sector})")
     return ax
+
+
+def plot_pixel_lcs(self, mask=None):
+    """
+    Experimental: See eleanor.visualization.pixel_by_pixel():
+
+    import eleanor
+
+    target = eleanor.Source(tic=star.ticid, sector='recent', tc=True)
+    data = eleanor.TargetData(target, height=5, width=5)
+    vis = eleanor.Visualize(data)
+    fig = vis.pixel_by_pixel(data_type="corrected", color_by_pixel=True)
+    [ax.set_ylim(0.99,1.01) for n,ax in enumerate(fig.axes) if n>1];
+
+    """
+    mask = self.aper_mask if mask is None else mask
+    y, x = np.nonzero(mask)
+
+    nrows = max(x) - min(x) + 1
+    ncols = max(y) - min(y) + 1
+    fig, axs = pl.subplots(
+        nrows,
+        ncols,
+        figsize=(10, 10),
+        sharex=True,
+        sharey=True,
+        gridspec_kw={"hspace": 0, "wspace": 0},
+    )
+
+    bkg = np.median(self.tpf.flux[:, ~mask], axis=1)
+    for (i, j) in zip(x, y):
+        flux = self.tpf.flux[:, j, i] - bkg
+        flux /= np.nanmedian(flux)
+        flux = linear_detrend(flux, bp=len(flux) // 2) + 1
+        time = self.tpf.time
+        ax = axs[j - min(y), i - min(x)]
+        ax.plot(time, flux, label=f"(y,x)=({j},{i})")
+        ax.legend(loc=3)
+        ax.set_ylim(0, 1.3)
+        if j != y[-1]:
+            ax.set_xlabel("")
+    return fig
 
 
 # class LightCurve(ShortCadence, LongCadence):
