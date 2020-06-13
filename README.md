@@ -42,6 +42,7 @@ $ pytest tests/
 * `triceratops` for FPP calculation based on lightcurve shape and contrast curve constraints
 
 ## For next update
+* [`platon`](https://github.com/ideasrule/platon) for calculating transmission spectrum
 * [`theJoker`](https://github.com/adrn/thejoker) for two-body MCMC sampler
 * `contaminante` for pixel level modeling
 * `allesfitter` for lightcurve model fitting

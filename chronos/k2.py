@@ -796,7 +796,7 @@ class K2sff(K2):
         idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
         target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
-        for index, row in gaia_sources.iterrows():
+        for _, row in gaia_sources.iterrows():
             marker, s = "o", 100
             r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
             pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
@@ -824,6 +824,10 @@ class K2sff(K2):
                 alpha=alpha,
                 facecolor="none",
             )
+        # orient such that north is up; left is east
+        ax.invert_yaxis()
+        ax.coords[0].set_major_formatter("dd:mm")
+        ax.coords[1].set_major_formatter("dd:mm")
         # set img limits
         pl.setp(
             nax,

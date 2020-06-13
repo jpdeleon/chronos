@@ -115,7 +115,7 @@ def plot_orientation(tpf, ax):
     """overlay orientation arrows on tpf plot
     """
     nx, ny = tpf.flux.shape[1:]
-    x0, y0 = tpf.column + int(0.9 * nx), tpf.row + int(0.2 * nx)
+    x0, y0 = tpf.column + int(0.9 * nx), tpf.row + int(0.2 * ny)
     # East
     tmp = tpf.get_coordinates()
     ra00, dec00 = tmp[0][0][0][0], tmp[1][0][0][0]
@@ -692,7 +692,9 @@ def plot_tls(results, period=None, plabel=None, figsize=None):
     return fig
 
 
-def plot_odd_even(flat, period, epoch, yline=None, figsize=(8, 4)):
+def plot_odd_even(
+    flat, period, epoch, duration=None, yline=None, figsize=(8, 4)
+):
     """
     """
     fig, axs = pl.subplots(
@@ -709,6 +711,9 @@ def plot_odd_even(flat, period, epoch, yline=None, figsize=(8, 4)):
     fold[fold.odd_mask].scatter(label="odd", ax=ax)
     if yline is not None:
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
+    if duration is not None:
+        xlim = 3 * duration / 24 / period
+        ax.set_xlim(-xlim, xlim)
     ax.set_ylabel("")
     fig.subplots_adjust(wspace=0)
     return fig
@@ -848,7 +853,7 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     good, bad, dmags = [], [], []
     idx = gaia_catalog.source_id.isin([gaiaid])
     target_gmag = gaia_catalog.iloc[idx]["phot_g_mean_mag"]
-    for index, row in gaia_catalog.iterrows():
+    for _, row in gaia_catalog.iterrows():
         id, mag = row[["source_id", "phot_g_mean_mag"]]
         if int(id) != gaiaid:
             dmag = mag - target_gmag

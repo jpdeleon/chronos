@@ -407,13 +407,14 @@ class LongCadence(FFI_cutout):
             fig.axes[0].set_title(f"{self.target_name} (sector {flat.sector})")
             return fig
 
-    def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
+    def plot_odd_even(
+        self, flat, period=None, epoch=None, duration=None, ylim=None
+    ):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        # if epoch is not None:
-        #     epoch-=TESS_TIME_OFFSET
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
+        duration = self.duration if duration is None else duration
         if (period is None) or (epoch is None):
             if self.tls_results is None:
                 print("Running TLS")
@@ -423,7 +424,9 @@ class LongCadence(FFI_cutout):
             ylim = self.tls_results.depth if ylim is None else ylim
         if ylim is None:
             ylim = 1 - self.toi_depth
-        fig = plot_odd_even(flat, period=period, epoch=epoch, yline=ylim)
+        fig = plot_odd_even(
+            flat, period=period, epoch=epoch, duration=duration, yline=ylim
+        )
         fig.suptitle(f"{self.target_name} (sector {flat.sector})")
         return fig
 
@@ -431,9 +434,7 @@ class LongCadence(FFI_cutout):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        # if epoch is not None:
-        #     epoch-=TESS_TIME_OFFSET
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
             lc, period=period, epoch=epoch, duration_hours=duration
@@ -842,13 +843,13 @@ class ShortCadence(Tpf):
             fig.axes[0].set_title(f"{self.target_name} (sector {flat.sector})")
             return fig
 
-    def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
+    def plot_odd_even(
+        self, flat, period=None, epoch=None, duration=None, ylim=None
+    ):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        # if epoch is not None:
-        #     epoch-=TESS_TIME_OFFSET
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         if (period is None) or (epoch is None):
             if self.tls_results is None:
                 print("Running TLS")
@@ -858,7 +859,9 @@ class ShortCadence(Tpf):
             ylim = self.tls_results.depth if ylim is None else ylim
         if ylim is None:
             ylim = 1 - self.toi_depth
-        fig = plot_odd_even(flat, period=period, epoch=epoch, yline=ylim)
+        fig = plot_odd_even(
+            flat, period=period, epoch=epoch, duration=duration, yline=ylim
+        )
         fig.suptitle(f"{self.target_name} (sector {flat.sector})")
         return fig
 
@@ -866,9 +869,7 @@ class ShortCadence(Tpf):
         """
         """
         period = self.toi_period if period is None else period
-        epoch = self.toi_epoch if epoch is None else epoch
-        # if epoch is not None:
-        #     epoch-=TESS_TIME_OFFSET
+        epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
             lc, period=period, epoch=epoch, duration_hours=duration
@@ -901,9 +902,7 @@ def get_flat_lc(
     See plot_hrd in cluster.py
     """
     period = self.toi_period if period is None else period
-    epoch = self.toi_epoch if epoch is None else epoch
-    # if epoch is not None:
-    #     epoch-=TESS_TIME_OFFSET
+    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
     duration = self.toi_duration if duration is None else duration
     if duration is not None:
         if duration < 1:
@@ -950,9 +949,7 @@ def plot_trend_flat_lcs(
     See plot_hrd in cluster.py
     """
     period = self.toi_period if period is None else period
-    epoch = self.toi_epoch if epoch is None else epoch
-    # if epoch is not None:
-    #     epoch-=TESS_TIME_OFFSET
+    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
     duration = self.toi_duration if duration is None else duration
     if duration is not None:
         if duration < 1:
@@ -1006,9 +1003,7 @@ def plot_fold_lc(
     if ax is None:
         fig, ax = pl.subplots(figsize=(12, 8))
     period = self.toi_period if period is None else period
-    epoch = self.toi_epoch if epoch is None else epoch
-    # if epoch is not None:
-    #     epoch-=TESS_TIME_OFFSET
+    epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
     duration = self.toi_duration if duration is None else duration
     errmsg = "Provide period and epoch."
     assert (period is not None) & (epoch is not None), errmsg

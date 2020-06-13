@@ -636,14 +636,14 @@ class Star(Target):
             gp["phot_bp_mean_flux"], gp["phot_bp_mean_flux_error"]
         )
         bpmag_err = bpmag_err if bpmag_err > min_mag_err else min_mag_err
-        params.update({"bp": (bpmag, bpmag_err)})
+        params.update({"BP": (bpmag, bpmag_err)})
 
         rpmag = gp["phot_rp_mean_mag"]
         rpmag_err = get_mag_err_from_flux(
             gp["phot_rp_mean_flux"], gp["phot_rp_mean_flux_error"]
         )
         rpmag_err = rpmag_err if rpmag_err > min_mag_err else min_mag_err
-        params.update({"rp": (rpmag, rpmag_err)})
+        params.update({"RP": (rpmag, rpmag_err)})
 
         plx = gp["parallax"]
         if inflate_plx_err:
@@ -816,6 +816,10 @@ class Star(Target):
             name=self.target_name,
             **iso_params,
         )
+        # set mass upper limit up to 10 Msol
+        self.isochrones_model.set_bounds(mass=(0.1, 10))
+        # set eep upper limit up to asymptotic giant branch
+        self.isochrones_model.set_bounds(eep=(0, 808))
         return self.isochrones_model
 
     def run_isochrones(
@@ -856,15 +860,25 @@ class Star(Target):
         else:
             print("Using previously initialized model.")
 
-        if (self.isochrones_model.derived_samples is not None) & (
-            not overwrite
-        ):
-            if self.verbose:
-                print("Loading previous samples. Otherwise, overwrite=True.")
-
-        self.isochrones_model.fit(
-            overwrite=overwrite, **kwargs
-        )  # niter=nsteps
+        if self.isochrones_model._samples is not None:
+            if not overwrite:
+                if self.verbose:
+                    print(
+                        "Loading previous samples. Otherwise, try overwrite=True."
+                    )
+            else:
+                if self.verbose:
+                    print("Overwriting previous run.")
+        if self.isochrones_model.use_emcee:
+            print("method: Affine-invariant MCMC")
+            # kwargs = {"niter": int(nsteps)}
+        else:
+            print("method: Nested Sampling")
+            # kwargs = {"n_live_points": int(nsteps)}
+        # fit
+        self.isochrones_model.fit(overwrite=overwrite)  # **kwargs
+        if self.verbose:
+            print("Done.")
         return self.isochrones_model
 
     def get_isochrones_prior_samples(self, nsamples=int(1e4)):
@@ -877,10 +891,13 @@ class Star(Target):
         assert model is not None, errmsg
         samples = {}
         for param in model._priors:
-            try:
+            if param == "eep":
+                age, feh = self.iso_params0[1], self.iso_params0[2]
+                samples[param] = model._priors[param].sample(
+                    nsamples, age=age, feh=feh
+                )
+            else:
                 samples[param] = model._priors[param].sample(nsamples)
-            except Exception as e:
-                print(e)
         return pd.DataFrame(samples)
 
     def plot_isochrones_priors(self, kind="kde"):
@@ -894,6 +911,7 @@ class Star(Target):
         AVPrior: FlatPrior
         EEP_prior: BoundedPrior (See self.mist_eep_table)
         """
+
         fig, axs = pl.subplots(2, 3, figsize=(8, 8), constrained_layout=True)
         ax = axs.flatten()
 
@@ -902,10 +920,35 @@ class Star(Target):
             _ = df[col].plot(kind=kind, ax=ax[i])
             ax[i].set_title(col)
             xlims = self.isochrones_model._priors[col].bounds
+            if i not in [0, 3]:
+                ax[i].set_ylabel("")
             if np.isfinite(xlims).any():
                 ax[i].set_xlim(xlims)
         fig.suptitle("Priors")
+        # fig.subplots_adjust(wspace=0.1)
         return fig
+
+    def plot_posterior_eep(self):
+        """
+        """
+        errmsg = "try self.run_isochrones()"
+        assert self.isochrones_model._samples is not None, errmsg
+        emin = self.isochrones_model.derived_samples.eep.min() - 100
+        emax = self.isochrones_model.derived_samples.eep.max() + 100
+
+        idx = self.mist_eep_table["EEP Number"].between(emin, emax)
+        tab = self.mist_eep_table.loc[idx, ["EEP Number", "Phase"]]
+
+        # plot kde
+        ax = self.isochrones_model.derived_samples.eep.plot(kind="kde")
+        n = 1
+        for _, row in tab.iterrows():
+            ax.axvline(
+                row["EEP Number"], 0, 1, label=row["Phase"], ls="--", c=f"C{n}"
+            )
+            n += 1
+        ax.legend()
+        return ax
 
     # @classmethod
     def get_isochrones_results(self):
@@ -1177,8 +1220,8 @@ class Star(Target):
 
     def plot_corner(
         self,
-        use_isochrones=True,
         posterior="physical",
+        use_isochrones=True,
         columns=None,
         burnin=None,
         thin=None,
@@ -1213,15 +1256,38 @@ class Star(Target):
 
             if posterior == "observed":
                 fig = star.corner_observed()
+                # columns = star.observed_quantities
+                # data = star._samples
+                # fig = corner(data, labels=columns,
+                #        quantiles=[0.16, 0.5, 0.84],
+                #        truth_color='C1',
+                #        show_titles=True, title_kwargs={"fontsize": 12})
             elif posterior == "physical":
-                fig = star.corner_physical()
+                # fig = star.corner_physical()
+                columns = star.physical_quantities
+                data = star._derived_samples[columns]
+                fig = corner(
+                    data,
+                    labels=columns,
+                    quantiles=[0.16, 0.5, 0.84],
+                    show_titles=True,
+                    title_kwargs={"fontsize": 12},
+                )
             elif posterior == "derived":
                 if columns is None:
-                    print("Choose columns:")
-                    print(self.isochrones_model.derived_samples.columns)
+                    print("Supply any columns:")
+                    print(star.derived_samples.columns)
                     return None
                 else:
-                    fig = star.corner_derived(columns)
+                    # fig = star.corner_derived(columns)
+                    data = star._derived_samples[columns]
+                    fig = corner(
+                        data,
+                        labels=columns,
+                        quantiles=[0.16, 0.5, 0.84],
+                        show_titles=True,
+                        title_kwargs={"fontsize": 12},
+                    )
             else:
                 raise ValueError("Use posterior=(observed,physical,derived)")
 
@@ -1234,8 +1300,82 @@ class Star(Target):
             chain = star.sampler.chain
             nwalkers, nsteps, ndim = chain.shape
             samples = chain[:, burnin::thin, :].reshape((-1, ndim))
-            fig = corner(samples, labels=self.iso_param_names)
 
+            from isochrones.mist import MIST_Isochrone
+
+            mist = MIST_Isochrone()
+            # samples needed to interpolate parameters in mist isochrones
+            eep_samples = samples[:, 0]
+            log_age_samples = samples[:, 1]
+            feh_samples = samples[:, 2]
+
+            if posterior == "observed":
+                # fig = corner(samples, labels=self.iso_param_names)
+                columns = self.iso_param_names
+                fig = corner(
+                    samples,
+                    labels=columns,
+                    quantiles=[0.16, 0.5, 0.84],
+                    truth_color="C1",
+                    show_titles=True,
+                    title_kwargs={"fontsize": 12},
+                )
+
+            elif posterior == "physical":
+                columns = [
+                    "mass",
+                    "radius",
+                    "age",
+                    "Teff",
+                    "logg",
+                    "feh",
+                ]  # , 'distance', 'AV'
+                derived_samples = mist.interp_value(
+                    [eep_samples, log_age_samples, feh_samples], columns
+                )
+                fig = corner(
+                    derived_samples,
+                    labels=columns,
+                    quantiles=[0.16, 0.5, 0.84],
+                    show_titles=True,
+                    title_kwargs={"fontsize": 12},
+                )
+
+            elif posterior == "derived":
+                avail_columns = [
+                    "eep",
+                    "age",
+                    "feh",
+                    "mass",
+                    "initial_mass",
+                    "radius",
+                    "density",
+                    "logTeff",
+                    "Teff",
+                    "logg",
+                    "logL",
+                    "Mbol",
+                    "dm_deep"
+                    # 'delta_nu', 'nu_max', 'phase',
+                    # 'J_mag', 'H_mag', 'K_mag', 'G_mag', 'BP_mag', 'RP_mag',
+                    # 'W1_mag', 'W2_mag', 'W3_mag', 'TESS_mag', 'Kepler_mag',
+                    # 'parallax', 'distance', 'AV'
+                ]
+                if columns is None:
+                    print("Supply any columns:")
+                    print(avail_columns)
+                    return None
+                else:
+                    derived_samples = mist.interp_value(
+                        [eep_samples, log_age_samples, feh_samples], columns
+                    )
+                    fig = corner(
+                        derived_samples,
+                        labels=columns,
+                        quantiles=[0.16, 0.5, 0.84],
+                        show_titles=True,
+                        title_kwargs={"fontsize": 12},
+                    )
         return fig
 
     @property
