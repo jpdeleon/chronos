@@ -311,6 +311,9 @@ class Target:
 
         See also CDIPS gaia query:
         https://github.com/lgbouma/cdips/blob/master/cdips/utils/gaiaqueries.py
+
+        See also bulk query:
+        https://gea.esac.esa.int/archive-help/tutorials/python_cluster/index.html
         """
         radius = self.search_radius if radius is None else radius * u.arcsec
         verbose = verbose if verbose is not None else self.verbose

@@ -947,6 +947,8 @@ class Star(Target):
                 row["EEP Number"], 0, 1, label=row["Phase"], ls="--", c=f"C{n}"
             )
             n += 1
+        ax.set_xlabel("Equal Evolutionary Point")
+        ax.set_title(self.target_name)
         ax.legend()
         return ax
 

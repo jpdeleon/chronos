@@ -641,9 +641,9 @@ def get_absolute_gmag(gmag, distance, a_g):
     a_g : float
         extinction in the G-band
     """
-    assert (gmag is not None) & (str(gmag) != "nan")
-    assert (distance is not None) & (str(distance) != "nan")
-    assert (a_g is not None) & (str(a_g) != "nan")
+    assert (gmag is not None) & (str(gmag) != "nan"), "gma is nan"
+    assert (distance is not None) & (str(distance) != "nan"), "distance is nan"
+    assert (a_g is not None) & (str(a_g) != "nan"), "a_g is nan"
     Gmag = gmag - 5.0 * np.log10(distance) + 5.0 - a_g
     return Gmag
 

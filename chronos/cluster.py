@@ -220,9 +220,9 @@ class ClusterCatalog(CatalogDownloader):
         self.all_clusters = None  # self.query_catalog(return_members=False)
         self.all_members = None
 
-        files = glob(join(self.data_loc, "*.txt"))
-        if exists(self.data_loc):
-            if (len(files) < 2) or self.clobber:
+        # files = glob(join(self.data_loc, "*.txt"))
+        if exists(self.data_loc):  # len(files)<2:
+            if self.clobber:
                 _ = self.get_tables_from_vizier(
                     row_limit=-1, save=True, clobber=self.clobber
                 )
@@ -1231,10 +1231,13 @@ class Cluster(ClusterCatalog):
             lambda x: x.lower().replace("_", "").strip()
         )
         idx = cat.Cluster.str.contains(cluster_name)
-        d = cat.loc[idx, ["Cluster", "log10_age"]]
-        log10age = d.log10_age.values[0]
-        print(f"log10(age)={log10age:.2f} yr = {(10**log10age)/1e6:.2f} Myr")
-        return log10age
+        if sum(idx) > 0:
+            d = cat.loc[idx, ["Cluster", "log10_age"]]
+            log10age = d.log10_age.values[0]
+            print(
+                f"log10(age)={log10age:.2f} yr = {(10**log10age)/1e6:.2f} Myr"
+            )
+            return log10age
 
     def query_cluster_members(self):
         """
@@ -1513,6 +1516,9 @@ def plot_cmd(
     match_id=True,
     df_target=None,
     target_label=None,
+    log_age=None,
+    feh=0.0,
+    eep_limits=(202, 454),
     target_color="r",
     xaxis="bp_rp0",
     yaxis="abs_gmag",
@@ -1534,6 +1540,12 @@ def plot_cmd(
         info of target
     estimate_color : bool
         estimate absolute/dereddened color from estimated excess
+    log_age : float
+        isochrone age (default=None)
+    feh : float
+        isochrone metallicity
+    eep_limits : tuple
+        maximum eep (default=(202,454): (ZAMS,TAMS))
 
     Returns
     -------
@@ -1600,6 +1612,23 @@ def plot_cmd(
             ms="25",
             label=target_label,
         )
+    if log_age is not None:
+        # plot isochrones
+        try:
+            from isochrones import get_ichrone
+
+            iso_grid = get_ichrone("mist")
+        except Exception:
+            errmsg = "pip install isochrones"
+        assert len(eep_limits) == 2, "eep_limits=(min,max)"
+        iso_df = iso_grid.isochrone(log_age, feh)
+        idx = (iso_df.eep > eep_limits[0]) & (iso_df.eep < eep_limits[1])
+        G = iso_df.G_mag[idx]
+        BP_RP = iso_df.BP_mag[idx] - iso_df.RP_mag[idx]
+        label = f"log(t)={log_age:.2f}\nfeh={feh:.2f}"
+        ax.plot(BP_RP, G, c="k", label=label)
+        ax.legend(title="MIST isochrones")
+
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
     if color == "radius_val":
         rstar = np.log10(df[color].astype(float))
@@ -1608,11 +1637,12 @@ def plot_cmd(
     else:
         ax.scatter(df[xaxis], df[yaxis], marker=".")
     ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
+    ax.set_xlim(df[xaxis].min(), df[xaxis].max())
     ax.invert_yaxis()
     ax.set_ylabel(r"$G$ [mag]", fontsize=16)
 
     text = len(df[["bp_rp0", "abs_gmag"]].dropna())
-    ax.text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax.transAxes)
+    ax.text(0.8, 0.8, f"n={text}", fontsize=14, transform=ax.transAxes)
     return ax
 
 
@@ -1625,7 +1655,7 @@ def plot_hrd(
     target_color="r",
     log_age=None,
     feh=0.0,
-    max_eep=300,
+    eep_limits=(202, 454),
     figsize=(8, 8),
     yaxis="lum_val",
     xaxis="teff_val",
@@ -1649,8 +1679,8 @@ def plot_hrd(
         isochrone age (default=None)
     feh : float
         isochrone metallicity
-    max_eep : float
-        maximum eep (default=300)
+    eep_limits : tuple
+        maximum eep (default=(202,454): (ZAMS,TAMS))
     xaxis, yaxis : str
         parameter to plot
 
@@ -1704,31 +1734,33 @@ def plot_hrd(
             from isochrones.mist import MISTIsochroneGrid
 
             iso_grid = MISTIsochroneGrid()
+            # from isochrones import get_ichrone
+            # iso_grid = get_ichrone('mist').model_grid
         except Exception:
             errmsg = "pip install isochrones"
             raise ModuleNotFoundError(errmsg)
+        assert len(eep_limits) == 2, "eep_limits=(min,max)"
         # check log_age
         ages = iso_grid.df.index.get_level_values(0)
-        errmsg = f"log_age={log_age} not in:\n{ages.unique().tolist()}"
-        assert ages.isin([log_age]).any(), errmsg
+        nearest_log_age = min(ages, key=lambda x: abs(x - log_age))
+        errmsg = f"log_age={log_age} not in:\n{[round(x,2) for x in ages.unique().tolist()]}"
+        # assert ages.isin([log_age]).any(), errmsg
+        assert abs(nearest_log_age - log_age) < 0.1, errmsg
         # check feh
         fehs = iso_grid.df.index.get_level_values(1)
-        errmsg = f"feh={feh} not in:\n{fehs.unique().tolist()}"
-        assert fehs.isin([feh]).any(), errmsg
-        # check eep
-        eeps = iso_grid.df.index.get_level_values(2)
-        min_EEP = eeps.min()
-        max_EEP = eeps.max()
-        errmsg = f"eep = [0, {max_eep}]"
-        assert min_EEP < max_eep < max_EEP, errmsg
-
-        iso_df = iso_grid.df.loc[log_age, feh]
+        nearest_feh = min(fehs, key=lambda x: abs(x - feh))
+        errmsg = f"feh={feh} not in:\n{[round(x,2) for x in fehs.unique().tolist()]}"
+        # assert fehs.isin([feh]).any(), errmsg
+        assert abs(nearest_feh - feh) < 0.1, errmsg
+        # get isochrone
+        iso_df = iso_grid.df.loc[nearest_log_age, nearest_feh]
         iso_df["L"] = iso_df["logL"].apply(lambda x: 10 ** x)
         iso_df["Teff"] = iso_df["logTeff"].apply(lambda x: 10 ** x)
-        label = f"log(t)={log_age:.2f}\nfeh={feh:.2f}\nmax_eep={max_eep}"
-        iso_df[iso_df.eep < max_eep].plot(
-            x="Teff", y="L", c="k", ax=ax, label=label
-        )
+        label = f"log(t)={log_age:.2f}\nfeh={feh:.2f}"
+        # limit eep
+        idx = (iso_df.eep > eep_limits[0]) & (iso_df.eep < eep_limits[1])
+        iso_df[idx].plot(x="Teff", y="L", c="k", ax=ax, label=label)
+        ax.set_xlim(df[xaxis].min() - 100, df[xaxis].max() + 100)
         ax.legend(title="MIST isochrones")
 
     ax.set_ylabel(r"$L/L_{\odot}$", fontsize=16)

@@ -291,6 +291,13 @@ def plot_gaia_sources_on_tpf(
     # set img limits
     xdeg = (nx * pix_scale).to(u.arcmin)
     ydeg = (ny * pix_scale).to(u.arcmin)
+    # orient such that north is up; east is left
+    ax.invert_yaxis()  # increasing upward
+    # FIXME: doesn't work
+    # ax.invert_xaxis() #decresing rightward
+    if hasattr(ax, "coords"):
+        ax.coords[0].set_major_formatter("dd:mm")
+        ax.coords[1].set_major_formatter("dd:mm")
     pl.setp(
         ax, xlim=(0, nx), ylim=(0, ny), xlabel=f"({xdeg:.2f} x {ydeg:.2f})"
     )
@@ -308,6 +315,7 @@ def plot_gaia_sources_on_survey(
     survey="DSS2 Red",
     verbose=True,
     ax=None,
+    outline_color="C6",  # pink
     figsize=None,
     pix_scale=TESS_pix_scale,
     **mask_kwargs,
@@ -329,6 +337,8 @@ def plot_gaia_sources_on_survey(
         print texts
     ax : axis
         subplot axis
+    outline_color : str
+        aperture outline color (default=C6)
     kwargs : dict
         keyword arguments for aper_radius, percentile
     Returns
@@ -392,7 +402,8 @@ def plot_gaia_sources_on_survey(
         levels=[0.5],
         extent=extent,
         origin="lower",
-        colors="C0",
+        linewidths=[3],
+        colors=outline_color,
         transform=ax.get_transform(WCS(maskhdr)),
     )
     idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
@@ -428,8 +439,9 @@ def plot_gaia_sources_on_survey(
         )
     # orient such that north is up; left is east
     ax.invert_yaxis()
-    ax.coords[0].set_major_formatter("dd:mm")
-    ax.coords[1].set_major_formatter("dd:mm")
+    if hasattr(ax, "coords"):
+        ax.coords[0].set_major_formatter("dd:mm")
+        ax.coords[1].set_major_formatter("dd:mm")
     # set img limits
     pl.setp(
         nax,
@@ -441,7 +453,13 @@ def plot_gaia_sources_on_survey(
 
 
 def plot_aperture_outline(
-    img, mask, ax=None, imgwcs=None, cmap="viridis", figsize=None
+    img,
+    mask,
+    ax=None,
+    imgwcs=None,
+    cmap="viridis",
+    outline_color="C6",
+    figsize=None,
 ):
     """
     see https://github.com/rodluger/everest/blob/56f61a36625c0d9a39cc52e96e38d257ee69dcd5/everest/standalone.py
@@ -466,7 +484,7 @@ def plot_aperture_outline(
         linewidths=[3],
         extent=extent,
         origin="lower",
-        colors="C6",
+        colors=outline_color,
     )
     zmin, zmax = interval.get_limits(img)
     ax.matshow(
@@ -477,7 +495,13 @@ def plot_aperture_outline(
 
 
 def plot_aperture_outline2(
-    img, mask, ax=None, imgwcs=None, cmap="viridis", color="pink", figsize=None
+    img,
+    mask,
+    ax=None,
+    imgwcs=None,
+    cmap="viridis",
+    outline_color="C6",
+    figsize=None,
 ):
     """
     see https://github.com/afeinstein20/eleanor/blob/master/eleanor/visualize.py#L78
@@ -501,7 +525,7 @@ def plot_aperture_outline2(
     _ = ax.contour(
         Z[::-1],
         levels=[0.5],
-        colors="C6",
+        colors=outline_color,
         linewidths=[3],
         extent=extent,
         origin="lower",
@@ -713,7 +737,8 @@ def plot_odd_even(
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
     if duration is not None:
         xlim = 3 * duration / 24 / period
-        ax.set_xlim(-xlim, xlim)
+        axs[0].set_xlim(-xlim, xlim)
+        axs[1].set_xlim(-xlim, xlim)
     ax.set_ylabel("")
     fig.subplots_adjust(wspace=0)
     return fig
@@ -784,12 +809,29 @@ def plot_hrd_spectral_types(
     return fig
 
 
-def plot_cluster_kinematics(toiid, savefig=False, rv=None):
-    t = Target(toiid=toiid)
-    cluster, idxs = t.get_cluster_membership(
-        catalog_name="CantatGaudin2020", return_idxs=True, frac=0.5, sigma=5
-    )
-    c = Cluster(cluster_name=Cluster)
+def plot_cluster_kinematics(
+    ticid=None,
+    toiid=None,
+    cluster_name=None,
+    frac_err=0.5,
+    rv=None,
+    savefig=False,
+):
+    """
+    """
+    assert (ticid is not None) | (toiid is not None)
+
+    t = Target(toiid=toiid, ticid=ticid)
+    if cluster_name is None:
+        cluster, idxs = t.get_cluster_membership(
+            catalog_name="CantatGaudin2020",
+            return_idxs=True,
+            frac_err=frac_err,
+            sigma=5,
+        )
+        cluster_name = cluster.Cluster
+
+    c = Cluster(cluster_name=cluster_name)
     df_target = t.query_gaia_dr2_catalog(return_nearest_xmatch=True)
 
     if rv is not None:
@@ -803,40 +845,59 @@ def plot_cluster_kinematics(toiid, savefig=False, rv=None):
         fig1 = c.plot_xyz_uvw(
             target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
         )
-        fig1.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
+        fig1.suptitle(f"{t.target_name} in {c.cluster_name}")
         if savefig:
             fp1 = f"{t.target_name}_galactocentric.png"
             fig1.savefig(fp1, bbox_inches="tight")
     except Exception as e:
-        print(e)
+        print("Error: ", e)
     # ==============
     try:
+        log10age = c.get_cluster_age()
         fig2 = c.plot_rdp_pmrv(
             target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
         )
-        fig2.suptitle(f"TOI {t.toiid} in {c.cluster_name}")
+        fig2.suptitle(f"{t.target_name} in {c.cluster_name}")
         if savefig:
             fp2 = f"{t.target_name}_kinematics.png"
             fig2.savefig(fp2, bbox_inches="tight")
     except Exception as e:
-        print(e)
+        print("Error: ", e)
     # ==============
     try:
         # TODO: AG50 doesn't yield G consistent with cmd
-        if str(df_target.a_g_val) == "nan":
-            vq = t.query_vizier_param("AG50")
-            if "I/349/starhorse" in vq:
-                df_target.a_g_val = vq["I/349/starhorse"]
-                print("Using AG from starhorse.")
+        # if str(df_target.a_g_val) == "nan":
+        #     vq = t.query_vizier_param("AG50")
+        #     if "I/349/starhorse" in vq:
+        #         df_target.a_g_val = vq["I/349/starhorse"]
+        #         print("Using AG from starhorse.")
+        log10age = c.get_cluster_age()
         ax = c.plot_cmd(
-            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+            target_gaiaid=t.gaiaid,
+            df_target=df_target,
+            match_id=False,
+            log_age=log10age,
         )
-        ax.set_title(f"TOI {t.toiid} in {c.cluster_name}")
+        ax.set_title(f"{t.target_name} in {c.cluster_name}")
         if savefig:
             fp3 = f"{t.target_name}_cmd.png"
             ax.figure.savefig(fp3, bbox_inches="tight")
     except Exception as e:
-        print(e)
+        print("Error: ", e)
+
+    try:
+        ax = c.plot_hrd(
+            target_gaiaid=t.gaiaid,
+            df_target=df_target,
+            match_id=False,
+            log_age=log10age,
+        )
+        ax.set_title(f"{t.target_name} in {c.cluster_name}")
+        if savefig:
+            fp4 = f"{t.target_name}_hrd.png"
+            ax.figure.savefig(fp4, bbox_inches="tight")
+    except Exception as e:
+        print("Error: ", e)
 
 
 def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):

@@ -826,8 +826,9 @@ class K2sff(K2):
             )
         # orient such that north is up; left is east
         ax.invert_yaxis()
-        ax.coords[0].set_major_formatter("dd:mm")
-        ax.coords[1].set_major_formatter("dd:mm")
+        if hasattr(ax, "coords"):
+            ax.coords[0].set_major_formatter("dd:mm")
+            ax.coords[1].set_major_formatter("dd:mm")
         # set img limits
         pl.setp(
             nax,

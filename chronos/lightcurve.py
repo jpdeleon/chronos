@@ -971,7 +971,12 @@ def plot_trend_flat_lcs(
         tmask = np.zeros_like(lc.time, dtype=bool)
     ax = axs.flatten()
     flat, trend = self.get_flat_lc(
-        lc, period=period, duration=duration, return_trend=True, **kwargs
+        lc,
+        period=period,
+        epoch=epoch,
+        duration=duration,
+        return_trend=True,
+        **kwargs,
     )
     lc[tmask].scatter(ax=ax[0], zorder=5, c="r", label="transit")
     if np.any(tmask):
