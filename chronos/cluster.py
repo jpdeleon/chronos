@@ -221,7 +221,7 @@ class ClusterCatalog(CatalogDownloader):
         self.all_members = None
 
         # files = glob(join(self.data_loc, "*.txt"))
-        if exists(self.data_loc):  # len(files)<2:
+        if exists(self.data_loc):  # & len(files)<2:
             if self.clobber:
                 _ = self.get_tables_from_vizier(
                     row_limit=-1, save=True, clobber=self.clobber

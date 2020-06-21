@@ -157,6 +157,9 @@ def plot_gaia_sources_on_tpf(
 
     dmag_limit : float
         maximum delta mag to consider; computed based on depth if None
+
+    TODO: correct for proper motion difference between
+    survey image and gaia DR2 positions
     """
     assert target_gaiaid is not None
     img = np.nanmedian(tpf.flux, axis=0)
@@ -171,6 +174,9 @@ def plot_gaia_sources_on_tpf(
         fov_rad = (0.4 * diag * pix_scale).to(u.arcmin)
 
     if gaia_sources is None:
+        print(
+            "Querying Gaia sometimes hangs. Provide `gaia_sources` if you can."
+        )
         target_coord = SkyCoord(
             ra=tpf.header["RA_OBJ"], dec=tpf.header["DEC_OBJ"], unit="deg"
         )
@@ -345,6 +351,9 @@ def plot_gaia_sources_on_survey(
     -------
     ax : axis
         subplot axis
+
+    TODO: correct for proper motion difference between
+    survey image and gaia DR2 positions
     """
     assert target_gaiaid is not None
     ny, nx = tpf.flux.shape[1:]
@@ -353,6 +362,9 @@ def plot_gaia_sources_on_survey(
         fov_rad = (0.4 * diag * pix_scale).to(u.arcmin)
     target_coord = SkyCoord(ra=tpf.ra * u.deg, dec=tpf.dec * u.deg)
     if gaia_sources is None:
+        print(
+            "Querying Gaia sometimes hangs. Provide `gaia_sources` if you can."
+        )
         gaia_sources = Catalogs.query_region(
             target_coord, radius=fov_rad, catalog="Gaia", version=2
         ).to_pandas()

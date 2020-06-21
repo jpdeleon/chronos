@@ -104,6 +104,7 @@ __all__ = [
     "get_tois_mass_RV_K",
     "get_vizier_tables",
     "get_mist_eep_table",
+    "get_tepcat",
 ]
 
 # Ax/Av
@@ -120,6 +121,38 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def query_WDSC():
+    """
+    Washington Double Star Catalog
+    """
+    url = "http://www.astro.gsu.edu/wds/Webtextfiles/wdsnewframe.html"
+    df = pd.read_csv(url)
+    return df
+
+
+def get_tepcat(catalog="all"):
+    """
+    TEPCat
+    https://www.astro.keele.ac.uk/jkt/tepcat/
+
+    Choices:
+    all, homogenerous, planning, obliquity
+    """
+    base_url = "https://www.astro.keele.ac.uk/jkt/tepcat/"
+    if catalog == "all":
+        full_url = base_url + "allplanets-csv.csv"
+    elif catalog == "homogeneous":
+        full_url = base_url + "homogeneous-par-csv.csv"
+    elif catalog == "planning":
+        full_url = base_url + "observables.csv"
+    elif catalog == "obliquity":
+        full_url = base_url + "obliquity.csv"
+    else:
+        raise ValueError("catalog=[all,homogeneous,planning,obliquity]")
+    df = pd.read_csv(full_url)
+    return df
 
 
 def get_mist_eep_table():

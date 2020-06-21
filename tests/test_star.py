@@ -44,8 +44,8 @@ def test_star_age():
 def test_star_iso():
     s = Star(toiid=200)
     # iso
-    iso_params1 = s.get_iso_params(add_jhk=False)
+    iso_params1 = s.get_iso_params(bands="G BP RP".split())
     assert isinstance(iso_params1, dict)
 
-    iso_params2 = s.get_iso_params(add_jhk=True)
+    iso_params2 = s.get_iso_params(bands="G BP RP J H K".split())
     assert len(iso_params1) + 3 == len(iso_params2)

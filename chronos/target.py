@@ -128,6 +128,9 @@ class Target:
             self.toi_params = get_toi(
                 toi=self.toiid, clobber=self.clobber, verbose=False
             ).iloc[0]
+            nplanets = self.toi_params["Planet Num"]
+            if nplanets > 1:
+                print(f"Target has {nplanets} planets.")
         if (self.ticid is None) and (self.toiid is not None):
             self.ticid = int(self.toi_params["TIC ID"])
         # get coordinates
@@ -280,6 +283,10 @@ class Target:
         self, radius=None, return_nearest_xmatch=False, verbose=None
     ):
         """
+        cross-match to Gaia DR2 catalog by angular separation
+        position (accounting for proper motion) and brightess
+        (comparing Tmag to Gmag whenever possible)
+
         Parameter
         ---------
         radius : float
@@ -526,11 +533,35 @@ class Target:
 
         # check gaia ID
         if self.gaiaid is not None:
-            assert g.source_id == int(t["GAIA"]), "Different source IDs"
+            assert g.source_id == int(t["GAIA"]), "Different source IDs!"
 
-        msg = "Gaia and TIC catalog cross-match succeeded."
-        print(msg)
+        print("Gaia and TIC catalog cross-match succeeded.")
         return True
+
+    def validate_gaia_epic_xmatch(self, mtol=0.5):
+        """
+        """
+        errmsg = "Under development"
+        raise NotImplementedError(errmsg)
+        # if (self.epicid is not None) & (self.mission == "k2"):
+        #     # query vizier parameters of nearest cross-match
+        #     if self.vizier_tables is None:
+        #         tab = self.query_vizier()
+        #     else:
+        #         tab = self.vizier_tables
+        # e = tab["J/ApJS/224/2/table5"].to_pandas().squeeze()  # epic catalog
+        # g = tab["I/345/gaia2"].to_pandas().squeeze()  # gaia dr2 catalog
+        # # check magnitude
+        # if np.any(np.isnan([g.Gmag, e.Kepmag])):
+        #     msg = f"Gmag={g.Gmag}; Kepmag={t.Kepmag}"
+        #     warnings.warn(msg)
+        #     print(msg)
+        # else:
+        #     assert np.allclose(g.Gmag, t.Kepmag, rtol=mtol)
+        # errmsg = "Different EPIC IDs!"
+        # assert e.EPIC == self.epicid, errmsg
+        # print("Gaia and TIC catalog cross-match succeeded.")
+        # return True
 
     def get_nearby_gaia_sources(self, radius=60, depth=None, add_column=None):
         """

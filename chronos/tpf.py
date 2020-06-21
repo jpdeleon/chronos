@@ -167,30 +167,30 @@ class Tpf(Target):
                 )
             assert res is not None, "No results from lightkurve search."
         else:
-            if self.tpf.sector == sector:
-                # reload from memory
-                tpf = self.tpf
+            # if self.tpf.sector == sector:
+            #     # reload from memory
+            #     tpf = self.tpf
+            # else:
+            if self.verbose:
+                print("Searching targetpixelfile using lightkurve")
+            if self.ticid:
+                ticstr = f"TIC {self.ticid}"
+                if self.verbose:
+                    print(f"\nSearching mast for {ticstr}\n")
+                res = lk.search_targetpixelfile(
+                    ticstr, mission=MISSION, sector=None
+                )
             else:
                 if self.verbose:
-                    print("Searching targetpixelfile using lightkurve")
-                if self.ticid:
-                    ticstr = f"TIC {self.ticid}"
-                    if self.verbose:
-                        print(f"\nSearching mast for {ticstr}\n")
-                    res = lk.search_targetpixelfile(
-                        ticstr, mission=MISSION, sector=None
+                    print(
+                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
                     )
-                else:
-                    if self.verbose:
-                        print(
-                            f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
-                        )
-                    res = lk.search_targetpixelfile(
-                        self.target_coord,
-                        mission=MISSION,
-                        sector=None,  # search all if sector=None
-                    )
-                assert res is not None, "No results from lightkurve search."
+                res = lk.search_targetpixelfile(
+                    self.target_coord,
+                    mission=MISSION,
+                    sector=None,  # search all if sector=None
+                )
+            assert res is not None, "No results from lightkurve search."
         df = res.table.to_pandas()
 
         if len(df) > 0:

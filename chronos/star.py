@@ -566,12 +566,11 @@ class Star(Target):
         teff=None,
         logg=None,
         feh=None,
+        add_parallax=True,
         add_dict=None,
+        bands="G BP RP J H K W1 W2 W3 TESS".split(),
         min_mag_err=0.01,
-        add_jhk=False,
-        inflate_plx_err=True
-        # phot_bands='G bp rp J H K'.split(),
-        # star_params='teff logg parallax'.split()
+        inflate_plx_err=True,
     ):
         """get parameters for isochrones
 
@@ -579,19 +578,24 @@ class Star(Target):
         ----------
         teff, logg, feh: tuple
             'gaia' populates Teff from gaia DR2
+        bands : list
+            list of photometric bands
+        add_parallax : bool
+            default=True
         add_dict : dict
             additional params
         min_mag_err : float
             minimum magnitude error
-        add_jhk : bool
-            appends JHKs photometry (default=False)
         inflate_plx_err : bool
-            adds 0.01 parallax error in quadrature (default=True)
+            adds 0.01 parallax error in quadrature (default=True),
+            prescription by Luri+2018
 
         Returns
         -------
         iso_params : dict
         """
+        errmsg = "`bands must be a list`"
+        assert isinstance(bands, list), errmsg
         if self.gaia_params is None:
             gp = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
         else:
@@ -605,6 +609,7 @@ class Star(Target):
             raise Exception(msg)
 
         params = {}
+        # spectroscopic constraints
         if teff == "gaia":
             # Use Teff from Gaia by default
             teff = gp["teff_val"]
@@ -622,66 +627,90 @@ class Star(Target):
                 teff, tuple
             ), "teff must be a tuple (value,error)"
             teff, teff_err = teff[0], teff[1]
-            params.update({"teff": (teff, teff_err)})
-
-        gmag = gp["phot_g_mean_mag"]
-        gmag_err = get_mag_err_from_flux(
-            gp["phot_g_mean_flux"], gp["phot_g_mean_flux_error"]
-        )
-        gmag_err = gmag_err if gmag_err > min_mag_err else min_mag_err
-        params.update({"G": (gmag, gmag_err)})
-
-        bpmag = gp["phot_bp_mean_mag"]
-        bpmag_err = get_mag_err_from_flux(
-            gp["phot_bp_mean_flux"], gp["phot_bp_mean_flux_error"]
-        )
-        bpmag_err = bpmag_err if bpmag_err > min_mag_err else min_mag_err
-        params.update({"BP": (bpmag, bpmag_err)})
-
-        rpmag = gp["phot_rp_mean_mag"]
-        rpmag_err = get_mag_err_from_flux(
-            gp["phot_rp_mean_flux"], gp["phot_rp_mean_flux_error"]
-        )
-        rpmag_err = rpmag_err if rpmag_err > min_mag_err else min_mag_err
-        params.update({"RP": (rpmag, rpmag_err)})
-
-        plx = gp["parallax"]
-        if inflate_plx_err:
-            # inflate error based on Luri+2018
-            plx_err = get_err_quadrature(gp["parallax_error"], 0.1)
-        else:
-            plx_err = gp["parallax_error"]
-
-        params.update({"parallax": (plx, plx_err)})
-
+            params.update({"Teff": (teff, teff_err)})
         if feh is not None:
             # params.update({"feh": (tp["MH"], tp["e_MH"])})
             assert isinstance(feh, tuple), "feh must be a tuple (value,error)"
             params.update({"feh": (feh[0], feh[1])})
-
         if logg is not None:
             # params.update({"logg": (tp["logg"], tp["e_logg"])})
             assert isinstance(
                 logg, tuple
             ), "logg must be a tuple (value,error)"
             params.update({"logg": (logg[0], logg[1])})
+        if add_parallax:
+            plx = gp["parallax"]
+            if inflate_plx_err:
+                # inflate error based on Luri+2018
+                plx_err = get_err_quadrature(gp["parallax_error"], 0.1)
+            else:
+                plx_err = gp["parallax_error"]
+            params.update({"parallax": (plx, plx_err)})
 
-        if add_jhk:
-            params.update(
-                {
-                    "J": (tp["Jmag"], tp["e_Jmag"]),
-                    "H": (tp["Hmag"], tp["e_Hmag"]),
-                    "K": (tp["Kmag"], tp["e_Kmag"]),
-                }
-            )
+        # get magnitudes from vizier
+        mags = self.query_vizier_mags()
         if (self.ticid is not None) and (self.toi_params is not None):
             Tmag_err = (
                 self.toi_Tmag_err
                 if self.toi_Tmag_err > min_mag_err
                 else min_mag_err
             )
-            params.update({"Tess": (self.toi_Tmag, Tmag_err)})
-        # TODO: add Kep mag too
+            if "TESS" in bands:
+                params.update({"TESS": (self.toi_Tmag, Tmag_err)})
+        if "G" in bands:
+            gmag = gp["phot_g_mean_mag"]
+            gmag_err = get_mag_err_from_flux(
+                gp["phot_g_mean_flux"], gp["phot_g_mean_flux_error"]
+            )
+            gmag_err = gmag_err if gmag_err > min_mag_err else min_mag_err
+            params.update({"G": (gmag, gmag_err)})
+        if "BP" in bands:
+            bpmag = gp["phot_bp_mean_mag"]
+            bpmag_err = get_mag_err_from_flux(
+                gp["phot_bp_mean_flux"], gp["phot_bp_mean_flux_error"]
+            )
+            bpmag_err = bpmag_err if bpmag_err > min_mag_err else min_mag_err
+            params.update({"BP": (bpmag, bpmag_err)})
+        if "RP" in bands:
+            rpmag = gp["phot_rp_mean_mag"]
+            rpmag_err = get_mag_err_from_flux(
+                gp["phot_rp_mean_flux"], gp["phot_rp_mean_flux_error"]
+            )
+            rpmag_err = rpmag_err if rpmag_err > min_mag_err else min_mag_err
+            params.update({"RP": (rpmag, rpmag_err)})
+        if "J" in bands:
+            # from tic catalog
+            params.update({"J": (tp["Jmag"], tp["e_Jmag"])})
+        if "H" in bands:
+            # from tic catalog
+            params.update({"H": (tp["Hmag"], tp["e_Hmag"])})
+        if "K" in bands:
+            # from tic catalog
+            params.update({"K": (tp["Kmag"], tp["e_Kmag"])})
+        # WISE
+        for b in bands:
+            if b[0] == "W":
+                if f"{b}mag" in mags.index.tolist():
+                    wmag = mags[f"{b}mag"]
+                    wmag_err = mags[f"e_{b}mag"]
+                    wmag_err = (
+                        wmag_err if wmag_err > min_mag_err else min_mag_err
+                    )
+                    params.update({b: (round(wmag, 2), round(wmag_err, 2))})
+                else:
+                    print(f"{b} not in {mags.index.tolist()}")
+            elif b[0] == "V":
+                if f"{b}mag" in mags.index.tolist():
+                    wmag = mags[f"{b}mag"]
+                    wmag_err = mags[f"e_{b}mag"]
+                    wmag_err = (
+                        wmag_err if wmag_err > min_mag_err else min_mag_err
+                    )
+                    params.update({b: (round(wmag, 2), round(wmag_err, 2))})
+                else:
+                    print(f"{b} not in {mags.index.tolist()}")
+
+        # adds and/or overwrites above
         if add_dict is not None:
             assert isinstance(add_dict, dict)
             params.update(add_dict)
@@ -793,7 +822,9 @@ class Star(Target):
                 BinaryStarModel,
             )
         except Exception:
-            cmd = "pip install isochrones"
+            cmd = "pip install isochrones\n"
+            cmd = "You may want to also install pymultinest for Nested Sampling.\n"
+            cmd = "See https://github.com/JohannesBuchner/PyMultiNest"
             raise ModuleNotFoundError(cmd)
 
         mist = get_ichrone(model, bands=bands)
@@ -852,10 +883,10 @@ class Star(Target):
         """
         nsteps = nsteps if nsteps is not None else self.mcmc_steps
         # Create a dictionary of observables
-        iso_params = (
-            self.get_iso_params() if iso_params is None else iso_params
-        )
         if self.mist is None:
+            iso_params = (
+                self.get_iso_params() if iso_params is None else iso_params
+            )
             self.init_isochrones(iso_params=iso_params)
         else:
             print("Using previously initialized model.")
