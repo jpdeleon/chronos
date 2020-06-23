@@ -105,6 +105,7 @@ __all__ = [
     "get_vizier_tables",
     "get_mist_eep_table",
     "get_tepcat",
+    "get_max_dmag_from_depth",
 ]
 
 # Ax/Av
@@ -121,6 +122,11 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_max_dmag_from_depth(depth):
+    """maximum delta magnitude from transit depth"""
+    return 2.5 * np.log10(depth)
 
 
 def query_WDSC():

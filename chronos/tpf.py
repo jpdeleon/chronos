@@ -349,6 +349,37 @@ class Tpf(Target):
     ):
         """
         calc_probs method of triceratops
+        See https://arxiv.org/abs/2002.00691
+        Scenarios
+        ---------
+        Target has no unresolved stellar companion
+        (bound or unbound) of significant flux
+        * TTP: Target Transiting Planet
+        * TEB: Target Eclipsing Binary
+        ---------
+        There's an unresolved bound stellar companion near the target star
+        * PTP: Primary
+        * PEB:
+        * STP: Secondary
+        * SEB:
+        ---------
+        There's an unresolved unbound stellar companion
+        in the foreground or background along the line of sight
+        to the target
+        DTP: Diluted
+        DEB:
+        BTP: Background
+        BEB:
+        ---------
+        Consequently,
+        TFP: TEB+PEB+DEB (Target False Positive)
+        CFP: STP+SEB+BTP+BEB (Companion FP)
+        NFP: NTP+NEB (Nearby FP)
+        triceratops is most effective at identifying
+        small planet candidates that are actually CFP & NFP
+        ---------
+        Finally,
+        FPP = 1 − (PTTP + PPTP + PDTP)
         """
         errmsg = "Instantiate Tpf(calc_fpp=True)"
         assert self.calc_fpp, errmsg
@@ -373,8 +404,12 @@ class Tpf(Target):
             )
 
         if (not hasattr(self.triceratops, "probs")) or recalc:
+            if not hasattr(self.triceratops.stars, "tdepth"):
+                errmsg = "Try `self.get_NEB_depths()` first."
+                raise ValueError(errmsg)
             if self.verbose:
                 nstars = self.triceratops.stars.shape[0]
+                # ETA is a wild guess here
                 print(f"ETA: {nstars/10} mins")
             time_start = timer()
             self.triceratops.calc_probs(
@@ -386,12 +421,11 @@ class Tpf(Target):
             )
             hours, rem = divmod(timer() - time_start, 3600)
             minutes, seconds = divmod(rem, 60)
-        fpp = self.triceratops.FPP
-        if self.verbose:
-            print(f"Run time: {int(minutes)}min {int(seconds)}sec")
-            print(f"FPP={fpp:.4f}")
-        errmsg = "Check fold lc for NaNs."
-        assert not np.isnan(fpp), errmsg
+            if self.verbose:
+                print(f"Run time: {int(minutes)}min {int(seconds)}sec")
+                print(f"FPP={self.triceratops.FPP:.4f}")
+            errmsg = "Check fold lc for NaNs."
+            assert not np.isnan(self.triceratops.FPP), errmsg
         if plot:
             self.triceratops.plot_fits(
                 time=time, flux_0=flux, flux_err_0=flux_err, P_orb=period
@@ -598,6 +632,37 @@ class FFI_cutout(Target):
     ):
         """
         calc_probs method of triceratops
+        See https://arxiv.org/abs/2002.00691
+        Scenarios
+        ---------
+        Target has no unresolved stellar companion
+        (bound or unbound) of significant flux
+        * TTP: Target Transiting Planet
+        * TEB: Target Eclipsing Binary
+        ---------
+        There's an unresolved bound stellar companion near the target star
+        * PTP: Primary
+        * PEB:
+        * STP: Secondary
+        * SEB:
+        ---------
+        There's an unresolved unbound stellar companion
+        in the foreground or background along the line of sight
+        to the target
+        DTP: Diluted
+        DEB:
+        BTP: Background
+        BEB:
+        ---------
+        Consequently,
+        TFP: TEB+PEB+DEB (Target False Positive)
+        CFP: STP+SEB+BTP+BEB (Companion FP)
+        NFP: NTP+NEB (Nearby FP)
+        triceratops is most effective at identifying
+        small planet candidates that are actually CFP & NFP
+        ---------
+        Finally,
+        FPP = 1 − (PTTP + PPTP + PDTP)
         """
         errmsg = "Instantiate Tpf(calc_fpp=True)"
         assert self.calc_fpp, errmsg
@@ -620,10 +685,13 @@ class FFI_cutout(Target):
                 fold.bin(bin).flux,
                 fold.bin(bin).flux_err,
             )
-
         if (not hasattr(self.triceratops, "probs")) or recalc:
+            if not hasattr(self.triceratops.stars, "tdepth"):
+                errmsg = "Try `self.get_NEB_depths()` first."
+                raise ValueError(errmsg)
             if self.verbose:
                 nstars = self.triceratops.stars.shape[0]
+                # ETA is a wild guess here
                 print(f"ETA: {nstars/10} mins")
             time_start = timer()
             self.triceratops.calc_probs(
@@ -635,12 +703,12 @@ class FFI_cutout(Target):
             )
             hours, rem = divmod(timer() - time_start, 3600)
             minutes, seconds = divmod(rem, 60)
-        fpp = self.triceratops.FPP
-        if self.verbose:
-            print(f"Run time: {int(minutes)}min {int(seconds)}sec")
-            print(f"FPP={fpp:.4f}")
-        errmsg = "Check fold lc for NaNs."
-        assert not np.isnan(fpp), errmsg
+            fpp = self.triceratops.FPP
+            if self.verbose:
+                print(f"Run time: {int(minutes)}min {int(seconds)}sec")
+                print(f"FPP={fpp:.4f}")
+            errmsg = "Check fold lc for NaNs."
+            assert not np.isnan(fpp), errmsg
         if plot:
             self.triceratops.plot_fits(
                 time=time, flux_0=flux, flux_err_0=flux_err, P_orb=period

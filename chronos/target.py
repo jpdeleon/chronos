@@ -598,6 +598,8 @@ class Target:
         columns = [
             "source_id",
             "parallax",
+            "astrometric_gof_al",
+            "astrometric_excess_noise_sig",
             "separation",
             "phot_g_mean_mag",
             "delta_Gmag",
@@ -624,8 +626,10 @@ class Target:
             columns.append(add_column)
         return d[columns]
 
-    def get_max_Gmag_from_depth(self, depth=None):
+    def get_max_Tmag_from_depth(self, depth=None):
         """
+        depth : float
+            TESS transit depth
         """
         if depth is None:
             if self.toi_depth is not None:

@@ -2,9 +2,9 @@ astroquery==0.4
 lightkurve==1.9.0
 astropy==4.0
 pandas==1.0.1
-tqdm
+tqdm==4.28.1
 astroplan==0.6
-transitleastsquares
+transitleastsquares==1.0.23
 # wotan
 scikit-image==0.16.2 #just for measure.find_contours
 # gitpython
