@@ -14,14 +14,14 @@ setup(
     author_email="jpdeleon.bsap@gmail.com",
     license="MIT",
     packages=find_packages(),
-    scripts=[
-        "calc_fpp",
-        #     "scripts/check_target_in_cluster",
-        #     "scripts/make_tql_per_cluster",
-        #     "scripts/query_cluster_members_gaia_params",
-        #     "scripts/find_cluster_near_target",
-        #     "scripts/make_cdips_ql",
-    ],
+    # scripts=[
+    #    "calc_fpp",
+    #     "scripts/check_target_in_cluster",
+    #     "scripts/make_tql_per_cluster",
+    #     "scripts/query_cluster_members_gaia_params",
+    #     "scripts/find_cluster_near_target",
+    #     "scripts/make_cdips_ql",
+    # ],
     install_requires=[
         "tqdm",
         "astroquery==0.4",
