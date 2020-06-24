@@ -7,8 +7,7 @@ See also from astroquery.xmatch import XMatch
 """
 
 # Import standard library
-from os.path import join, exists
-from os import makedirs
+from pathlib import Path
 from glob import glob
 from pprint import pprint
 from inspect import signature
@@ -114,7 +113,7 @@ class CatalogDownloader:
         self.catalog_dict = CATALOG_DICT
         self.verbose = verbose
         self.clobber = clobber
-        self.data_loc = join(data_loc, self.catalog_name)
+        self.data_loc = Path(data_loc, self.catalog_name)
         self.tables = None
 
     def get_tables_from_vizier(self, row_limit=50, save=False, clobber=None):
@@ -147,12 +146,12 @@ class CatalogDownloader:
         assert self.tables is not None, errmsg
         clobber = self.clobber if clobber is None else clobber
 
-        if not exists(self.data_loc):
-            makedirs(self.data_loc)
+        if not self.data_loc.exists():
+            self.data_loc.mkdir()
 
         for n, table in enumerate(self.tables):
-            fp = join(self.data_loc, f"{self.catalog_name}_tab{n}.txt")
-            if not exists(fp) or clobber:
+            fp = Path(self.data_loc, f"{self.catalog_name}_tab{n}.txt")
+            if not fp.exists() or clobber:
                 table.write(fp, format="ascii")
                 if self.verbose:
                     print(f"Saved: {fp}")
@@ -221,7 +220,7 @@ class ClusterCatalog(CatalogDownloader):
         self.all_members = None
 
         # files = glob(join(self.data_loc, "*.txt"))
-        if exists(self.data_loc):  # & len(files)<2:
+        if self.data_loc.exists():  # & len(files)<2:
             if self.clobber:
                 _ = self.get_tables_from_vizier(
                     row_limit=-1, save=True, clobber=self.clobber
@@ -438,7 +437,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_clusters_CastroGinard2020(self):
         """Castro-Ginard et al. 2020,
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = df.applymap(
@@ -467,7 +466,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_members_CastroGinard2020(self):
         """Castro-Ginard et al. 2020,
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = df.applymap(
@@ -491,7 +490,7 @@ class ClusterCatalog(CatalogDownloader):
         """Castro-Ginard et al. 2019,
         open clusters in the galactic anti-center
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = df.applymap(
@@ -521,7 +520,7 @@ class ClusterCatalog(CatalogDownloader):
         """Castro-Ginard et al. 2019,
         open clusters in the galactic anti-center
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = df.applymap(
@@ -553,12 +552,12 @@ class ClusterCatalog(CatalogDownloader):
         using `astropy.io.ascii.read` with specified formatting, then turned into
         `pd.DataFrame` and saved as csv.
         """
-        fp = join(self.data_loc, "OC_MG_FINAL_v0.3_publishable.csv")
+        fp = Path(self.data_loc, "OC_MG_FINAL_v0.3_publishable.csv")
         df = pd.read_csv(fp, header=0, sep=";")
         df = df.rename(
             columns={"cluster": "clusters", "unique_cluster_name": "Cluster"}
         )
-        # fp = join(self.data_loc, "TablesBouma2019/master_list.csv")
+        # fp = Path(self.data_loc, "TablesBouma2019/master_list.csv")
         # df = pd.read_csv(fp)
         # df = df.rename(
         #     columns={
@@ -629,7 +628,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_clusters_CantatGaudin2020(self):
         """Cantat-Gaudin et al. 2020:
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "dmode_01", "dmode-01"])
@@ -651,7 +650,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_members_CantatGaudin2020(self):
         """Cantat-Gaudin et al. 2020:
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = df.applymap(
@@ -677,7 +676,7 @@ class ClusterCatalog(CatalogDownloader):
         """Cantat-Gaudin et al. 2018:
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/618/A93
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "dmode_01", "dmode-01"])
@@ -697,7 +696,7 @@ class ClusterCatalog(CatalogDownloader):
         """Cantat-Gaudin et al. 2018:
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/618/A93
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = df.applymap(
@@ -725,12 +724,12 @@ class ClusterCatalog(CatalogDownloader):
         Table 3 (<250 pc) & Table 4 (>250 pc):
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/616/A10
         """
-        fp1 = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        fp1 = Path(self.data_loc, f"{self.catalog_name}_tab2.txt")
         tab1 = Table.read(fp1, format="ascii").to_pandas()
         tab1 = tab1.rename(
             columns={"_RA.icrs": "RAJ2000", "_DE.icrs": "DEJ2000"}
         )
-        fp2 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
+        fp2 = Path(self.data_loc, f"{self.catalog_name}_tab3.txt")
         tab2 = Table.read(fp2, format="ascii").to_pandas()
         df = pd.concat([tab1, tab2], axis=0, join="outer")
         df = _decode_n_drop(df, ["SimbadName"])
@@ -757,9 +756,9 @@ class ClusterCatalog(CatalogDownloader):
         Table A1a (<250 pc) & Table A1b (>250 pc):
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/616/A10
         """
-        fp1 = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp1 = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab1 = Table.read(fp1, format="ascii").to_pandas()
-        fp2 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp2 = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab2 = Table.read(fp2, format="ascii").to_pandas()
         df = pd.concat([tab1, tab2], axis=0, join="outer")
         df = _decode_n_drop(df, ["Simbad"])
@@ -786,7 +785,7 @@ class ClusterCatalog(CatalogDownloader):
         """
         dfs = []
         for i in range(3):
-            fp = join(self.data_loc, f"{self.catalog_name}_tab{i}.txt")
+            fp = Path(self.data_loc, f"{self.catalog_name}_tab{i}.txt")
             tab = Table.read(fp, format="ascii")
             df = tab.to_pandas()
             dfs.append(df)
@@ -809,7 +808,7 @@ class ClusterCatalog(CatalogDownloader):
 
         J/ApJ/860/43/refs	References (table added by CDS) (148 rows)
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab5.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab5.txt")
         df = Table.read(fp, format="ascii").to_pandas()
         return df
 
@@ -823,15 +822,15 @@ class ClusterCatalog(CatalogDownloader):
         J/ApJ/860/43/seq3	*CMD for the bona fide members of young assoc – Ages: 100-800Myr (100 rows)
         J/ApJ/860/43/seq4	*CMD – Ages: Field (>800Myr) (Interactive plot) (Note) (100 rows)
         """
-        fp0 = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp0 = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab0 = Table.read(fp0, format="ascii").to_pandas()
-        # fp1 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        # fp1 = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         # tab1 = Table.read(fp1, format="ascii").to_pandas()
-        # fp2 = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        # fp2 = Path(self.data_loc, f"{self.catalog_name}_tab2.txt")
         # tab2 = Table.read(fp2, format="ascii").to_pandas()
-        # fp3 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
+        # fp3 = Path(self.data_loc, f"{self.catalog_name}_tab3.txt")
         # tab3 = Table.read(fp3, format="ascii").to_pandas()
-        # fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
+        # fp4 = Path(self.data_loc, f"{self.catalog_name}_tab4.txt")
         # tab4 = Table.read(fp4, format="ascii").to_pandas()
         # df = pd.concat([tab0,tab1,tab2,tab3,tab4], axis=0, join="outer")).reset_index()
         df = _decode_n_drop(tab0, ["SimbadName", "Gaia", "_2M"])
@@ -856,7 +855,7 @@ class ClusterCatalog(CatalogDownloader):
 
         'J/ApJ/862/138/table1': 'Nearby young associations considered here',
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName"])
@@ -883,13 +882,13 @@ class ClusterCatalog(CatalogDownloader):
         'J/ApJ/862/138/table5': 'New bona fide members'
         'J/ApJ/862/138/refs': 'References',
         """
-        fp1 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp1 = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab1 = Table.read(fp1, format="ascii").to_pandas()
-        fp2 = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        fp2 = Path(self.data_loc, f"{self.catalog_name}_tab2.txt")
         tab2 = Table.read(fp2, format="ascii").to_pandas()
-        fp3 = join(self.data_loc, f"{self.catalog_name}_tab3.txt")
+        fp3 = Path(self.data_loc, f"{self.catalog_name}_tab3.txt")
         tab3 = Table.read(fp3, format="ascii").to_pandas()
-        # fp4 = join(self.data_loc, f"{self.catalog_name}_tab4.txt")
+        # fp4 = Path(self.data_loc, f"{self.catalog_name}_tab4.txt")
         # tab4 = Table.read(fp4, format="ascii").to_pandas()
         # tab4["Assoc"] = 'Upper Cr?'
         df = pd.concat([tab1, tab2, tab3], axis=0, join="outer").reset_index()
@@ -923,7 +922,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_clusters_Murphy2013(self):
         """Murphy+2013:
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab2.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab2.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         return df
@@ -931,9 +930,9 @@ class ClusterCatalog(CatalogDownloader):
     def get_members_Murphy2013(self):
         """Murphy+2013:
         """
-        fp1 = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp1 = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab1 = Table.read(fp1, format="ascii").to_pandas()
-        fp2 = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp2 = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab2 = Table.read(fp2, format="ascii").to_pandas()
         df = pd.concat([tab1, tab2], axis=0, join="outer")
         df = _decode_n_drop(df, ["Simbad"])
@@ -954,7 +953,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_clusters_Bell2015(self):
         """Bell+2015:
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         return df
@@ -962,7 +961,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_members_Bell2015(self):
         """Bell+2015:
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         df = Table.read(fp, format="ascii").to_pandas()
         df = df.rename(columns={"_RA": "ra", "_DE": "dec", "Dist": "distance"})
         return df
@@ -970,7 +969,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_clusters_Sampedro2017(self):
         """
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "File"])
@@ -990,7 +989,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_members_Sampedro2017(self):
         """
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["GaiaDR2"])
@@ -1009,7 +1008,7 @@ class ClusterCatalog(CatalogDownloader):
         """Dias et al. 2004-2015; compiled until 2016:
         https://ui.adsabs.harvard.edu/abs/2014yCat....102022D/abstract
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["WEBDA", "Lynga"])
@@ -1034,7 +1033,7 @@ class ClusterCatalog(CatalogDownloader):
         """Bossini et al. 2019:
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A%2BA/623/A108
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["SimbadName", "_RA.icrs", "_DE.icrs"])
@@ -1063,7 +1062,7 @@ class ClusterCatalog(CatalogDownloader):
         """Karchenko et al. 2013
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/558/A53
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["map", "cmd", "stars", "Simbad"])
@@ -1086,7 +1085,7 @@ class ClusterCatalog(CatalogDownloader):
     def get_clusters_Curtis2019(self):
         """
         """
-        fp = join(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         df = _decode_n_drop(df, ["Seq", "Simbad"])
@@ -1105,7 +1104,7 @@ class ClusterCatalog(CatalogDownloader):
         """
         dfs = []
         for n, name in enumerate(["alpha_per", "pleiades", "praesepe"]):
-            fp = join(self.data_loc, f"{self.catalog_name}_tab{n}.txt")
+            fp = Path(self.data_loc, f"{self.catalog_name}_tab{n}.txt")
             tab = Table.read(fp, format="ascii")
             df = tab.to_pandas()
             # df = _decode_n_drop(df, ["Seq", "Simbad"])
@@ -1206,6 +1205,7 @@ class Cluster(ClusterCatalog):
         _ = self.query_catalog(return_members=True)
         idx = self.all_members.Cluster.isin([self.cluster_name])
         self.cluster_members = self.all_members.loc[idx].copy()
+        # also self.all_members.query("Cluster==@self.cluster_name")
 
         all_cluster_names = list(self.all_members.Cluster.unique())
         errmsg = f"{self.cluster_name} is not found in {self.catalog_name}:\n"
@@ -1294,6 +1294,73 @@ class Cluster(ClusterCatalog):
         idx = sep.argmin()
         return mem.iloc[idx], sep[idx]
 
+    def query_members_in_TGv8_catalog(self):
+        """
+        cross-match cluster members with TGv8 catalog
+        which offers metallicity information, useful
+        for galactic archaeology
+
+        See Carillo2020: https://arxiv.org/abs/1911.07825
+        """
+        df = get_TGv8_catalog()
+        idx = df.Gaia_source_id.isin(self.all_members.source_id)
+        return df[idx]
+
+    def plot_Toomre_diagrams(self, color="Fe_H"):
+        """Toomre diagrams using [Fe/H] or [alpha/H] from
+        APOGEE, RAVE, GALAH, LAMOST, Deacon, & Casagrande
+
+        See Fig. 9 in https://arxiv.org/pdf/1911.07825.pdf
+        Parameters
+        ----------
+        color : str
+            stellar parameter used in color-coding scatter plot (default=Fe_H)
+        """
+        d = self.query_members_in_TGv8_catalog()
+        cols = d.columns[d.columns.str.contains(color)]
+        if d[cols].dropna(how="all", axis=1).shape[1]==0:
+            raise ValueError(f"No data for {color}")
+        else:
+            fig, axs = pl.subplots(2, 3, figsize=(15,10),
+                                   constrained_layout=True,
+                                   sharex=True, sharey=True
+                                  )
+            ax = axs.flatten()
+
+            catalogs = "APOGEE RAVE GALAH LAMOST Deacon Casagrande".split()
+            for i,cat in enumerate(catalogs):
+                _ = plot_Toomre_diagram(d, color=color, source=cat, ax=ax[i])
+        fig.suptitle(self.cluster_name)
+        return fig
+
+    def plot_Toomre_diagram(self, color="Fe_H", source="Casagrande", ax=None):
+        """Toomre diagram
+
+        color : str
+            stellar parameter used in color-coding scatter plot (default=Fe_H)
+        source : str
+            APOGEE, RAVE, GALAH, LAMOST, Deacon, & Casagrande
+        """
+        d = self.query_members_in_TGv8_catalog()
+        column = "_".join([source,color])
+        if len(d[column].dropna())==0:
+            print(f"No data for {column}")
+        else:
+            u=d[f"Marchetti_U"]
+            v=d[f"Marchetti_V"]
+            w=d[f"Marchetti_W"]
+            h=np.hypot(u,w)
+
+            if ax is None:
+                fig, ax = pl.subplots(figsize=(6,6))
+            ax.set_title(source)
+            cbar = ax.scatter(v, h, c=d[column])
+            ax.set_xlabel("V [km/s]")
+            ax.set_ylabel(r"$\sqrt{U^2+W^2}$ [km/s]")
+            label = "_".join(color)
+            pl.colorbar(cbar, ax=ax, label=label)
+            return ax
+
     def query_cluster_members_gaia_params(
         self,
         df=None,
@@ -1329,8 +1396,8 @@ class Cluster(ClusterCatalog):
         if df is None:
             df = self.cluster_members
 
-        fp = join(data_loc, f"{self.cluster_name}_members.hdf5")
-        if not exists(fp) or clobber:
+        fp = Path(data_loc, f"{self.cluster_name}_members.hdf5")
+        if not fp.exists() or clobber:
             gaia_data = {}
             if top_n_brighest is not None:
                 # sort in decreasing magnitude
@@ -1967,6 +2034,8 @@ def plot_xyz_uvw(
 
     See also https://arxiv.org/pdf/1707.00697.pdf which estimates Sun's
     (U,V,W) = (9.03, 255.26, 7.001)
+
+    See also https://arxiv.org/pdf/1804.10607.pdf for modeling Gaia DR2 in 6D
     """
     assert len(df) > 0, "df is empty"
     fig, axs = pl.subplots(2, 3, figsize=figsize, constrained_layout=True)

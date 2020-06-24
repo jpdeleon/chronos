@@ -33,6 +33,7 @@ from astropy import constants as c
 from astropy.timeseries import LombScargle
 from astropy.modeling import models, fitting
 from astropy.io import ascii
+from astropy.table import Table
 from astropy.coordinates import (
     SkyCoord,
     Distance,
@@ -106,6 +107,7 @@ __all__ = [
     "get_mist_eep_table",
     "get_tepcat",
     "get_max_dmag_from_depth",
+    "get_TGv8_catalog",
 ]
 
 # Ax/Av
@@ -123,6 +125,36 @@ extinction_ratios = {
     "Rp": 0.65199,
 }
 
+def get_TGv8_catalog(data_path=None):
+    """
+    Stellar parameters of TESS host stars (TICv8)
+    using Gaia2+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper;
+    See Carillo2020: https://arxiv.org/abs/1911.07825
+    Parameter
+    ---------
+    data_path : str
+        path to data
+
+    Returns
+    -------
+    pandas.DataFrame
+    """
+    zenodo_url = "https://zenodo.org/record/3546184#.Xt-UFIFq1Ol"
+    if data_path is None:
+        fp = Path(DATA_PATH, "TGv8sample_vs_surveys.fits")
+    else:
+        fp = Path(data_path, "TGv8sample_vs_surveys.fits")
+
+    if not Path(fp).exists():
+        errmsg = f"Data is not found in {DATA_PATH}\n"
+        errmsg += f"Download it first from {zenodo_url} (size~1Gb)"
+        raise FileNotFoundError(errmsg)
+    # with fits.open(fp) as hdulist:
+    #     # print(hdulist.info())
+    #     data = hdulist[1].data
+    df = Table.read(fp).to_pandas()
+    df.columns = [c.replace(" ", "_") for c in df.columns]
+    return df
 
 def get_max_dmag_from_depth(depth):
     """maximum delta magnitude from transit depth"""

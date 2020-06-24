@@ -22,7 +22,6 @@ from astroquery.vizier import Vizier
 from astroquery.simbad import Simbad
 from astroquery.mast import Observations, Catalogs
 from astropy.coordinates import SkyCoord, Distance
-from astropy.io import fits
 import astropy.units as u
 import lightkurve as lk
 from tqdm import tqdm
@@ -46,6 +45,7 @@ from chronos.utils import (
     get_above_lower_limit,
     get_below_upper_limit,
     flatten_list,
+    get_TGv8_catalog,
 )
 
 log = logging.getLogger(__name__)
@@ -128,9 +128,9 @@ class Target:
             self.toi_params = get_toi(
                 toi=self.toiid, clobber=self.clobber, verbose=False
             ).iloc[0]
-            nplanets = self.toi_params["Planet Num"]
-            if nplanets > 1:
-                print(f"Target has {nplanets} planets.")
+            # nplanets = int(self.toi_params["Planet Num"])
+            # if nplanets > 1:
+            #     print(f"Target has {nplanets} planets.")
         if (self.ticid is None) and (self.toiid is not None):
             self.ticid = int(self.toi_params["TIC ID"])
         # get coordinates
@@ -246,21 +246,7 @@ class Target:
         -------
         pandas.Series
         """
-        zenodo_url = "https://zenodo.org/record/3546184#.Xt-UFIFq1Ol"
-        if data_path is None:
-            fp = Path(DATA_PATH, "TGv8sample_vs_surveys.fits")
-        else:
-            fp = Path(data_path, "TGv8sample_vs_surveys.fits")
-
-        if not Path(fp).exists():
-            errmsg = f"Data is not found in {DATA_PATH}\n"
-            errmsg += f"Download it first from {zenodo_url} (size~1Gb)"
-            raise FileNotFoundError(errmsg)
-
-        with fits.open(fp) as hdulist:
-            # print(hdulist.info())
-            data = hdulist[1].data
-
+        df = get_TGv8_catalog(data_path=data_path)
         if gaiaid is None:
             if self.gaiaid is None:
                 errmsg = "Provide gaiaid or try `self.query_gaia_dr2_catalog"
@@ -269,13 +255,10 @@ class Target:
             else:
                 gaiaid = self.gaiaid
 
-        index = np.where(data["Gaia source id"] == int(gaiaid))[0]
-        if len(index) > 0:
-            vals = {}
-            for col in data.columns.names:
-                col2 = col.replace(" ", "_")
-                vals[col2] = data[col][index][0]
-            return pd.Series(vals)
+        d = df.query("Gaia_source_id==@gaiaid")
+        if len(d)>0:
+            #return series
+            return d.squeeze()
         else:
             print(f"Gaia DR2 {gaiaid} not found in TGv8 catalog.")
 
