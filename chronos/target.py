@@ -256,8 +256,8 @@ class Target:
                 gaiaid = self.gaiaid
 
         d = df.query("Gaia_source_id==@gaiaid")
-        if len(d)>0:
-            #return series
+        if len(d) > 0:
+            # return series
             return d.squeeze()
         else:
             print(f"Gaia DR2 {gaiaid} not found in TGv8 catalog.")

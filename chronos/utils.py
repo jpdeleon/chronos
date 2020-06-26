@@ -108,6 +108,7 @@ __all__ = [
     "get_tepcat",
     "get_max_dmag_from_depth",
     "get_TGv8_catalog",
+    "get_tois_in_TGv8_catalog",
 ]
 
 # Ax/Av
@@ -124,6 +125,33 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_tois_in_TGv8_catalog(query_str=None, data_path=None):
+    """
+    Thin, Thick, Halo disc classification of cross-matched TOIs
+    See Carillo+2019: https://arxiv.org/pdf/1911.07825.pdf
+    Returned df can then be plotted: `plot_Toomre(df)`
+
+    query_str : str
+        e.g. TD>0.9 (Thick disk prob > 90%)
+    """
+    df = get_TGv8_catalog(data_path=data_path)
+    # pre-querried gaia params
+    toi_params = query_gaia_params_of_all_tois(update=False)
+    # match
+    idx = df.Gaia_source_id.isin(toi_params.source_id)
+    if query_str is None:
+        return df[idx]
+    else:
+        df2 = df.query(query_str)
+        # match query with toi
+        toi_params2 = toi_params[toi_params.source_id.isin(df2.Gaia_source_id)]
+        toi_params2 = toi_params2.rename(
+            {"source_id": "Gaia_source_id"}, axis=1
+        )
+        return toi_params2.reset_index().merge(df2, on="Gaia_source_id")
+
 
 def get_TGv8_catalog(data_path=None):
     """
@@ -155,6 +183,7 @@ def get_TGv8_catalog(data_path=None):
     df = Table.read(fp).to_pandas()
     df.columns = [c.replace(" ", "_") for c in df.columns]
     return df
+
 
 def get_max_dmag_from_depth(depth):
     """maximum delta magnitude from transit depth"""

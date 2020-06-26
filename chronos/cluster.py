@@ -33,6 +33,7 @@ from chronos.utils import (
     get_absolute_gmag,
     get_absolute_color_index,
     get_transformed_coord,
+    get_TGv8_catalog,
 )
 from chronos.config import DATA_PATH
 
@@ -1303,7 +1304,7 @@ class Cluster(ClusterCatalog):
         See Carillo2020: https://arxiv.org/abs/1911.07825
         """
         df = get_TGv8_catalog()
-        idx = df.Gaia_source_id.isin(self.all_members.source_id)
+        idx = df.Gaia_source_id.isin(self.cluster_members.source_id)
         return df[idx]
 
     def plot_Toomre_diagrams(self, color="Fe_H"):
@@ -1318,18 +1319,45 @@ class Cluster(ClusterCatalog):
         """
         d = self.query_members_in_TGv8_catalog()
         cols = d.columns[d.columns.str.contains(color)]
-        if d[cols].dropna(how="all", axis=1).shape[1]==0:
-            raise ValueError(f"No data for {color}")
+        if d[cols].dropna(how="all", axis=1).shape[1] == 0:
+            with_data = """
+            ASCC_19
+            ASCC_41
+            Alessi_24
+            Alessi_3
+            Blanco_1
+            Collinder_135
+            Collinder_350
+            Gulliver_6
+            IC_4651
+            Mamajek_4
+            Melotte_22
+            NGC_2232
+            UBC_17a
+            UPK_579
+            UPK_612
+            """.split(
+                "\n"
+            )
+            errmsg = f"No data for {color}\n"
+            errmsg += f"A few clusters have spectra from TGv8:\n{with_data}"
+            raise ValueError(errmsg)
         else:
-            fig, axs = pl.subplots(2, 3, figsize=(15,10),
-                                   constrained_layout=True,
-                                   sharex=True, sharey=True
-                                  )
+            fig, axs = pl.subplots(
+                2,
+                3,
+                figsize=(15, 10),
+                constrained_layout=True,
+                sharex=True,
+                sharey=True,
+            )
             ax = axs.flatten()
 
             catalogs = "APOGEE RAVE GALAH LAMOST Deacon Casagrande".split()
-            for i,cat in enumerate(catalogs):
-                _ = plot_Toomre_diagram(d, color=color, source=cat, ax=ax[i])
+            for i, cat in enumerate(catalogs):
+                _ = self.plot_Toomre_diagram(
+                    d, color=color, source=cat, ax=ax[i]
+                )
         fig.suptitle(self.cluster_name)
         return fig
 
@@ -1342,23 +1370,31 @@ class Cluster(ClusterCatalog):
             APOGEE, RAVE, GALAH, LAMOST, Deacon, & Casagrande
         """
         d = self.query_members_in_TGv8_catalog()
-        column = "_".join([source,color])
-        if len(d[column].dropna())==0:
+        # thin disc, thick disc, halo probabilities
+        col = d[["D", "TD", "H"]].idxmax(axis=1).mode()
+        val = d[["D", "TD", "H"]].max(axis=1)
+        if self.verbose:
+            print(f"Probability: {col.squeeze()}={val.median():.2f}")
+        marker = col.apply(
+            lambda x: "+" if x == "TD" else ("o" if x == "H" else "D")
+        ).squeeze()
+
+        column = "_".join([source, color])
+        if len(d[column].dropna()) == 0:
             print(f"No data for {column}")
         else:
-            u=d[f"Marchetti_U"]
-            v=d[f"Marchetti_V"]
-            w=d[f"Marchetti_W"]
-            h=np.hypot(u,w)
+            u = d[f"Marchetti_U"]
+            v = d[f"Marchetti_V"]
+            w = d[f"Marchetti_W"]
+            h = np.hypot(u, w)
 
             if ax is None:
-                fig, ax = pl.subplots(figsize=(6,6))
+                fig, ax = pl.subplots(figsize=(6, 6))
             ax.set_title(source)
-            cbar = ax.scatter(v, h, c=d[column])
+            cbar = ax.scatter(v, h, c=d[column], marker=marker)
             ax.set_xlabel("V [km/s]")
             ax.set_ylabel(r"$\sqrt{U^2+W^2}$ [km/s]")
-            label = "_".join(color)
-            pl.colorbar(cbar, ax=ax, label=label)
+            pl.colorbar(cbar, ax=ax, label=color)
             return ax
 
     def query_cluster_members_gaia_params(
