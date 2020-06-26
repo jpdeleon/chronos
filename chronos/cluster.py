@@ -114,6 +114,8 @@ class CatalogDownloader:
         self.catalog_dict = CATALOG_DICT
         self.verbose = verbose
         self.clobber = clobber
+        if not Path(data_loc).exists():
+            Path(data_loc).mkdir()
         self.data_loc = Path(data_loc, self.catalog_name)
         self.tables = None
 
@@ -174,11 +176,7 @@ class CatalogDownloader:
         for key in self.__dict__.keys():
             val = self.__dict__.get(key)
             if key in included_args:
-                if key == "target_coord":
-                    # format coord
-                    coord = self.target_coord.to_string("decimal")
-                    args.append(f"{key}=({coord.replace(' ',',')})")
-                elif val is not None:
+                if val is not None:
                     args.append(f"{key}={val}")
         args = ", ".join(args)
         return f"{type(self).__name__}({args})"
@@ -1121,9 +1119,9 @@ class ClusterCatalog(CatalogDownloader):
         df = pd.concat(dfs, axis=1)
         return df
 
-    def is_gaiaid_in_catalog(self):
+    def is_gaiaid_in_catalog(self, gaiaid):
         df_mem = self.query_catalog(return_members=True)
-        if df_mem.source_id.isin([self.gaiaid]).sum() > 0:
+        if df_mem.source_id.isin([gaiaid]).sum() > 0:
             return True
         else:
             return False
@@ -1134,7 +1132,7 @@ class ClusterCatalog(CatalogDownloader):
         """visualize all clusters in catalog"""
         n = "Cluster"
         if self.all_clusters is None:
-            df = self.get_all_clusters()
+            df = self.query_catalog()
         else:
             df = self.all_clusters
         _print_warning(df)
@@ -1250,8 +1248,8 @@ class Cluster(ClusterCatalog):
         assert self.cluster_members is not None, errmsg
         return self.cluster_members
 
-    def is_gaiaid_in_cluster(self):
-        if self.cluster_members.source_id.isin([self.gaiaid]).sum() > 0:
+    def is_gaiaid_in_cluster(self, gaiaid):
+        if self.cluster_members.source_id.isin([gaiaid]).sum() > 0:
             return True
         else:
             return False

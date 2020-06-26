@@ -1,0 +1,14 @@
+#Table II: http://waps.cfa.harvard.edu/MIST/README_tables.pdf,,,
+Primary EEP,EEP Number,Phase,Comment
+1,1, pre-main sequence (PMS), Medium Mass Type
+2,202, zero age main sequence (ZAMS), Medium Mass Type
+3,353, intermediate age main sequence (IAMS ), Medium Mass Type
+4,454, terminal age main sequence (TAMS), Medium Mass Type
+5,605, tip of the red giant branch (RGBTip), Medium Mass Type
+6,631, zero age core helium burning (ZACHeB), Medium Mass Type
+6,631, zero age horizontal branch (ZAHB), Low Mass Type
+7,707, terminal age core helium burning (TACHeB), aka terminal age horizontal branch (TAHB)
+8,808, thermally pulsating asymptotic giant branch (TPAGB), Low Mass Type
+8,808, carbon burning (C-burn), High Mass Type
+9,1409, post asymptotic giant branch (post-AGB), Low Mass Type
+10,1710, white dwarf cooling sequence (WDCS), Low Mass Type
