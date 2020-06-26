@@ -1,3 +1,3 @@
-import pkg_resources
+from pkg_resources import resource_filename
 
-DATA_PATH = pkg_resources.resource_filename("chronos", "../data")
+DATA_PATH = resource_filename(__name__, "data")
