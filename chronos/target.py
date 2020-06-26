@@ -700,7 +700,7 @@ class Target:
 
         idx = members.source_id.isin([gaia_params.source_id])
         if idx.sum() > 0:
-            cluster_name = members.loc[idx, "Cluster"].squueze()
+            cluster_name = members.loc[idx, "Cluster"].squeeze()
             print(f"{self.target_name} is in {cluster_name}!")
         # check if vizier if known cluster/assoc member
         vizier_query = self.query_vizier_param("Assoc")
