@@ -8,6 +8,7 @@ general helper functions
 import os
 import logging
 import itertools
+import urllib
 from pathlib import Path
 from glob import glob
 from operator import concat
@@ -109,6 +110,7 @@ __all__ = [
     "get_max_dmag_from_depth",
     "get_TGv8_catalog",
     "get_tois_in_TGv8_catalog",
+    "get_filter_response",
 ]
 
 # Ax/Av
@@ -125,6 +127,79 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def get_filter_response(filter_name, telescope, format="ascii"):
+    """
+    get filter response functions from http://svo2.cab.inta-csic.es/theory/fps/
+
+    Parameters
+    ----------
+    filter_name : str
+    telescope : str
+
+    Returns
+    -------
+    df : pandas.DataFrame
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except Exception:
+        cmd = "pip install beautifulsoup4"
+    raise ModuleNotFoundError(cmd)
+
+    base_url = "http://svo2.cab.inta-csic.es/theory/fps/"
+
+    # get urls for each telescope/facility
+    with urllib.request.urlopen(base_url) as response:
+        html = response.read()
+    soup = BeautifulSoup(html)
+    html_urls = soup.findAll("a")
+
+    urls = []
+    telescopes = {}
+    for html_url in html_urls:
+        url = html_url.get("href")
+        if "index.php?mode=browse&gname=" in url:
+            filter = url.split("&gname=")[-1]
+            urls.append(url)
+            telescopes[filter] = url
+    if telescope not in telescopes.keys():
+        errmsg = f"{telescope} not in available telescopes:"
+        errmsg += f"\n{list(telescopes.keys())}"
+        raise ValueError(errmsg)
+
+    # get filters of chosen telescope
+    filter_url = base_url + telescopes[telescope]
+    with urllib.request.urlopen(filter_url) as response:
+        html = response.read()
+    soup = BeautifulSoup(html)
+    html_urls = soup.findAll("a")
+
+    telescope_filters = {}
+    for html_url in html_urls:
+        url = html_url.get("href")
+        if "#filter" in url:
+            telescope_filter = url.split(f"{telescope}/")[1].split("&&mode=")[
+                0
+            ]
+            filter = telescope_filter.split(".")[1]
+            telescope_filters[filter] = telescope_filter
+
+    if filter_name not in telescope_filters.keys():
+        errmsg = f"{filter_name} not in available filters:"
+        errmsg += f"\n{list(telescope_filters.keys())}"
+        raise ValueError(errmsg)
+
+    dl_url = f"getdata.php?format={format}&id={telescope}/{telescope_filters[filter]}"
+    try:
+        full_url = base_url + dl_url
+        df = pd.read_csv(
+            full_url, names=["wav", "transmission"], delim_whitespace=True
+        )
+        return df
+    except Exception as e:
+        raise (f"Error: {e}\nCheck url: {full_url}")
 
 
 def get_tois_in_TGv8_catalog(query_str=None, data_path=None):
