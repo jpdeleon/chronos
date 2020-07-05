@@ -39,6 +39,7 @@ CATALOGS_STAR_PARMS = {
     "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
     "Queiroz2020": "https://arxiv.org/abs/1710.09970",  # starhorse: using APOGEE+Gaia
     "HardegreeUllman2020": "https://arxiv.org/abs/2001.11511",  # Gaia2+LAMOST for K2 host stars (TICv8)
+    # https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt
     "Anders2019": "https://arxiv.org/abs/1904.11302",  # panstarrs+2MASS+AllWISE+some APOGEE
     # kinematic thin disc, thick disc, and halo membership probabilities:
     # https://zenodo.org/record/3546184#.Xt-UFIFq1Ol
@@ -75,9 +76,9 @@ class Star(Target):
         search_radius=3,
         mission="tess",
         prot=None,
-        mcmc_steps=1e4,
-        burnin=1000,
-        thin=10,
+        mcmc_steps=1000,
+        burnin=500,
+        thin=1,
         alpha=(0.56, 1.05),  # Morris+2020
         slope=(-0.50, 0.17),  # Morris+2020
         sigma_blur=3,
@@ -678,6 +679,12 @@ class Star(Target):
             )
             rpmag_err = rpmag_err if rpmag_err > min_mag_err else min_mag_err
             params.update({"RP": (rpmag, rpmag_err)})
+        if "B" in bands:
+            # from tic catalog
+            params.update({"B": (tp["Bmag"], tp["e_Bmag"])})
+        if "V" in bands:
+            # from tic catalog
+            params.update({"V": (tp["Vmag"], tp["e_Vmag"])})
         if "J" in bands:
             # from tic catalog
             params.update({"J": (tp["Jmag"], tp["e_Jmag"])})
@@ -699,7 +706,7 @@ class Star(Target):
                     params.update({b: (round(wmag, 2), round(wmag_err, 2))})
                 else:
                     print(f"{b} not in {mags.index.tolist()}")
-            elif b[0] == "V":
+            elif b[:2] == "Kp":
                 if f"{b}mag" in mags.index.tolist():
                     wmag = mags[f"{b}mag"]
                     wmag_err = mags[f"e_{b}mag"]
@@ -741,8 +748,10 @@ class Star(Target):
             if np.any(np.isnan(vals)):
                 print(f"{k} is ignored due to nan ({vals})")
             else:
-                par = k.upper() if k not in ["parallax", "logg", "feh"] else k
-                par = par.title() if par not in ["Teff"] else par
+                if k in ["Teff", "parallax", "logg", "feh"]:
+                    par = k
+                else:
+                    par = k.upper()
                 starfit_arr.append(f"{par} = {vals[0]}, {vals[1]}")
         outdir = target_name if outdir == "." else outdir
         outpath = Path(outdir, "star.ini")
@@ -751,7 +760,7 @@ class Star(Target):
         np.savetxt(outpath, starfit_arr, fmt="%2s", header=target_name)
         print(f"Saved: {outpath}\n{starfit_arr}")
 
-    def save_fpp_ini(self, outdir="."):
+    def save_fpp_ini(self, outdir=".", fpp_params=None):
         """fpp.ini file for vespa calcfpp script
         See:
         https://github.com/timothydmorton/VESPA/blob/master/README.rst
@@ -762,25 +771,39 @@ class Star(Target):
         fpp_arr.append(f"name = {target_name}")
         fpp_arr.append(f"ra = {self.target_coord.ra.deg:.4f}")
         fpp_arr.append(f"dec = {self.target_coord.dec.deg:.4f}")
-        if self.toi_period is None:
+
+        period = (
+            fpp_params["period"] if fpp_params is not None else self.toi_period
+        )
+        if period is None:
             print("Manually append 'period' to file")
         else:
-            fpp_arr.append(f"period = {self.toi_period:.4f}")
-        if self.toi_depth is not None:
+            fpp_arr.append(f"period = {period:.4f}")
+        depth = (
+            fpp_params["depth"] if fpp_params is not None else self.toi_depth
+        )
+        if depth is None:
             print("Manually append 'rprs' to file")
         else:
-            fpp_arr.append(f"rprs = {np.sqrt(self.toi_depth):.2f}")
-        if self.mission == "TESS":
-            fpp_arr.append(f"cadence = {30*u.minutes.to(u.days):.2f}")
+            fpp_arr.append(f"rprs = {depth:.4f}")
+        if self.mission.lower() == "tess":
+            fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
             fpp_arr.append(f"band = TESS")
         else:
-            fpp_arr.append(f"cadence = {30*u.minutes.to(u.days):.2f}")
+            fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
             fpp_arr.append(f"band = Kepler")
-        print("Double check entries for candence and band.")
+        print("Double check entries for cadence and band.")
         fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
         fpp_arr.append("[constraints]")
-        fpp_arr.append(f"maxrad = 60.0")  # arcsec
-
+        if self.mission.lower() == "tess":
+            fpp_arr.append(f"maxrad = 60.0")  # arcsec
+        else:
+            fpp_arr.append(f"maxrad = 12.0")  # arcsec
+        secthresh = fpp_params["secthresh"] if fpp_params is not None else None
+        if depth is None:
+            print("Manually append 'secthresh' to file")
+        else:
+            fpp_arr.append(f"secthresh = {secthresh}")
         outdir = target_name if outdir == "." else outdir
         outpath = Path(outdir, "fpp.ini")
         if not Path(outdir).exists():
@@ -854,12 +877,7 @@ class Star(Target):
         return self.isochrones_model
 
     def run_isochrones(
-        self,
-        iso_params=None,
-        binary_star=False,
-        nsteps=None,
-        overwrite=False,
-        **kwargs,
+        self, iso_params=None, binary_star=False, overwrite=False, **kwargs
     ):
         """
         Parameters
@@ -881,7 +899,6 @@ class Star(Target):
         https://isochrones.readthedocs.io/en/latest/multiple.html
         FIXME: nsteps param in mod.fit() cannot be changed
         """
-        nsteps = nsteps if nsteps is not None else self.mcmc_steps
         # Create a dictionary of observables
         if self.mist is None:
             iso_params = (
@@ -891,7 +908,8 @@ class Star(Target):
         else:
             print("Using previously initialized model.")
 
-        if self.isochrones_model._samples is not None:
+        model = self.isochrones_model
+        if model._samples is not None:
             if not overwrite:
                 if self.verbose:
                     print(
@@ -900,17 +918,44 @@ class Star(Target):
             else:
                 if self.verbose:
                     print("Overwriting previous run.")
-        if self.isochrones_model.use_emcee:
-            print("method: Affine-invariant MCMC")
+        if model.use_emcee:
+            print("Method: Affine-invariant MCMC")
             # kwargs = {"niter": int(nsteps)}
         else:
-            print("method: Nested Sampling")
+            print("Method: Nested Sampling")
             # kwargs = {"n_live_points": int(nsteps)}
         # fit
-        self.isochrones_model.fit(overwrite=overwrite)  # **kwargs
+        try:
+            logprior0 = model.lnprior(self.iso_params0)
+            loglike0 = model.lnlike(self.iso_params0)
+            logpost0 = model.lnpost(self.iso_params0)
+            msg = "Initial values:\n"
+            msg += f"logpost=loglike+logprior = "
+            msg += f"{loglike0:.2f} + {logprior0:.2f} = {logpost0:.2f}"
+            if self.verbose:
+                print(msg)
+        except Exception as e:
+            errmsg = f"Error: {e}\n"
+            errmsg += "Error in calculating logprior. Check `iso_params` input values."
+            raise ValueError(errmsg)
+
+        # nsteps = nsteps if nsteps is not None else self.mcmc_steps
+        model.fit(overwrite=overwrite, **kwargs)
+
+        # Note: median!=MAP
+        # iso_params0_ = model.samples.median().values
+        iso_params0_ = model.map_pars
+        logprior = model.lnprior(iso_params0_)
+        loglike = model.lnlike(iso_params0_)
+        logpost = model.lnpost(iso_params0_)
+        msg = "Final values:\n"
+        msg += f"logpost=loglike+logprior = "
+        msg += f"{loglike:.2f} + {logprior:.2f} = {logpost:.2f}"
         if self.verbose:
-            print("Done.")
-        return self.isochrones_model
+            print(msg)
+        if not model.use_emcee:
+            print(f"Model evidence: {model.evidence}")
+        return model
 
     def get_isochrones_prior_samples(self, nsamples=int(1e4)):
         """sample default priors

@@ -1199,7 +1199,7 @@ class Cluster(ClusterCatalog):
             clobber=clobber,
         )
         self.mission = mission
-        self.cluster_name = cluster_name
+        self.cluster_name = cluster_name.replace(" ", "_")
 
         _ = self.query_catalog(return_members=True)
         idx = self.all_members.Cluster.isin([self.cluster_name])
@@ -1237,6 +1237,8 @@ class Cluster(ClusterCatalog):
                 f"log10(age)={log10age:.2f} yr = {(10**log10age)/1e6:.2f} Myr"
             )
             return log10age
+        else:
+            print(f"{self.cluster_name} not found in {cc.catalog_name}")
 
     def query_cluster_members(self):
         """

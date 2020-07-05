@@ -13,6 +13,7 @@ from astropy.coordinates import Angle, SkyCoord, Distance
 from astropy.visualization import ZScaleInterval
 from astroquery.mast import Catalogs
 from astropy.wcs import WCS
+from astropy.io import fits
 import astropy.units as u
 from scipy.ndimage import zoom
 from astroquery.skyview import SkyView
@@ -53,6 +54,20 @@ __all__ = [
     "plot_cluster_kinematics",
     "df_to_gui",
 ]
+
+# http://gsss.stsci.edu/SkySurveys/Surveys.htm
+dss_description = {
+    "dss1": "POSS1 Red in the north; POSS2/UKSTU Blue in the south",
+    "poss2ukstu_red": "POSS2/UKSTU Red",
+    "poss2ukstu_ir": "POSS2/UKSTU Infrared",
+    "poss2ukstu_blue": "POSS2/UKSTU Blue",
+    "poss1_blue": "POSS1 Blue",
+    "poss1_red": "POSS1 Red",
+    "all": "best among all plates",
+    "quickv": "Quick-V Survey",
+    "phase2_gsc2": "HST Phase 2 Target Positioning (GSC 2)",
+    "phase2_gsc1": "HST Phase 2 Target Positioning (GSC 1)",
+}
 
 
 def plot_cluster_map(
@@ -462,6 +477,124 @@ def plot_gaia_sources_on_survey(
         title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
     )
     return ax
+
+
+def get_dss_data(
+    ra,
+    dec,
+    survey="poss2ukstu_red",
+    plot=False,
+    height=1,
+    width=1,
+    epoch="J2000",
+):
+    """
+    Digitized Sky Survey (DSS)
+    http://archive.stsci.edu/cgi-bin/dss_form
+    Parameters
+    ----------
+    survey : str
+        (default=poss2ukstu_red) see `dss_description`
+    height, width : float
+        image cutout height and width [arcmin]
+    Returns
+    -------
+    hdu
+    """
+    survey_list = list(dss_description.keys())
+    if survey not in survey_list:
+        raise ValueError(f"{survey} not in:\n{survey_list}")
+    base_url = "http://archive.stsci.edu/cgi-bin/dss_search?v="
+    url = f"{base_url}{survey}&r={ra}&d={dec}&e={epoch}&h={height}&w={width}&f=fits&c=none&s=on&fov=NONE&v3"
+    try:
+        hdulist = fits.open(url)
+        # hdulist.info()
+
+        hdu = hdulist[0]
+        # data = hdu.data
+        header = hdu.header
+        if plot:
+            ax = plot_dss_image(hdu)
+            title = f"{dss_description[survey]}\n"
+            title += f"({header['DATE-OBS'][:10]})"
+            ax.set_title(title)
+        return hdu
+    except Exception as e:
+        if isinstance(e, OSError):
+            print(f"Error: {e}\nsurvey={survey} image is likely unavailable.")
+        else:
+            raise Exception(f"Error: {e}")
+
+
+def plot_dss_image(hdu, ax=None):
+    """
+    Plot output of get_dss_data:
+    hdu = get_dss_data(ra, dec)
+    """
+    data, header = hdu.data, hdu.header
+    interval = ZScaleInterval(contrast=0.5)
+    zmin, zmax = interval.get_limits(data)
+
+    if ax is None:
+        fig = pl.figure(constrained_layout=True)
+        ax = fig.add_subplot(projection=WCS(header))
+    ax.imshow(data, vmin=zmin, vmax=zmax, cmap="gray")
+    ax.set_xlabel("RA")
+    ax.set_ylabel("DEC")
+    # add target position
+
+    return ax
+
+
+def plot_archival_images(
+    ra, dec, survey1="dss1", survey2="poss2ukstu_red", fp1=None, fp2=None
+):
+    """
+    Plot two archival images
+    See e.g.
+    https://s3.amazonaws.com/aasie/images/1538-3881/159/3/100/ajab5f15f2_hr.jpg
+    Uses reproject to have identical projection:
+    https://reproject.readthedocs.io/en/stable/
+    """
+    # poss1
+    if fp1 is not None and fp2 is not None:
+        hdu1 = fits.open(fp1)[0]
+        hdu2 = fits.open(fp2)[0]
+    else:
+        hdu1 = get_dss_data(ra, dec, survey=survey1)
+        hdu2 = get_dss_data(ra, dec, survey=survey2)
+    try:
+        from reproject import reproject_interp
+    except Exception:
+        cmd = "pip install reproject"
+        raise ModuleNotFoundError(cmd)
+    array, footprint = reproject_interp(hdu2, hdu1.header)
+
+    fig = pl.figure(figsize=(10, 5), constrained_layout=True)
+    interval = ZScaleInterval(contrast=0.5)
+
+    _, header1 = hdu1.data, hdu1.header
+    ax1 = fig.add_subplot("121", projection=WCS(header1))
+    _ = plot_dss_image(hdu1, ax=ax1)
+    # zmin, zmax = interval.get_limits(data1)
+    # ax1.imshow(data1, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
+    title = f"{header1['SURVEY']} ({header1['FILTER']})\n"
+    title += f"{header1['DATE-OBS'][:10]}"
+    ax1.set_title(title)
+
+    # recent
+    data2, header2 = hdu2.data, hdu2.header
+    ax2 = fig.add_subplot("122", projection=WCS(header1))
+    # _ = plot_dss_image(hdu2, ax=ax2)
+    zmin, zmax = interval.get_limits(data2)
+    ax2.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
+    ax2.coords["dec"].set_axislabel_position("r")
+    ax2.coords["dec"].set_ticklabel_position("r")
+    ax2.set_xlabel("RA")
+    title = f"{header2['SURVEY']} ({header2['FILTER']})\n"
+    title += f"{header2['DATE-OBS'][:10]}"
+    ax2.set_title(title)
+    return fig
 
 
 def plot_aperture_outline(

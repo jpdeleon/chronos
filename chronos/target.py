@@ -246,7 +246,6 @@ class Target:
         -------
         pandas.Series
         """
-        df = get_TGv8_catalog(data_path=data_path)
         if gaiaid is None:
             if self.gaiaid is None:
                 errmsg = "Provide gaiaid or try `self.query_gaia_dr2_catalog"
@@ -255,6 +254,7 @@ class Target:
             else:
                 gaiaid = self.gaiaid
 
+        df = get_TGv8_catalog(data_path=data_path)
         d = df.query("Gaia_source_id==@gaiaid")
         if len(d) > 0:
             # return series
@@ -560,10 +560,10 @@ class Target:
         """
         radius = radius if radius is not None else 60
 
-        if self.gaia_sources is None:
-            d = self.query_gaia_dr2_catalog(radius=radius).copy(deep=True)
-        else:
+        if (self.gaia_sources is not None) & (radius == 60):
             d = self.gaia_sources.copy(deep=True)
+        else:
+            d = self.query_gaia_dr2_catalog(radius=radius).copy(deep=True)
 
         if self.gaiaid is None:
             # nearest match (first entry row=0) is assumed as the target
@@ -1023,7 +1023,9 @@ class Target:
             print(f"Choose parameter:\n{list(np.unique(flatten_list(cols)))}")
 
     def query_vizier_mags(
-        self, catalogs=["tycho", "gaiadr2", "2mass", "wise"], add_err=True
+        self,
+        catalogs=["apass9", "gaiadr2", "2mass", "wise", "epic"],
+        add_err=True,
     ):
         """
         TODO: use sedfitter
@@ -1033,7 +1035,8 @@ class Target:
         else:
             tabs = self.vizier_tables
         refs = {
-            "tycho": {"tabid": "I/259/tyc2", "cols": ["BTmag", "VTmag"]},
+            # "tycho": {"tabid": "I/259/tyc2", "cols": ["BTmag", "VTmag"]},
+            "apass9": {"tabid": "II/336/apass9", "cols": ["Bmag", "Vmag"]},
             "gaiadr2": {
                 "tabid": "I/345/gaia2",
                 "cols": ["Gmag", "BPmag", "RPmag"],
@@ -1042,6 +1045,7 @@ class Target:
             "wise": {
                 "tabid": "II/328/allwise",
                 "cols": ["W1mag", "W2mag", "W3mag", "W4mag"],
+                "epic": {"tabid": "IV/34/epic", "cols": "Kpmag"},
             },
         }
 
@@ -1523,7 +1527,7 @@ class Target:
                 print(f"There are {idx.sum()} spectra in {url}\n")
             return specs_table[idx]
         else:
-            url = base + f"/dit_target.php?id={self.epicid}"
+            url = base + f"/edit_target.php?id={self.epicid}"
             print(f"Scraping not yet implemented.\nSee {url}")
 
     @property

@@ -4,7 +4,9 @@ r"""
 classes for k2 lightcurves produced by EVEREST and K2SFF pipelines
 """
 # Import standard library
+from pathlib import Path
 from os.path import join, exists
+from urllib.request import urlretrieve
 import logging
 
 # Import library
@@ -15,6 +17,7 @@ import astropy.units as u
 from scipy.ndimage import zoom
 import lightkurve as lk
 from astropy.io import fits
+from astropy.table import Table
 from wotan import flatten
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
@@ -103,6 +106,7 @@ class K2(Target):
         self.tls_results = None
         if self.verbose:
             print(f"Target: {name}")
+        self.K2_star_params = None
 
     def get_tpf(self):
         """
@@ -838,3 +842,53 @@ class K2sff(K2):
             # title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
         )
         return ax
+
+    def get_K2_star_params(self):
+        """
+        """
+        if self.K2_star_params is None:
+            fp = Path(DATA_PATH, "apjsab7230t1_mrt.txt")
+            if not fp.exists():
+                get_K2_star_data()
+            tab = Table.read(fp, format="ascii")
+            df = tab.to_pandas()
+            self.K2_star_params = df
+        else:
+            df = self.K2_star_params
+        q = df.query(f"EPIC=={self.epicid}")
+        if len(q) > 1:
+            return q.iloc[0]
+        else:
+            return q
+
+    @property
+    def K2_Rstar(self):
+        q = self.get_K2_star_params()
+        return q.Rstar
+
+    @property
+    def K2_Rstar_errs(self):
+        q = self.get_K2_star_params()
+        return q[["e_Rstar", "E_Rstar"]]
+
+    @property
+    def K2_Mstar(self):
+        q = self.get_K2_star_params()
+        return q.Mstar
+
+    @property
+    def K2_Mstar_errs(self):
+        q = self.get_K2_star_params()
+        return q[["e_Mstar", "E_Mstar"]]
+
+
+def get_K2_star_data():
+    """
+    Hardegree-Ullmann+2020:
+    https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt
+    """
+    url = "https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt"
+    fp = Path(DATA_PATH, "apjsab7230t1_mrt.txt")
+    print("Downloading Table X of Hardegree-Ullmann+2020:")
+    urlretrieve(url, fp)
+    print("Saved: ", fp)
