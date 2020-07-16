@@ -66,6 +66,7 @@ CATALOG_DICT = {
     # Banyan sigma
     "Gagne2018a": "J/ApJ/860/43",  # TGAS
     "Gagne2018b": "J/ApJ/862/138",  # DR2
+    "Carrera2018": "J/A+A/623/A80",  # APOGEE14+GALAH2 of open clusters
     # Argus assoc via simbad link
     "Zuckerman2019": "None",
     # eta Cha assoc

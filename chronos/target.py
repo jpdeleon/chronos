@@ -602,7 +602,7 @@ class Target:
             columns.append("true_depth_sec")
             col = "true_depth_sec>1(cleared?)"
             columns.append(col)
-            d[col] = depth * d.true_depth_sec > 1
+            d[col] = d.true_depth_sec > 1
 
         if add_column is not None:
             assert (isinstance(add_column, str)) & (add_column in d.columns)

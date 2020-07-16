@@ -230,7 +230,8 @@ class Planet(Star):
         return_samples=False,
         plot=False,
     ):
-        """FIXME: implement Monte Carlo
+        """
+        Compute the RV semiamplitude in m/s via Monte Carlo
         """
         all_unavailable = (
             (P_days is None) & (Ms_Msun is None) & (mp_Mearth is None)

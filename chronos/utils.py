@@ -110,7 +110,7 @@ __all__ = [
     "get_max_dmag_from_depth",
     "get_TGv8_catalog",
     "get_tois_in_TGv8_catalog",
-    "get_filter_response",
+    "get_filter_transmission_from_SVO",
 ]
 
 # Ax/Av
@@ -129,7 +129,9 @@ extinction_ratios = {
 }
 
 
-def get_filter_response(filter_name, telescope, format="ascii"):
+def get_filter_transmission_from_SVO(
+    filter_name, telescope, plot=False, format="ascii"
+):
     """
     get filter response functions from http://svo2.cab.inta-csic.es/theory/fps/
 
@@ -146,7 +148,7 @@ def get_filter_response(filter_name, telescope, format="ascii"):
         from bs4 import BeautifulSoup
     except Exception:
         cmd = "pip install beautifulsoup4"
-    raise ModuleNotFoundError(cmd)
+        raise ModuleNotFoundError(cmd)
 
     base_url = "http://svo2.cab.inta-csic.es/theory/fps/"
 
@@ -191,12 +193,22 @@ def get_filter_response(filter_name, telescope, format="ascii"):
         errmsg += f"\n{list(telescope_filters.keys())}"
         raise ValueError(errmsg)
 
-    dl_url = f"getdata.php?format={format}&id={telescope}/{telescope_filters[filter]}"
+    dl_url = f"getdata.php?format={format}&id={telescope}/{telescope_filters[filter_name]}"
     try:
         full_url = base_url + dl_url
         df = pd.read_csv(
-            full_url, names=["wav", "transmission"], delim_whitespace=True
+            full_url, names=["wav_nm", "transmission"], delim_whitespace=True
         )
+        df["wav_nm"] = df.wav_nm / 10
+
+        if plot:
+            ax = df.plot(
+                x="wav_nm",
+                y="transmission",
+                label=f"{telescope}/{filter_name}",
+            )
+            ax.set_xlabel("wavelength [nm]")
+            ax.set_ylabel("Transmission")
         return df
     except Exception as e:
         raise (f"Error: {e}\nCheck url: {full_url}")

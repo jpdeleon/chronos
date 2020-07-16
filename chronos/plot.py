@@ -5,6 +5,7 @@ classes for plotting cluster properties
 import sys
 import numpy as np
 import matplotlib.pyplot as pl
+from matplotlib.patches import Circle
 import pandas as pd
 import lightkurve as lk
 
@@ -53,6 +54,9 @@ __all__ = [
     "plot_gaia_sources_on_tpf",
     "plot_cluster_kinematics",
     "df_to_gui",
+    "get_dss_data",
+    "plot_archival_images",
+    "plot_dss_image",
 ]
 
 # http://gsss.stsci.edu/SkySurveys/Surveys.htm
@@ -512,12 +516,9 @@ def get_dss_data(
 
         hdu = hdulist[0]
         # data = hdu.data
-        header = hdu.header
+        # header = hdu.header
         if plot:
-            ax = plot_dss_image(hdu)
-            title = f"{dss_description[survey]}\n"
-            title += f"({header['DATE-OBS'][:10]})"
-            ax.set_title(title)
+            _ = plot_dss_image(hdu)
         return hdu
     except Exception as e:
         if isinstance(e, OSError):
@@ -526,7 +527,7 @@ def get_dss_data(
             raise Exception(f"Error: {e}")
 
 
-def plot_dss_image(hdu, ax=None):
+def plot_dss_image(hdu, cmap="gray", ax=None):
     """
     Plot output of get_dss_data:
     hdu = get_dss_data(ra, dec)
@@ -538,22 +539,32 @@ def plot_dss_image(hdu, ax=None):
     if ax is None:
         fig = pl.figure(constrained_layout=True)
         ax = fig.add_subplot(projection=WCS(header))
-    ax.imshow(data, vmin=zmin, vmax=zmax, cmap="gray")
+    ax.imshow(data, vmin=zmin, vmax=zmax, cmap=cmap)
     ax.set_xlabel("RA")
     ax.set_ylabel("DEC")
-    # add target position
-
+    title = f"{header['SURVEY']} ({header['FILTER']})\n"
+    title += f"{header['DATE-OBS'][:10]}"
+    ax.set_title(title)
     return ax
 
 
 def plot_archival_images(
-    ra, dec, survey1="dss1", survey2="poss2ukstu_red", fp1=None, fp2=None
+    ra,
+    dec,
+    survey1="dss1",
+    survey2="poss2ukstu_red",
+    fp1=None,
+    fp2=None,
+    height=1,
+    width=1,
+    cmap="gray",
+    reticle=True,
 ):
     """
     Plot two archival images
     See e.g.
     https://s3.amazonaws.com/aasie/images/1538-3881/159/3/100/ajab5f15f2_hr.jpg
-    Uses reproject to have identical projection:
+    Uses reproject to have identical fov:
     https://reproject.readthedocs.io/en/stable/
     """
     # poss1
@@ -561,24 +572,44 @@ def plot_archival_images(
         hdu1 = fits.open(fp1)[0]
         hdu2 = fits.open(fp2)[0]
     else:
-        hdu1 = get_dss_data(ra, dec, survey=survey1)
-        hdu2 = get_dss_data(ra, dec, survey=survey2)
+        hdu1 = get_dss_data(
+            ra, dec, height=height, width=width, survey=survey1
+        )
+        hdu2 = get_dss_data(
+            ra, dec, height=height, width=width, survey=survey2
+        )
     try:
         from reproject import reproject_interp
     except Exception:
         cmd = "pip install reproject"
         raise ModuleNotFoundError(cmd)
+
     array, footprint = reproject_interp(hdu2, hdu1.header)
 
     fig = pl.figure(figsize=(10, 5), constrained_layout=True)
     interval = ZScaleInterval(contrast=0.5)
 
-    _, header1 = hdu1.data, hdu1.header
+    # data1 = hdu1.data
+    header1 = hdu1.header
     ax1 = fig.add_subplot("121", projection=WCS(header1))
-    _ = plot_dss_image(hdu1, ax=ax1)
+    _ = plot_dss_image(hdu1, cmap=cmap, ax=ax1)
+    if reticle:
+        c = Circle(
+            (ra, dec),
+            0.001,
+            edgecolor="red",
+            facecolor="none",
+            transform=ax1.get_transform("fk5"),
+        )
+        ax1.add_patch(c)
     # zmin, zmax = interval.get_limits(data1)
-    # ax1.imshow(data1, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
-    title = f"{header1['SURVEY']} ({header1['FILTER']})\n"
+    # ax1.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
+    filt1 = (
+        header1["FILTER"]
+        if header1["FILTER"] is not None
+        else survey1.split("_")[1]
+    )
+    title = f"{header1['SURVEY']} ({filt1})\n"
     title += f"{header1['DATE-OBS'][:10]}"
     ax1.set_title(title)
 
@@ -587,11 +618,26 @@ def plot_archival_images(
     ax2 = fig.add_subplot("122", projection=WCS(header1))
     # _ = plot_dss_image(hdu2, ax=ax2)
     zmin, zmax = interval.get_limits(data2)
-    ax2.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
+    ax2.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap=cmap)
+    if reticle:
+        c = Circle(
+            (ra, dec),
+            0.001,
+            edgecolor="red",
+            facecolor="none",
+            transform=ax2.get_transform("fk5"),
+        )
+        ax2.add_patch(c)
+        # ax2.scatter(ra, dec, 'r+')
     ax2.coords["dec"].set_axislabel_position("r")
     ax2.coords["dec"].set_ticklabel_position("r")
     ax2.set_xlabel("RA")
-    title = f"{header2['SURVEY']} ({header2['FILTER']})\n"
+    filt2 = (
+        header2["FILTER"]
+        if header2["FILTER"] is not None
+        else survey2.split("_")[1]
+    )
+    title = f"{header2['SURVEY']} ({filt2})\n"
     title += f"{header2['DATE-OBS'][:10]}"
     ax2.set_title(title)
     return fig
