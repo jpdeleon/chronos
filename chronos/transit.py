@@ -12,7 +12,6 @@ import batman
 
 LOG_TWO_PI = np.log(2 * np.pi)
 
-
 def blackbody_temperature(bmag, vmag):
     """
     calculate blackbody temperature using the Ballesteros formula; Eq. 14 in
@@ -121,6 +120,27 @@ def t14_from_abkp(a, b, k, p, e=0.0, w=0.0, tr_sign=1):
         return t14_circ(a, b, k, p)
 
 
+def t14max_from_pmrr(p, ms, rs, rp):
+    """Compute the maximum transit duration in days:
+    Eq. 10 in Hippke & Heller 2019
+    Parameters
+    ----------
+    p : period [day]
+    ms : star mass [Msun]
+    rs : star radius [Rsun]
+    rp : planet radius [Rearth]
+    Returns
+    -------
+    t14 : transit duration [day]
+    """
+    constant = 4/(np.pi*c.G)
+    Porb = p*u.day
+    Ms = ms * u.Msun.to(u.kg)*u.kg
+    Rs = rs*u.Rsun.to(u.m)*u.m
+    Rp = rp*u.Rearth.to(u.m)*u.m
+    t14 = (Rp+Rs)*(constant*Porb/Ms)**(1/3)
+    return t14.to(u.day).value
+
 def t14_from_pmrr(p, ms, rs, rp, b=0, mp=0.0, e=0.0, w=0.0):
     """Compute the transit width (duration) in days.
     Parameters
@@ -128,8 +148,8 @@ def t14_from_pmrr(p, ms, rs, rp, b=0, mp=0.0, e=0.0, w=0.0):
     p : period [day]
     ms : star mass [Msun]
     rs : star radius [Rsun]
+    rp : planet radius [Rearth]
     b : impact parameter
-    mp : planet mass [Mearth]
     e : eccentricity
     w : argument of periastron [deg]
     Returns

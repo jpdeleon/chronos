@@ -130,15 +130,19 @@ extinction_ratios = {
 
 
 def get_filter_transmission_from_SVO(
-    filter_name, telescope, plot=False, format="ascii"
+    filter, telescope, instrument=None, plot=False, format="ascii", verbose=True
 ):
     """
     get filter response functions from http://svo2.cab.inta-csic.es/theory/fps/
 
     Parameters
     ----------
-    filter_name : str
+    filter : str
+        filter
     telescope : str
+        observatory name
+    instrument : str
+        instrument (optional)
 
     Returns
     -------
@@ -163,49 +167,63 @@ def get_filter_transmission_from_SVO(
     for html_url in html_urls:
         url = html_url.get("href")
         if "index.php?mode=browse&gname=" in url:
-            filter = url.split("&gname=")[-1]
+            filter_name = url.split("&gname=")[-1]
             urls.append(url)
-            telescopes[filter] = url
+            telescopes[filter_name] = url
     if telescope not in telescopes.keys():
         errmsg = f"{telescope} not in available telescopes:"
         errmsg += f"\n{list(telescopes.keys())}"
         raise ValueError(errmsg)
 
-    # get filters of chosen telescope
     filter_url = base_url + telescopes[telescope]
+    if instrument is not None:
+        filter_url+=f'&gname2={instrument}'
+    # get filters of chosen telescope
+    if verbose:
+        print(f'Querying {filter_url}')
     with urllib.request.urlopen(filter_url) as response:
         html = response.read()
     soup = BeautifulSoup(html)
     html_urls = soup.findAll("a")
 
-    telescope_filters = {}
+    instrument_filters = {}
+    instruments = []
     for html_url in html_urls:
         url = html_url.get("href")
         if "#filter" in url:
-            telescope_filter = url.split(f"{telescope}/")[1].split("&&mode=")[
+            instrument_filter = url.split(f"{telescope}/")[1].split("&&mode=")[
                 0
             ]
-            filter = telescope_filter.split(".")[1]
-            telescope_filters[filter] = telescope_filter
+            instrument_name = instrument_filter.split(".")[0]
+            filter_name = instrument_filter.split(".")[1]
+            instrument_filters[filter_name] = instrument_filter
+            instruments.append(instrument_name)
 
-    if filter_name not in telescope_filters.keys():
-        errmsg = f"{filter_name} not in available filters:"
-        errmsg += f"\n{list(telescope_filters.keys())}"
+    if instrument is None:
+        instrument = np.unique(instruments)[0]
+
+    errmsg = f"{instrument} not available.\nSee {filter_url}"
+    assert np.any(instrument in instruments), errmsg
+
+    if filter not in instrument_filters.keys():
+        errmsg = f"{filter} not in available {instrument} filters:"
+        errmsg += f"\n{list(instrument_filters.keys())}"
         raise ValueError(errmsg)
 
-    dl_url = f"getdata.php?format={format}&id={telescope}/{telescope_filters[filter_name]}"
+    dl_url = f"getdata.php?format={format}&id={telescope}/{instrument_filters[filter]}"
     try:
         full_url = base_url + dl_url
         df = pd.read_csv(
             full_url, names=["wav_nm", "transmission"], delim_whitespace=True
         )
+        df = df[df.transmission>0]
         df["wav_nm"] = df.wav_nm / 10
 
         if plot:
             ax = df.plot(
                 x="wav_nm",
                 y="transmission",
-                label=f"{telescope}/{filter_name}",
+                label=f"{telescope}/{filter}",
             )
             ax.set_xlabel("wavelength [nm]")
             ax.set_ylabel("Transmission")

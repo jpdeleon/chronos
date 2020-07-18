@@ -149,6 +149,10 @@ class Planet(Star):
         else:
             return (Rp, Rp_siglo, Rp_sighi)
 
+    def validate_t14(self):
+        """
+        """
+        
     def validate_Rp(self):
         """compare Rp from TOI depth and Rp in TOI;
         if their difference is large:

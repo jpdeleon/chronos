@@ -23,8 +23,8 @@ $ pytest tests/
 * `star.py`: physics-related calculations, e.g. extinction, spectral typing, isochrones, gyrochronology (inherits `target`)
 * `planet.py`: planet parameters calculations (inherits `star`)
 * `tpf.py`: targetpixel file manipulation
-* `lightcurve.py`: lightcurve analysis either using SPOC or custom pipeline for short and long cadence (inherits `tpf`)
-* `k2.py`: tpf and lightcurve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
+* `lightcurve.py`: light curve analysis either using SPOC or custom pipeline for short and long cadence (inherits `tpf`)
+* `k2.py`: tpf and light curve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
 * `cluster.py`: cluster catalog, cluster analysis + plotting
 * `cdips.py` & `pathos.py`: api for CDIPS and PATHOS pipelines
 * `plot.py`: custom plotting functionalities
@@ -33,28 +33,30 @@ $ pytest tests/
 
 ## Dependencies
 * `astropy` & `astroquery` for star and catalog bookkeeping
-* `lightkurve`, `transitleastsquares`, & `wotan` for lightcurve analysis
+* `lightkurve`, `transitleastsquares`, & `wotan` for light curve analysis
 * `emcee` & `corner` for MCMC analysis
 * `isochrones` for isochrones analysis
 * `dustmass` for extinction calculation
 * `stardate` for gyrochronology
-* `mrexo` for mass-radius relation
-* `triceratops` for FPP calculation based on lightcurve shape and contrast curve constraints
+* [`mrexo`](https://github.com/shbhuk/mrexo) for mass-radius relation
+* `triceratops` for FPP calculation based on lightc urve shape and contrast curve constraints
 
 ## For next update
 * [`platon`](https://github.com/ideasrule/platon) for calculating transmission spectrum
 * [`theJoker`](https://github.com/adrn/thejoker) for two-body MCMC sampler
 * `contaminante` for pixel level modeling
-* `allesfitter` for lightcurve model fitting
+* `allesfitter` for light curve model fitting
 * `PyPopStar` for stellar population analysis
 * `sedfitter` for SED fitting
 * `maelstrom` for pulsating binary analysis
 * `stella` & `fleck` for flare detection and modeling
 * `eleanor` & `f3` for TESS FFI
 * `envelope` for planet's envelope fraction estimation using MESA simulations based on [Milholland+19,20](https://github.com/smillholland/Sub-Saturns.git)
-* [`splat`](https://github.com/aburgasser/splat) for spectral analysis
+* [`evolstate`](https://github.com/danxhuber/evolstate) for assigning stellar evolutionary state
+* [`barycorrpy`](https://github.com/shbhuk/barycorrpy) for conversion to BJD_TDB
 
 ## Examples
 Check [examples in nbviewer](https://nbviewer.jupyter.org/github/jpdeleon/chronos/tree/master/notebooks/).
 
-See also [tql](https://github.com/jpdeleon/tql) for TESS Quick Look plotting.
+## See also
+[tql](https://github.com/jpdeleon/tql) for TESS Quick Look plotting

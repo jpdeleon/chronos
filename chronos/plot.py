@@ -74,6 +74,13 @@ dss_description = {
 }
 
 
+def plot_mass_radius_diagram():
+    """
+    https://github.com/oscaribv/fancy-massradius-plot/blob/master/mass_radius_plot.ipynb
+    """
+    errmsg = "To be added later"
+    raise NotImplementedError(errmsg)
+
 def plot_cluster_map(
     target_coord=None,
     catalog_name="Bouma2019",
