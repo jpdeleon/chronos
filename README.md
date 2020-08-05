@@ -44,6 +44,8 @@ $ pytest tests/
 ## For next update
 * [`platon`](https://github.com/ideasrule/platon) for calculating transmission spectrum
 * [`theJoker`](https://github.com/adrn/thejoker) for two-body MCMC sampler
+* [`spock`](https://github.com/dtamayo/spock) for orbit stability analysis
+* [`exoCMD`](https://github.com/gdransfield/ExoCMD)
 * `contaminante` for pixel level modeling
 * `allesfitter` for light curve model fitting
 * `PyPopStar` for stellar population analysis

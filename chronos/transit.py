@@ -12,6 +12,7 @@ import batman
 
 LOG_TWO_PI = np.log(2 * np.pi)
 
+
 def blackbody_temperature(bmag, vmag):
     """
     calculate blackbody temperature using the Ballesteros formula; Eq. 14 in
@@ -133,13 +134,14 @@ def t14max_from_pmrr(p, ms, rs, rp):
     -------
     t14 : transit duration [day]
     """
-    constant = 4/(np.pi*c.G)
-    Porb = p*u.day
-    Ms = ms * u.Msun.to(u.kg)*u.kg
-    Rs = rs*u.Rsun.to(u.m)*u.m
-    Rp = rp*u.Rearth.to(u.m)*u.m
-    t14 = (Rp+Rs)*(constant*Porb/Ms)**(1/3)
+    constant = 4 / (np.pi * c.G)
+    Porb = p * u.day
+    Ms = ms * u.Msun.to(u.kg) * u.kg
+    Rs = rs * u.Rsun.to(u.m) * u.m
+    Rp = rp * u.Rearth.to(u.m) * u.m
+    t14 = (Rp + Rs) * (constant * Porb / Ms) ** (1 / 3)
     return t14.to(u.day).value
+
 
 def t14_from_pmrr(p, ms, rs, rp, b=0, mp=0.0, e=0.0, w=0.0):
     """Compute the transit width (duration) in days.
@@ -251,7 +253,7 @@ def p_from_am(sma, ms):
     return p * u.second.to(u.day)
 
 
-def tshape_approx(a, b, k):
+def tshape_approx(k, b=0):
     """transit shape approximation
     See Seager & Mallen-Ornelas 2003, eq. 15
     """

@@ -359,6 +359,7 @@ class LongCadence(FFI_cutout):
         duration=None,
         method="biweight",
         return_trend=False,
+        **wotan_kwargs,
     ):
         return get_flat_lc(
             self=self,
@@ -369,6 +370,7 @@ class LongCadence(FFI_cutout):
             window_length=window_length,
             method=method,
             return_trend=return_trend,
+            **wotan_kwargs,
         )
 
     def plot_trend_flat_lcs(
@@ -802,6 +804,7 @@ class ShortCadence(Tpf):
         duration=None,
         method="biweight",
         return_trend=False,
+        **wotan_kwargs,
     ):
         return get_flat_lc(
             self=self,
@@ -812,6 +815,7 @@ class ShortCadence(Tpf):
             window_length=window_length,
             method=method,
             return_trend=return_trend,
+            **wotan_kwargs,
         )
 
     def plot_trend_flat_lcs(
@@ -880,6 +884,19 @@ class ShortCadence(Tpf):
     def cadence(self):
         return "short"
 
+    def save_lc(self, flat, fp=None):
+        fold = flat.fold(
+            period=self.toi_period, t0=self.toi_epoch - TESS_TIME_OFFSET
+        )
+        fold.time = fold.time * self.toi_period
+
+        width = 3 * self.toi_duration / 24
+        idx = (fold.time > -width) & (fold.time < width)
+        if fp is None:
+            fp = f"{self.target_name}_fold_lc.csv"
+        fold[idx].remove_nans().to_csv(fp, index=False)
+        print("Saved: ", fp)
+
 
 """
 Functions below appear in both ShortCadence and LongCadence
@@ -896,6 +913,7 @@ def get_flat_lc(
     window_length=None,
     method="biweight",
     return_trend=False,
+    **wotan_kwargs,
 ):
     """
     TODO: migrate self in class method;
@@ -929,6 +947,7 @@ def get_flat_lc(
         mask=tmask,
         window_length=window_length,
         return_trend=True,
+        **wotan_kwargs,
     )
     # overwrite
     flat.flux = wflat

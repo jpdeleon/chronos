@@ -152,7 +152,7 @@ class Planet(Star):
     def validate_t14(self):
         """
         """
-        
+
     def validate_Rp(self):
         """compare Rp from TOI depth and Rp in TOI;
         if their difference is large:
@@ -305,6 +305,24 @@ class Planet(Star):
             if self.toi_params is None
             else self.toi_params["Planet Radius (R_Earth) err"]
         )
+
+    @property
+    def toi_RpRs(self):
+        RpRs = (
+            self.toi_params["Planet Radius (R_Earth)"]
+            * u.Rearth.to(u.Rsun)
+            / self.toi_params["Stellar Radius (R_Sun)"]
+        )
+        return None if self.toi_params is None else RpRs
+
+    @property
+    def toi_RpRs_err(self):
+        RpRs_err = (
+            self.toi_params["Planet Radius (R_Earth) err"]
+            * u.Rearth.to(u.Rsun)
+            / self.toi_params["Stellar Radius (R_Sun) err"]
+        )
+        return None if self.toi_params is None else RpRs_err
 
 
 # def logg_model(mp_Mearth, rp_Rearth):

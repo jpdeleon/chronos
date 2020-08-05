@@ -33,7 +33,7 @@ from chronos.utils import (
 
 __all__ = ["Star"]
 
-# latest catalogues: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, ALL-WISE, 2MASS
+# latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, ALL-WISE, 2MASS
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
 CATALOGS_STAR_PARMS = {
     "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
@@ -177,7 +177,7 @@ class Star(Target):
             bayestar.BayestarQuery()
             dust_map = 2.742 if constant is None else constant
         else:
-            raise ValueError(f"Available maps: (sfd,planck,bayestar)")
+            raise ValueError("Available maps: (sfd,planck,bayestar)")
 
         ebv = dust_map(self.target_coord)
         Av = constant * ebv
@@ -523,7 +523,7 @@ class Star(Target):
             assert isinstance(prot, tuple), errmsg
 
         if self.verbose:
-            print(f"Estimating age using gyrochronology\n")
+            print("Estimating age using gyrochronology\n")
 
         prot_samples = prot[0] + np.random.randn(self.nsamples) * prot[1]
         log10_period_samples = np.log10(prot_samples)
@@ -788,17 +788,17 @@ class Star(Target):
             fpp_arr.append(f"rprs = {depth:.4f}")
         if self.mission.lower() == "tess":
             fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
-            fpp_arr.append(f"band = TESS")
+            fpp_arr.append("band = TESS")
         else:
             fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
-            fpp_arr.append(f"band = Kepler")
+            fpp_arr.append("band = Kepler")
         print("Double check entries for cadence and band.")
         fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
         fpp_arr.append("[constraints]")
         if self.mission.lower() == "tess":
-            fpp_arr.append(f"maxrad = 60.0")  # arcsec
+            fpp_arr.append("maxrad = 60.0")  # arcsec
         else:
-            fpp_arr.append(f"maxrad = 12.0")  # arcsec
+            fpp_arr.append("maxrad = 12.0")  # arcsec
         secthresh = fpp_params["secthresh"] if fpp_params is not None else None
         if depth is None:
             print("Manually append 'secthresh' to file")
@@ -930,7 +930,7 @@ class Star(Target):
             loglike0 = model.lnlike(self.iso_params0)
             logpost0 = model.lnpost(self.iso_params0)
             msg = "Initial values:\n"
-            msg += f"logpost=loglike+logprior = "
+            msg += "logpost=loglike+logprior = "
             msg += f"{loglike0:.2f} + {logprior0:.2f} = {logpost0:.2f}"
             if self.verbose:
                 print(msg)
@@ -949,7 +949,7 @@ class Star(Target):
         loglike = model.lnlike(iso_params0_)
         logpost = model.lnpost(iso_params0_)
         msg = "Final values:\n"
-        msg += f"logpost=loglike+logprior = "
+        msg += "logpost=loglike+logprior = "
         msg += f"{loglike:.2f} + {logprior:.2f} = {logpost:.2f}"
         if self.verbose:
             print(msg)
@@ -1455,6 +1455,54 @@ class Star(Target):
                         title_kwargs={"fontsize": 12},
                     )
         return fig
+
+    @property
+    def toi_Teff(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar Eff Temp (K)"]
+        )
+
+    @property
+    def toi_Teff_err(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar Eff Temp (K) err"]
+        )
+
+    @property
+    def toi_logg(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar log(g) (cm/s^2)"]
+        )
+
+    @property
+    def toi_logg_err(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar log(g) (cm/s^2) err"]
+        )
+
+    @property
+    def toi_feh(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar Metallicity"]
+        )
+
+    @property
+    def toi_feh_err(self):
+        return (
+            None
+            if self.toi_params is None
+            else self.toi_params["Stellar Metallicity err"]
+        )
 
     @property
     def toi_Rstar(self):

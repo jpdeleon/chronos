@@ -50,6 +50,27 @@ __all__ = [
     "plot_xyz_3d",
 ]
 
+# PROT_CATALOG_DICT = {"Reinhold2020": "J/A+A/635/A43",
+#                       "Barnes2015": "J/A+A/583/A73", #M48/NGC2548
+#                       "Meibom2011": "J/ApJ/733/L9", #NGC 6811
+#                       "Rebull2018": "J/AJ/155/196", #USco and ρ Oph
+#                       "Rebull2016": "J/AJ/152/114"
+#                      }
+
+# tables = Vizier.get_catalogs(PROT_CATALOG_DICT["Barnes2015"])
+# df = tables[0].to_pandas()
+# ax = df.plot.scatter(x='B-V',y='Per')
+# ax.set_ylabel("Rotation period [d]")
+# ax.set_xlabel("B-V [mag]")
+# ax.set_title("M48 (NGC2548); age=450±50 Myr")
+
+# star = cr.Star(toiid=toiid, clobber=False)
+# ref = "II/336/apass9"
+# Bmag = star.query_vizier_param("Bmag")[ref]
+# Vmag = star.query_vizier_param("Vmag")[ref]
+# ax.plot(Bmag-Vmag, Prot, 'r*', ms=20, label=star.target_name)
+# ax.legend()
+
 CATALOG_DICT = {
     # 570 new open clusters in the Galactic disc
     "CastroGinard2020": "J/A+A/635/A45",
@@ -124,7 +145,7 @@ class CatalogDownloader:
         """row_limit-1 to download all rows"""
         clobber = self.clobber if clobber is None else clobber
         if row_limit == -1:
-            msg = f"Downloading all tables in "
+            msg = "Downloading all tables in "
         else:
             msg = f"Downloading the first {row_limit} rows of each table "
         msg += f"{self.catalog_dict[self.catalog_name]} from vizier."
@@ -134,7 +155,7 @@ class CatalogDownloader:
         Vizier.ROW_LIMIT = row_limit
 
         tables = Vizier.get_catalogs(self.catalog_dict[self.catalog_name])
-        errmsg = f"No data returned from Vizier."
+        errmsg = "No data returned from Vizier."
         assert tables is not None, errmsg
         self.tables = tables
 
@@ -1384,9 +1405,9 @@ class Cluster(ClusterCatalog):
         if len(d[column].dropna()) == 0:
             print(f"No data for {column}")
         else:
-            u = d[f"Marchetti_U"]
-            v = d[f"Marchetti_V"]
-            w = d[f"Marchetti_W"]
+            u = d["Marchetti_U"]
+            v = d["Marchetti_V"]
+            w = d["Marchetti_W"]
             h = np.hypot(u, w)
 
             if ax is None:
@@ -2030,7 +2051,7 @@ def plot_rdp_pmrv(
         print(e)
         # catalog_name = df.Cluster.unique()()
         raise ValueError(
-            f"radial_velocity is not available"
+            "radial_velocity is not available"
         )  # in {catalog_name}
     return fig
 
