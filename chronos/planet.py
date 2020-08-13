@@ -365,7 +365,6 @@ class Planet(Star):
             cmd = self.lcfit_cmd.split("command: ")[1]
             # outdir = cmd.split('-o ')[1].split(' ')[0]
             outdir = self.target_name.replace(" ", "")
-            # import pdb; pdb.set_trace()
             subprocess.call(["cd", outdir], shell=True)
             subprocess.call(cmd.split(" "), cwd=outdir)
 

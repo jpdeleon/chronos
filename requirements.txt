@@ -7,7 +7,6 @@ astroplan==0.6
 transitleastsquares==1.0.23
 wotan==1.7
 scikit-image==0.16.2 #just for measure.find_contours
-# gitpython
-# pprint==3.8.2
 # triceratops==0.2.1
 deepdish==0.3.6
+git+https://github.com/rodluger/k2plr.git@master#egg=k2plr
