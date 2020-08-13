@@ -44,7 +44,7 @@ from astropy.coordinates import (
 )
 from skimage import measure
 from astroquery.vizier import Vizier
-from astroquery.mast import Catalogs, tesscut
+from astroquery.mast import Catalogs, Tesscut
 from astroquery.gaia import Gaia
 import deepdish as dd
 
@@ -57,6 +57,7 @@ from chronos.config import DATA_PATH
 log = logging.getLogger(__name__)
 
 __all__ = [
+    "get_k2_data_from_exofop",
     "get_nexsci_archive",
     "get_tess_ccd_info",
     "get_all_campaigns",
@@ -129,8 +130,37 @@ extinction_ratios = {
 }
 
 
+def get_k2_data_from_exofop(epic, table="star"):
+    """
+    get data from exofop table
+    """
+    keys = {
+        "phot": 1,
+        "mag": 1,
+        "star": 2,
+        "planet": 3,
+        "spec": 4,
+        "imaging": 5,
+        "file": 8,
+    }
+    errmsg = f"table={table} not in\n{list(keys.keys())}"
+    assert table in list(keys.keys()), errmsg
+    key = keys[table]
+    url = f"https://exofop.ipac.caltech.edu/k2/edit_target.php?id={epic}"
+    data = pd.read_html(url, attrs={"id": f"myTable{key}"})[0]
+    # remove multi-index column
+    data = data.T.reset_index(level=0, drop=True).T
+    data["epic"] = epic
+    return data
+
+
 def get_filter_transmission_from_SVO(
-    filter, telescope, instrument=None, plot=False, format="ascii", verbose=True
+    filter,
+    telescope,
+    instrument=None,
+    plot=False,
+    format="ascii",
+    verbose=True,
 ):
     """
     get filter response functions from http://svo2.cab.inta-csic.es/theory/fps/
@@ -177,10 +207,10 @@ def get_filter_transmission_from_SVO(
 
     filter_url = base_url + telescopes[telescope]
     if instrument is not None:
-        filter_url+=f'&gname2={instrument}'
+        filter_url += f"&gname2={instrument}"
     # get filters of chosen telescope
     if verbose:
-        print(f'Querying {filter_url}')
+        print(f"Querying {filter_url}")
     with urllib.request.urlopen(filter_url) as response:
         html = response.read()
     soup = BeautifulSoup(html)
@@ -216,14 +246,12 @@ def get_filter_transmission_from_SVO(
         df = pd.read_csv(
             full_url, names=["wav_nm", "transmission"], delim_whitespace=True
         )
-        df = df[df.transmission>0]
+        df = df[df.transmission > 0]
         df["wav_nm"] = df.wav_nm / 10
 
         if plot:
             ax = df.plot(
-                x="wav_nm",
-                y="transmission",
-                label=f"{telescope}/{filter}",
+                x="wav_nm", y="transmission", label=f"{telescope}/{filter}"
             )
             ax.set_xlabel("wavelength [nm]")
             ax.set_ylabel("Transmission")
@@ -364,7 +392,7 @@ def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):
     tables if tab_index is None else parsed df
     """
     if row_limit == -1:
-        msg = f"Downloading all tables in "
+        msg = "Downloading all tables in "
     else:
         msg = f"Downloading the first {row_limit} rows of each table in "
     msg += f"{key} from vizier."
@@ -374,7 +402,7 @@ def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):
     Vizier.ROW_LIMIT = row_limit
 
     tables = Vizier.get_catalogs(key)
-    errmsg = f"No data returned from Vizier."
+    errmsg = "No data returned from Vizier."
     assert tables is not None, errmsg
 
     if tab_index is None:
@@ -463,8 +491,8 @@ def bin_data(array, binsize, func=np.mean):
 
 def get_tess_ccd_info(target_coord):
     """use search_targetpixelfile like get_all_sectors?"""
-    ccd_info = tesscut.Tesscut.get_sectors(target_coord)
-    errmsg = f"Target not found in any TESS sectors"
+    ccd_info = Tesscut.get_sectors(target_coord)
+    errmsg = "Target not found in any TESS sectors"
     assert len(ccd_info) > 0, errmsg
     return ccd_info.to_pandas()
 
@@ -783,7 +811,7 @@ def get_harps_bank(
 
 
 def get_mamajek_table(clobber=False, verbose=True, data_loc=DATA_PATH):
-    fp = join(data_loc, f"mamajek_table.csv")
+    fp = join(data_loc, "mamajek_table.csv")
     if not exists(fp) or clobber:
         url = "http://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt"
         # cols="SpT Teff logT BCv Mv logL B-V Bt-Vt G-V U-B V-Rc V-Ic V-Ks J-H H-Ks Ks-W1 W1-W2 W1-W3 W1-W4 Msun logAge b-y M_J M_Ks Mbol i-z z-Y R_Rsun".split(' ')
@@ -1805,7 +1833,7 @@ def query_gaia_params_of_all_tois(
     elif exists(fp) and update:
         # load file and append new queries
         if verbose:
-            print(f"Querying Gaia DR2 catalog for new TOIs\n")
+            print("Querying Gaia DR2 catalog for new TOIs\n")
         toi_gaia_params = dd.io.load(fp)
         downloaded_tois = np.sort(list(toi_gaia_params.keys()))
         for toi in tqdm(toiids):
@@ -2099,7 +2127,7 @@ def get_RV_K(
     Ms_Msun : tuple
         median and 1-sigma error
     """
-    if (
+    if np.all(
         isinstance(P_days, tuple),
         isinstance(Ms_Msun, tuple),
         isinstance(mp_Mearth, tuple),

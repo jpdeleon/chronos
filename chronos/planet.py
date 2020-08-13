@@ -2,6 +2,7 @@
 planet characterization module
 """
 from pathlib import Path
+from tqdm import tqdm
 import numpy as np
 from scipy import stats
 import astropy.units as u
@@ -11,7 +12,9 @@ from astropy.visualization import hist
 from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive as nea
 
 from chronos.star import Star
-from chronos.utils import get_RV_K, get_RM_K
+from chronos.lightcurve import ShortCadence
+from chronos.constants import TESS_TIME_OFFSET
+from chronos.utils import get_RV_K, get_RM_K, get_tois
 from chronos.config import DATA_PATH
 
 __all__ = ["Planet"]
@@ -83,6 +86,242 @@ class Planet(Star):
         )
         desc += f"every {Porb:.2f} d."
         print(r"{}".format(desc))
+
+    def save_ini_vespa(self, outdir=".", fpp_params=None):
+        """fpp.ini file for vespa calcfpp script
+        See:
+        https://github.com/timothydmorton/VESPA/blob/master/README.rst
+        """
+        # errmsg = "This method is available for TESS mission"
+        # assert self.mission=='tess', errmsg
+        target_name = self.target_name.replace(" ", "")
+
+        fpp_arr = []
+        fpp_arr.append(f"name = {target_name}")
+        fpp_arr.append(f"ra = {self.target_coord.ra.deg:.4f}")
+        fpp_arr.append(f"dec = {self.target_coord.dec.deg:.4f}")
+
+        period = (
+            fpp_params["period"] if fpp_params is not None else self.toi_period
+        )
+        if period is None:
+            print("Manually append 'period' to file")
+        else:
+            fpp_arr.append(f"period = {period:.4f}")
+        depth = (
+            fpp_params["depth"] if fpp_params is not None else self.toi_depth
+        )
+        if depth is None:
+            print("Manually append 'rprs' to file")
+        else:
+            fpp_arr.append(f"rprs = {depth:.4f}")
+        if self.mission.lower() == "tess":
+            fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
+            fpp_arr.append("band = TESS")
+        else:
+            fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
+            fpp_arr.append("band = Kepler")
+        print("Double check entries for cadence and band.")
+        fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
+        fpp_arr.append("[constraints]")
+        if self.mission.lower() == "tess":
+            fpp_arr.append("maxrad = 60.0")  # arcsec
+        else:
+            fpp_arr.append("maxrad = 12.0")  # arcsec
+        secthresh = fpp_params["secthresh"] if fpp_params is not None else None
+        if depth is None:
+            print("Manually append 'secthresh' to file")
+        else:
+            fpp_arr.append(f"secthresh = {secthresh}")
+        outdir = target_name if outdir == "." else outdir
+        outpath = Path(outdir, "fpp.ini")
+        if not Path(outdir).exists():
+            Path(outdir).mkdir()
+        np.savetxt(outpath, fpp_arr, fmt="%2s", header=target_name)
+        print(f"Saved: {outpath}\n{fpp_arr}")
+
+    def save_ini_johannes(
+        self,
+        outdir=".",
+        save_lc=False,
+        cadence="short",
+        lctype="pdcsap",
+        teff=None,
+        logg=None,
+        feh=None,
+        rstar=None,
+        period=None,
+        epoch=None,
+        duration=None,
+    ):
+        """target.ini file for johannes lcfit script
+        Parameters
+        ----------
+        outdir : str
+        save_lc : bool (default=False)
+            save raw lcs in each sector needed to run johannes' lcfit script
+            and folded lcs in each sector and candidate to run vespa's calc_fpp
+        cadence : str
+            (default='short')
+        lctype : str
+            (default='pdcsap')
+        teff : tuple
+        logg : tuple
+        feh : tuple
+        rstar : tuple
+        period : float
+            orbital period [d]
+        epoch : float
+            [BJD]
+        duration : float
+            transit duration [d]
+        Example file
+        ------------
+        [planets]
+            [[251319382.03]]
+                per = 3.708550700
+                t0 = 2458102.387129
+                t14 = 0.06
+                rprs = 0.0140929
+            [[251319382.02]]
+        [star]
+            teff = 5875, 100
+            logg = 4.92, 0.08
+            feh = 0.0, 0.1
+            rad = 0.95, 0.05
+        """
+        # errmsg = "This method is available for TESS mission"
+        # assert self.mission=='tess', errmsg
+
+        if teff is not None:
+            assert isinstance(teff, tuple)
+        if logg is not None:
+            assert isinstance(logg, tuple)
+        if feh is not None:
+            assert isinstance(feh, tuple)
+        if rstar is not None:
+            assert isinstance(rstar, tuple)
+
+        Teff = self.toi_Teff if teff is None else teff[0]
+        Teff_err = self.toi_Teff_err if teff is None else teff[1]
+        log10g = self.toi_logg if logg is None else logg[0]
+        log10g_err = self.toi_logg_err if logg is None else logg[1]
+        metfeh = self.toi_feh if feh is None else feh[0]
+        metfeh_err = self.toi_feh_err if feh is None else feh[1]
+        Rstar = self.toi_Rstar if rstar is None else rstar[0]
+        Rstar_err = self.toi_Rstar_err if rstar is None else rstar[1]
+
+        target_name = self.target_name.replace(" ", "")
+
+        # get TOI candidate ephemerides
+        tois = get_tois(clobber=False)
+        df = tois[tois["TIC ID"] == self.ticid]
+        nplanets = len(df)
+        errmsg = f"{target_name} has {nplanets}"
+        if period is not None:
+            assert len(period) == nplanets, errmsg
+        if epoch is not None:
+            assert len(epoch) == nplanets, errmsg
+        if duration is not None:
+            assert len(duration) == nplanets, errmsg
+
+        outdir = target_name if outdir == "." else outdir
+        lcs = []
+        if save_lc:
+            if cadence == "short":
+                print(f"Querying {cadence} cadence PDCSAP light curve")
+                sc = ShortCadence(ticid=self.ticid)
+                for sector in tqdm(self.all_sectors):
+                    try:
+                        lc = sc.get_lc(lctype=lctype, sector=sector)
+                        # BTJD
+                        lc.time = lc.time + TESS_TIME_OFFSET
+                        lcname = f"{target_name}-{lctype}-s{sector}-raw.txt"
+                        lcpath = Path(outdir, lcname)
+                        # for johannes
+                        lc.to_csv(
+                            lcpath,
+                            columns=["time", "flux"],
+                            header=False,
+                            sep=" ",
+                            index=False,
+                        )
+                        print("Saved: ", lcpath)
+                        lcs.append(lc)
+                    except Exception as e:
+                        print(
+                            f"Error: Cannot save {cadence} cadence light curve\n{e}"
+                        )
+            else:
+                errmsg = "Only cadence='short' is available for now."
+                raise ValueError(errmsg)
+
+        out = f"#command: lcfit -i {lcname} -c {target_name}.ini "
+        out += "-o johannes --mcmc-burn 500 --mcmc-thin 10 --mcmc-steps 1000\n"
+        out += "[planets]\n"
+        for i, (k, row) in enumerate(df.iterrows()):
+            d = row
+            per = d["Period (days)"] if period is None else period[i]
+            t0 = d["Epoch (BJD)"] if epoch is None else epoch[i]
+            dur = (
+                d["Duration (hours)"] / 24 if duration is None else duration[i]
+            )
+            for lc in lcs:
+                # save folded lc for vespa
+                # TODO: merge all sectors in one folded lc
+                fold = lc.fold(period=per, t0=t0)
+                lcname2 = (
+                    f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-fold.txt"
+                )
+                lcpath2 = Path(outdir, lcname2)
+                fold.to_csv(
+                    lcpath2,
+                    columns=["time", "flux"],
+                    header=False,
+                    sep=" ",
+                    index=False,
+                )
+                print("Saved: ", lcpath2)
+            print(f"==={d.TOI}===")
+            out += f"\t[[{d.TOI}]]\n"
+            out += f"\t\tper = {per:.6f}\n"
+            out += f"\t\tt0 = {t0:.6f}\n"
+            out += f"\t\tt14 = {dur:.2f}\n"
+        out += "[star]\n"
+        out += f"\tteff = {Teff:.0f}, {Teff_err:.0f}\n"
+        out += f"\tlogg = {log10g:.2f}, {log10g_err:.2f}\n"
+        out += f"\tfeh = {metfeh:.2f}, {metfeh_err:.2f}\n"
+        out += f"\trad = {Rstar:.2f}, {Rstar_err:.2f}\n"
+
+        outpath = Path(outdir, f"{target_name}.ini")
+        if not Path(outdir).exists():
+            Path(outdir).mkdir()
+        with open(outpath, "w") as file:
+            file.write(out)
+        print(f"Saved: {outpath}\n{out}")
+
+    def save_ini(
+        self,
+        outdir=".",
+        kwargs_iso=None,
+        kwargs_johannes=None,
+        kwargs_vespa=None,
+    ):
+        """
+        save .ini files for isochrones, johannes, & vespa scripts
+        """
+        try:
+            self.save_ini_isochrones(outdir=outdir, **kwargs_iso)
+        except Exception as e:
+            print(f"Error in `save_ini_isochrones`\n{e}")
+        try:
+            self.save_ini_johannes(outdir=outdir, **kwargs_johannes)
+        except Exception as e:
+            print(f"Error in `save_ini_johannes`\n{e}")
+        try:
+            self.save_ini_vespa(outdir=outdir, **kwargs_vespa)
+        except Exception as e:
+            print(f"Error in `save_ini_vespa`\n{e}")
 
     def get_nea_params(self, query_string=None):
         """

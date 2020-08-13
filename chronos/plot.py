@@ -81,6 +81,7 @@ def plot_mass_radius_diagram():
     errmsg = "To be added later"
     raise NotImplementedError(errmsg)
 
+
 def plot_cluster_map(
     target_coord=None,
     catalog_name="Bouma2019",
@@ -848,7 +849,7 @@ def plot_rotation_period(
     a = ax[n].scatter(
         phase * peak_period, flux, c=time, cmap=pl.get_cmap("Blues")
     )
-    pl.colorbar(a, ax=ax[n], label=f"Time [BTJD]")
+    pl.colorbar(a, ax=ax[n], label="Time [BTJD]")
     ax[n].legend()
     if xlims is None:
         ax[n].set_xlim(-peak_period / 2, peak_period / 2)
@@ -1259,7 +1260,7 @@ def plot_interactive(
     return chart2 + chart1 + chart0
 
 
-def df_to_gui(df):
+def df_to_gui(df, xaxis=None, yaxis=None):
     """
     turn df columns into interactive 2D plots
     """
@@ -1270,8 +1271,8 @@ def df_to_gui(df):
         cmd = "pip install hvplot panel"
         raise ModuleNotFoundError(cmd)
 
-    x = pn.widgets.Select(name="x", options=df.columns.tolist())
-    y = pn.widgets.Select(name="y", options=df.columns.tolist())
+    x = pn.widgets.Select(name="x", value=xaxis, options=df.columns.tolist())
+    y = pn.widgets.Select(name="y", value=yaxis, options=df.columns.tolist())
     kind = pn.widgets.Select(
         name="kind", value="scatter", options=["bivariate", "scatter"]
     )

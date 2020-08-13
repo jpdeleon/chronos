@@ -732,7 +732,7 @@ class Star(Target):
         self.iso_params = iso_params
         return iso_params
 
-    def save_star_ini(self, outdir="."):
+    def save_ini_isochrones(self, outdir="."):
         """star.ini file for isochrones starfit script
         See:
         https://github.com/timothydmorton/isochrones/blob/master/README.rst
@@ -759,57 +759,6 @@ class Star(Target):
             Path(outdir).mkdir()
         np.savetxt(outpath, starfit_arr, fmt="%2s", header=target_name)
         print(f"Saved: {outpath}\n{starfit_arr}")
-
-    def save_fpp_ini(self, outdir=".", fpp_params=None):
-        """fpp.ini file for vespa calcfpp script
-        See:
-        https://github.com/timothydmorton/VESPA/blob/master/README.rst
-        """
-        target_name = self.target_name.replace(" ", "")
-
-        fpp_arr = []
-        fpp_arr.append(f"name = {target_name}")
-        fpp_arr.append(f"ra = {self.target_coord.ra.deg:.4f}")
-        fpp_arr.append(f"dec = {self.target_coord.dec.deg:.4f}")
-
-        period = (
-            fpp_params["period"] if fpp_params is not None else self.toi_period
-        )
-        if period is None:
-            print("Manually append 'period' to file")
-        else:
-            fpp_arr.append(f"period = {period:.4f}")
-        depth = (
-            fpp_params["depth"] if fpp_params is not None else self.toi_depth
-        )
-        if depth is None:
-            print("Manually append 'rprs' to file")
-        else:
-            fpp_arr.append(f"rprs = {depth:.4f}")
-        if self.mission.lower() == "tess":
-            fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
-            fpp_arr.append("band = TESS")
-        else:
-            fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
-            fpp_arr.append("band = Kepler")
-        print("Double check entries for cadence and band.")
-        fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
-        fpp_arr.append("[constraints]")
-        if self.mission.lower() == "tess":
-            fpp_arr.append("maxrad = 60.0")  # arcsec
-        else:
-            fpp_arr.append("maxrad = 12.0")  # arcsec
-        secthresh = fpp_params["secthresh"] if fpp_params is not None else None
-        if depth is None:
-            print("Manually append 'secthresh' to file")
-        else:
-            fpp_arr.append(f"secthresh = {secthresh}")
-        outdir = target_name if outdir == "." else outdir
-        outpath = Path(outdir, "fpp.ini")
-        if not Path(outdir).exists():
-            Path(outdir).mkdir()
-        np.savetxt(outpath, fpp_arr, fmt="%2s", header=target_name)
-        print(f"Saved: {outpath}\n{fpp_arr}")
 
     def init_isochrones(
         self,
@@ -1501,7 +1450,7 @@ class Star(Target):
         return (
             None
             if self.toi_params is None
-            else self.toi_params["Stellar Metallicity err"]
+            else self.toi_params[" Stellar Metallicity err"]
         )
 
     @property

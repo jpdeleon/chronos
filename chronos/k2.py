@@ -8,6 +8,7 @@ from pathlib import Path
 from os.path import join, exists
 from urllib.request import urlretrieve
 import logging
+import requests
 
 # Import library
 import numpy as np
@@ -41,7 +42,7 @@ from chronos.utils import (
 pl.style.use("default")
 log = logging.getLogger(__name__)
 
-__all__ = ["K2", "Everest", "K2sff"]
+__all__ = ["K2", "Everest", "K2sff", "plot_k2_campaign_fov"]
 
 
 class _KeplerLightCurve(lk.KeplerLightCurve):
@@ -430,6 +431,8 @@ class Everest(K2):
         self.cadenceno = None
         self.everest_recarray = None
         self.lc_everest = self.get_everest_lc()
+        if self.lc_everest.campaign is None:
+            self.lc_everest.campaign = self.campaign
 
     def get_everest_url_and_fn(self, campaign=None):
         """
@@ -586,6 +589,8 @@ class K2sff(K2):
         self.k2sff_header = None
         self.k2sff_recarray = None
         self.lc_k2sff = self.get_k2sff_lc()
+        if self.lc_k2sff.campaign is None:
+            self.lc_k2sff.campaign = self.campaign
 
     def get_k2sff_url_and_fn(self, campaign=None, filetype="fits"):
         """
@@ -892,3 +897,41 @@ def get_K2_star_data():
     print("Downloading Table X of Hardegree-Ullmann+2020:")
     urlretrieve(url, fp)
     print("Saved: ", fp)
+
+
+def get_K2_campaign_fov():
+    """
+    K2 campaign FOV footprint in json format
+    Source:
+    https://keplerscience.arc.nasa.gov/k2-fields.html
+    """
+    url = "https://raw.githubusercontent.com/KeplerGO/K2FootprintFiles/master/json/k2-footprint.json"
+    footprint_dict = requests.get(url).json()
+    return footprint_dict
+
+
+def plot_k2_campaign_fov(
+    campaign, figsize=(8, 5), ax=None, color="k", text_offset=0
+):
+    """
+    plot FOV of a given K2 campaign
+    """
+    footprint_dict = get_K2_campaign_fov()
+    if ax is None:
+        fig, ax = pl.subplots(1, 1, figsize=figsize)
+    channels = footprint_dict[f"c{campaign}"]["channels"]
+
+    for c in channels.keys():
+        channel = channels[c]
+        x = channel["corners_ra"] + channel["corners_ra"][:1]
+        y = channel["corners_dec"] + channel["corners_dec"][:1]
+        ax.plot(x, y, color=color)
+    ax.annotate(
+        campaign,
+        (x[0] + text_offset, y[0] + text_offset),
+        color=color,
+        fontsize=20,
+    )
+    ax.set_xlabel("RA [deg]")
+    ax.set_ylabel("DEC [deg]")
+    return ax

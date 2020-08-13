@@ -46,6 +46,7 @@ from chronos.utils import (
     get_below_upper_limit,
     flatten_list,
     get_TGv8_catalog,
+    get_k2_data_from_exofop,
 )
 
 log = logging.getLogger(__name__)
@@ -457,7 +458,7 @@ class Target:
             # get nearest match
             tab = tab.iloc[0]
             if tab.wdflag == 1:
-                print(f"white dwarf flag = True!")
+                print("white dwarf flag = True!")
             if self.ticid is not None:
                 id = int(tab["ID"])
                 msg = f"Nearest match ({id}) != {self.ticid}"
@@ -515,7 +516,7 @@ class Target:
             assert np.allclose(g.radius_val, t.rad, rtol=Rtol)
 
         # check gaia ID
-        if self.gaiaid is not None:
+        if (self.gaiaid is not None) and (t["GAIA"] is not np.nan):
             assert g.source_id == int(t["GAIA"]), "Different source IDs!"
 
         print("Gaia and TIC catalog cross-match succeeded.")
@@ -781,7 +782,7 @@ class Target:
             else:
                 return cluster
         else:
-            print(f"Target not likely a cluster member")
+            print("Target not likely a cluster member")
 
     def get_nearest_cluster_member(
         self,
@@ -821,7 +822,7 @@ class Target:
                 idx = df.source_id.isin([self.gaiaid])
                 if sum(idx) == 0:
                     errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog\n"
-                    errmsg += f"Use match_id=False to get nearest cluster\n"
+                    errmsg += "Use match_id=False to get nearest cluster\n"
                     raise ValueError(errmsg)
                 nearest_star = df.iloc[np.argmax(idx)]
                 self.nearest_cluster_member = nearest_star
@@ -863,7 +864,7 @@ class Target:
                         # query distance
                         if self.verbose:
                             print(
-                                f"Querying parallax from Gaia DR2 to get distance"
+                                "Querying parallax from Gaia DR2 to get distance"
                             )
                         self.target_coord = get_target_coord_3d(
                             self.target_coord
@@ -1502,6 +1503,11 @@ class Target:
         ax.set_yticklabels(ax.get_yticklabels(), rotation=0, fontsize=12)
         ax.set_xticklabels(ax.get_xticklabels(), rotation=45, fontsize=12)
         return fig
+
+    def get_k2_data_from_exofop(self, table="star"):
+        """
+        """
+        return get_k2_data_from_exofop(self.epicid, table=table)
 
     def query_specs_from_tfop(self, clobber=None, mission=None):
         """

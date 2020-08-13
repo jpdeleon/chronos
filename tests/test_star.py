@@ -3,10 +3,13 @@ import numpy as np
 import pandas as pd
 from chronos.star import Star
 
+s = Star(toiid=200)
+
 
 def test_star_attributes():
+    """
+    """
     # check inherited attributes
-    s = Star(toiid=200)
     assert s.ticid is not None
     assert s.toiid is not None
     assert s.target_coord is not None
@@ -17,20 +20,23 @@ def test_star_attributes():
 
 
 def test_star_Av():
-    s = Star(toiid=200)
+    """
+    """
     Av = s.estimate_Av(map="sfd")
     assert Av is not None
 
 
 def test_star_spec_type():
-    s = Star(toiid=200)
+    """
+    """
     # spec typing
     spec_types, samples = s.get_spectral_type(return_samples=True)
     assert (spec_types is not None) & (samples is not None)
 
 
 def test_star_age():
-    s = Star(toiid=200)
+    """
+    """
     # age
     # FIXME: add get_age_from_rotation_amplitude
     # FIXME: add get_age_from_isochrones
@@ -42,7 +48,8 @@ def test_star_age():
 
 
 def test_star_iso():
-    s = Star(toiid=200)
+    """
+    """
     # iso
     iso_params1 = s.get_iso_params(bands="G BP RP".split())
     assert isinstance(iso_params1, dict)
