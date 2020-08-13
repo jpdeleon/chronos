@@ -4,16 +4,23 @@ https://stackoverflow.com/a/58932741/1910174
 """
 from setuptools import setup, find_packages
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+with open("requirements.txt", "r") as fh:
+    install_requires = fh.read().splitlines()
+
 setup(
     name="chronos",
     version="0.1.0",
     description="discovery and characterization of young stars",
-    long_description=open("README.md").read(),
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     url="http://github.com/jpdeleon/chronos",
     author="Jerome de Leon",
     author_email="jpdeleon.bsap@gmail.com",
     license="MIT",
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests"]),
     # scripts=[
     #    "calc_fpp",
     #     "scripts/check_target_in_cluster",
@@ -22,18 +29,12 @@ setup(
     #     "scripts/find_cluster_near_target",
     #     "scripts/make_cdips_ql",
     # ],
-    install_requires=[
-        "tqdm",
-        "astroquery==0.4",
-        "lightkurve==1.9.0",
-        "astropy==4.0",
-        "pandas==1.0.1",
-        "astroplan==0.6",
-        "transitleastsquares",
-        "wotan==1.7",
-        "scikit-image==0.16.2",  # just for measure.find_contours
-        "deepdish==0.3.6",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Operating System :: OS Independent",
     ],
+    install_requires=install_requires,
     extras_requires={
         "triceratops": [
             "git+https://github.com/stevengiacalone/triceratops.git#egg=triceratops"

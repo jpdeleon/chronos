@@ -732,14 +732,14 @@ class Star(Target):
         self.iso_params = iso_params
         return iso_params
 
-    def save_ini_isochrones(self, outdir="."):
+    def save_ini_isochrones(self, outdir=".", **iso_kwargs):
         """star.ini file for isochrones starfit script
         See:
         https://github.com/timothydmorton/isochrones/blob/master/README.rst
         """
         target_name = self.target_name.replace(" ", "")
         if self.iso_params is None:
-            iso_params = self.get_iso_params()
+            iso_params = self.get_iso_params(**iso_kwargs)
         else:
             iso_params = self.iso_params
         starfit_arr = []

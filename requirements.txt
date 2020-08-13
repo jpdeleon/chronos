@@ -5,7 +5,7 @@ pandas==1.0.1
 tqdm==4.28.1
 astroplan==0.6
 transitleastsquares==1.0.23
-# wotan
+wotan==1.7
 scikit-image==0.16.2 #just for measure.find_contours
 # gitpython
 # pprint==3.8.2

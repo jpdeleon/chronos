@@ -1,6 +1,7 @@
 """
 planet characterization module
 """
+import subprocess
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
@@ -70,6 +71,7 @@ class Planet(Star):
         self.letter = letter
         self.planet_params = None
         self.nea_params = None
+        self.lcfit_cmd = None
 
     def describe_system(self):
         Rp, Rp_err = self.toi_Rp, self.toi_Rp_err
@@ -246,8 +248,8 @@ class Planet(Star):
                             sep=" ",
                             index=False,
                         )
-                        print("Saved: ", lcpath)
                         lcs.append(lc)
+                        print("Saved: ", lcpath)
                     except Exception as e:
                         print(
                             f"Error: Cannot save {cadence} cadence light curve\n{e}"
@@ -255,10 +257,14 @@ class Planet(Star):
             else:
                 errmsg = "Only cadence='short' is available for now."
                 raise ValueError(errmsg)
+        else:
+            lcname = f"{target_name}-{lctype}-s{self.all_sectors[0]}-raw.txt"
 
-        out = f"#command: lcfit -i {lcname} -c {target_name}.ini "
-        out += "-o johannes --mcmc-burn 500 --mcmc-thin 10 --mcmc-steps 1000\n"
-        out += "[planets]\n"
+        out = f"#command: lcfit -b {self.mission.upper()[0]} -i {lcname} -c {target_name}.ini "
+        out += "-o johannes --mcmc-burn 500 --mcmc-thin 10 --mcmc-steps 1000 -k 501"
+        self.lcfit_cmd = out
+        out += "\n[planets]\n"
+        # flat_lcs = []
         for i, (k, row) in enumerate(df.iterrows()):
             d = row
             per = d["Period (days)"] if period is None else period[i]
@@ -266,22 +272,46 @@ class Planet(Star):
             dur = (
                 d["Duration (hours)"] / 24 if duration is None else duration[i]
             )
-            for lc in lcs:
-                # save folded lc for vespa
-                # TODO: merge all sectors in one folded lc
-                fold = lc.fold(period=per, t0=t0)
-                lcname2 = (
-                    f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-fold.txt"
-                )
-                lcpath2 = Path(outdir, lcname2)
-                fold.to_csv(
-                    lcpath2,
-                    columns=["time", "flux"],
-                    header=False,
-                    sep=" ",
-                    index=False,
-                )
-                print("Saved: ", lcpath2)
+            if save_lc:
+                for lc in lcs:
+                    # save folded lc for vespa
+                    # TODO: merge all sectors in one folded lc
+                    flat = sc.get_flat_lc(
+                        lc,
+                        period=per,
+                        epoch=t0,
+                        duration=dur * 24,
+                        window_length=5 * dur,
+                        edge_cutoff=0.1,
+                    )
+                    flat = flat.remove_nans()
+                    # flat_lcs.append(flat)
+                    lcname2 = (
+                        f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-flat.txt"
+                    )
+                    lcpath2 = Path(outdir, lcname2)
+                    flat.to_csv(
+                        lcpath2,
+                        columns=["time", "flux"],
+                        header=False,
+                        sep=" ",
+                        index=False,
+                    )
+                    print("Saved: ", lcpath2)
+
+                    fold = flat.fold(period=per, t0=t0).remove_nans()
+                    lcname3 = (
+                        f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-fold.txt"
+                    )
+                    lcpath3 = Path(outdir, lcname3)
+                    fold.to_csv(
+                        lcpath3,
+                        columns=["time", "flux"],
+                        header=False,
+                        sep=" ",
+                        index=False,
+                    )
+                    print("Saved: ", lcpath3)
             print(f"==={d.TOI}===")
             out += f"\t[[{d.TOI}]]\n"
             out += f"\t\tper = {per:.6f}\n"
@@ -303,9 +333,9 @@ class Planet(Star):
     def save_ini(
         self,
         outdir=".",
-        kwargs_iso=None,
-        kwargs_johannes=None,
-        kwargs_vespa=None,
+        kwargs_iso={"bands": "G BP RP J H K W1 W2 W3 TESS".split()},
+        kwargs_johannes={"save_lc": True},
+        kwargs_vespa={"fpp_params": None},
     ):
         """
         save .ini files for isochrones, johannes, & vespa scripts
@@ -322,6 +352,28 @@ class Planet(Star):
             self.save_ini_vespa(outdir=outdir, **kwargs_vespa)
         except Exception as e:
             print(f"Error in `save_ini_vespa`\n{e}")
+
+    def run_lcfit_script(self):
+        """
+        fit transits by launching a process that calls the lcfit script
+        """
+        if self.lcfit_cmd is None:
+            errmsg = "First, run: `save_ini_johannes(save_lc=True)`"
+            raise ValueError(errmsg)
+        else:
+            print(self.lcfit_cmd)
+            cmd = self.lcfit_cmd.split("command: ")[1]
+            # outdir = cmd.split('-o ')[1].split(' ')[0]
+            outdir = self.target_name.replace(" ", "")
+            # import pdb; pdb.set_trace()
+            subprocess.call(["cd", outdir], shell=True)
+            subprocess.call(cmd.split(" "), cwd=outdir)
+
+    def run_vespa_script(self):
+        """
+        calculate fpp by launching a process that calls the calcfpp script
+        """
+        raise NotImplementedError()
 
     def get_nea_params(self, query_string=None):
         """
