@@ -6,13 +6,15 @@ from matplotlib.axes import Axes
 import lightkurve as lk
 from chronos import CDIPS
 
-TICID = 460205581
+# TICID = 460205581
+TOIID = 837
 SECTOR = 10
 QUALITY_BITMASK = "default"
 
 
 cdips = CDIPS(
-    ticid=TICID,
+    # ticid=TICID,
+    toiid=TOIID,
     sector=SECTOR,
     lctype="flux",
     aper_idx=1,

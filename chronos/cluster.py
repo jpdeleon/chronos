@@ -50,12 +50,16 @@ __all__ = [
     "plot_xyz_3d",
 ]
 
-# PROT_CATALOG_DICT = {"Reinhold2020": "J/A+A/635/A43",
-#                       "Barnes2015": "J/A+A/583/A73", #M48/NGC2548
-#                       "Meibom2011": "J/ApJ/733/L9", #NGC 6811
-#                       "Rebull2018": "J/AJ/155/196", #USco and ρ Oph
-#                       "Rebull2016": "J/AJ/152/114"
-#                      }
+PROT_CATALOG_DICT = {
+    "Reinhold2020": "J/A+A/635/A43",
+    # M48/NGC2548
+    "Barnes2015": "J/A+A/583/A73",
+    # NGC 6811
+    "Meibom2011": "J/ApJ/733/L9",
+    # USco and ρ Oph
+    "Rebull2018": "J/AJ/155/196",
+    "Rebull2016": "J/AJ/152/114",
+}
 
 # tables = Vizier.get_catalogs(PROT_CATALOG_DICT["Barnes2015"])
 # df = tables[0].to_pandas()
@@ -84,20 +88,46 @@ CATALOG_DICT = {
     "Babusiaux2018": "J/A+A/616/A10",
     # merged catalogs
     "Bouma2019": "J/ApJS/245/13",
+    # 28 GC in APOGEE14 and 11 GC in APOGEE16; no parallax
+    "Nataf2019": "J/AJ/158/14",
     # Banyan sigma
     "Gagne2018a": "J/ApJ/860/43",  # TGAS
     "Gagne2018b": "J/ApJ/862/138",  # DR2
-    "Carrera2018": "J/A+A/623/A80",  # APOGEE14+GALAH2 of open clusters
+    # ages of 269 OC
+    "Bossini2019": "J/A+A/623/A108/tablea",
+    # APOGEE14+GALAH2 of open clusters
+    "Carrera2019": "J/A+A/623/A80",
     # Argus assoc via simbad link
     "Zuckerman2019": "None",
     # eta Cha assoc
     "Murphy2013": "J/MNRAS/435/1325",
     # nu Cha assoc
     "Bell2015": "J/MNRAS/454/593",
-    # ages of 269 OC
-    "Bossini2019": "J/A+A/623/A108/tablea",
+    # volans-carina: 90 Myr @ 85 pc
+    # "Gagne2018c": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2018ApJ...865..136G",
+    # Ruprecht 147 DANCe: oldest open cluster @ 300pc
+    "Olivares2019": "J/A+A/625/A115",
+    # Membership & properties of moving groups with Gaia
+    "Ujjwal2020": "J/AJ/159/166",
+    # young low-mass stars d<25 pc, spectroscopic obs
+    "Shkolnik2009": "J/ApJ/699/649",
+    # distances, kinematics, membership
+    "Shkolnik2012": "J/ApJ/758/56",
+    # Young Nearby Moving Groups from a Sample of Chromospherically Active Stars in RAVE
+    "RamirezPreciado2018": "J/ApJ/867/93",
+    # Young Nearby Moving Groups from a Sample of Chromospherically Active Stars in RAVE II
+    "Zerjal2017": "J/ApJ/835/61",
+    # 146 nearby, young, low-mass stars young stars from all-sky search
+    "Binks2020": "J/MNRAS/491/215",
+    # Young Binaries and Lithium-rich Stars in the Solar Neighborhood
+    "Bowler2019": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2019ApJ...877...60B",
+    # GALEX nearby young-star survey
+    "Rodriguez2013": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2013ApJ...774..101R",
+    # Young (<100Myr) massive star clusters
+    "Portegies2010": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2010ARA%26A..48..431P",
     # OC
     "Sampedro2017": "J/MNRAS/470/3937",
+    # 	Gaia-ESO Survey in 7 open star cluster fields
     "Randich2018": "J/A+A/612/A99",
     "Karchenko2013": "J/A+A/558/A53",
     # OC #"Dias2014"?
@@ -106,14 +136,12 @@ CATALOG_DICT = {
     "Curtis2019": "J/AJ/158/77",
     # praesepe, alpa per
     "Lodieu2019": "J/A+A/628/A66",
-    # young RV
-    # 'Schneider2019': 'J/AJ/157/234',
+    # ACRONYM III: young low-mass stars in the solar neighborhood
+    "Schneider2019": "J/AJ/157/234",
     # young harps RV
     "Grandjean2020": "J/A+A/633/A44",
-    # 'Carerra2019': 'J/A+A/623/A80', #apogee+galah
     # 'BailerJones2018': 'I/347', #distances
     # 'Luo2019': 'V/149', #Lamost
-    # 'Olivares2019': 'J/A+A/625/A115', #Ruprecht 147 DANCe: oldest open cluster @ 300pc
     # "Cody2018": "",
 }
 
@@ -329,12 +357,30 @@ class ClusterCatalog(CatalogDownloader):
         elif self.catalog_name == "Babusiaux2018":
             if return_members:
                 df_mem = self.get_members_Babusiaux2018()
+                self.all_members = df_mem
+                return df_mem  # has parallaxes
+            else:
+                df = self.get_clusters_Babusiaux2018()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Carrera2019":
+            if return_members:
+                df_mem = self.get_members_Carrera2019()
+                self.all_members = df_mem
+                return df_mem  # has parallaxes
+            else:
+                df = self.get_clusters_Carrera2019()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Nataf2019":
+            if return_members:
+                df_mem = self.get_members_Nataf2019()
                 # raise NotImplementedError("To be updated")
                 # return self.get_members_Babusiaux2018_near() #fewer members
                 self.all_members = df_mem
                 return df_mem  # has parallaxes
             else:
-                df = self.get_clusters_Babusiaux2018()
+                df = self.get_clusters_Nataf2019()
                 self.all_clusters = df
                 return df
         elif self.catalog_name == "Gagne2018a":
@@ -738,6 +784,74 @@ class ClusterCatalog(CatalogDownloader):
                 "BP-RP": "bp_rp",
             }
         )
+        return df
+
+    def get_clusters_Carrera2019(self):
+        """Carrera et al. 2019:
+        https://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/623/A80
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        # df = _decode_n_drop(df, ["Simbad"])
+        df = df.rename(columns={"_RA": "ra", "_DE": "dec"})
+        return df
+
+    def get_members_Carrera2019(self):
+        """Carrera et al. 2019:
+        https://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/623/A80
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        )
+        df = df.rename(
+            columns={
+                "SourceId": "source_id",
+                "RAICRS": "raJ2015",
+                "DEICRS": "decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "Plx": "parallax",
+                "BP-RP": "bp_rp",
+                "Gmag": "phot_g_mean_mag",
+            }
+        )
+        return df
+
+    def get_clusters_Nataf2019(self):
+        """Nataf et al. 2019:
+        https://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/AJ/158/14
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = _decode_n_drop(df, ["Simbad"])
+        df = df.rename(
+            columns={
+                "_RA": "ra",
+                "_DE": "dec",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+            }
+        )
+        return df
+
+    def get_members_Nataf2019(self):
+        """Nataf et al. 2019:
+        https://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/AJ/158/14
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        tab = Table.read(fp, format="ascii")
+        df = tab.to_pandas()
+        df = df.applymap(
+            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        )
+        df = df.rename(columns={"RAJ2000": "ra", "DEJ2000": "dec"})
         return df
 
     def get_clusters_Babusiaux2018(self):

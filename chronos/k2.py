@@ -105,8 +105,8 @@ class K2(Target):
             print(f"Available campaigns: {self.all_campaigns}")
             print(f"Using campaign={self.campaign}.")
         self.tls_results = None
-        if self.verbose:
-            print(f"Target: {name}")
+        # if self.verbose:
+        #     print(f"Target: {name}")
         self.K2_star_params = None
 
     def get_tpf(self):

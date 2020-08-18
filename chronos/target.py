@@ -113,6 +113,8 @@ class Target:
                 name = self.target_name.upper()
                 if gaiaDR2id is None:
                     self.gaiaid = int(name.strip()[4:])
+        elif (self.ra is not None) & (self.dec is not None):
+            name = f"({self.ra:.3f}, {self.dec:.3f})"
         # specify name
         if self.target_name is None:
             self.target_name = name

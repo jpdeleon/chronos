@@ -59,6 +59,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "get_k2_data_from_exofop",
     "get_nexsci_archive",
+    "get_tepcat",
     "get_tess_ccd_info",
     "get_all_campaigns",
     "get_all_sectors",
@@ -107,7 +108,6 @@ __all__ = [
     "get_tois_mass_RV_K",
     "get_vizier_tables",
     "get_mist_eep_table",
-    "get_tepcat",
     "get_max_dmag_from_depth",
     "get_TGv8_catalog",
     "get_tois_in_TGv8_catalog",
@@ -128,6 +128,17 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+def query_asas_sn_catalog():
+    """
+    NASA/IRSA (has SED viewer also):
+    https://irsa.ipac.caltech.edu/frontpage/
+    ASAS:
+    https://asas-sn.osu.edu/photometry
+    http://www.astrouw.edu.pl/asas/?page=acvs
+    """
+    raise NotImplementedError()
 
 
 def get_k2_data_from_exofop(epic, table="star"):

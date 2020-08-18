@@ -1158,7 +1158,7 @@ def plot_interactive(
         print("pip install altair")
 
     if sys.argv[-1].endswith("json"):
-        print("import altair; altair.notebook()")
+        print("import altair; altair.renderers.enable('notebook')")
 
     cc = ClusterCatalog(verbose=False)
     df0 = cc.query_catalog(catalog_name=catalog_name, return_members=False)

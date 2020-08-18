@@ -33,19 +33,19 @@ from chronos.utils import (
 
 __all__ = ["Star"]
 
-# latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, ALL-WISE, 2MASS
+# latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, LAMOST, ALL-WISE, 2MASS
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
 CATALOGS_STAR_PARMS = {
-    "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
-    "Queiroz2020": "https://arxiv.org/abs/1710.09970",  # starhorse: using APOGEE+Gaia
+    "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia2+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
+    "Queiroz2020": "https://arxiv.org/abs/1710.09970",  # starhorse: using APOGEE+Gaia2
     "HardegreeUllman2020": "https://arxiv.org/abs/2001.11511",  # Gaia2+LAMOST for K2 host stars (TICv8)
     # https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt
     "Anders2019": "https://arxiv.org/abs/1904.11302",  # panstarrs+2MASS+AllWISE+some APOGEE
     # kinematic thin disc, thick disc, and halo membership probabilities:
     # https://zenodo.org/record/3546184#.Xt-UFIFq1Ol
     # Sloan Digital Sky Survey Apache Point Observatory Galaxy Evolution Experiment (APOGEE)
-    "Ahumada2020": "https://arxiv.org/abs/1912.02905",  # SDSS DR16: using APOGEE DR2 -southern+eBOSS spectra
-    "Buder2018": "https://arxiv.org/abs/1804.06041",  # GALAH DR2
+    "Ahumada2020": "https://arxiv.org/abs/1912.02905",  # SDSS16: using APOGEE2 -southern+eBOSS spectra
+    "Buder2018": "https://arxiv.org/abs/1804.06041",  # GALAH2
     "Lin2020": "https://arxiv.org/abs/1911.05221",  # GALAH2=isochrone ages and init bulk met
     # distance- and extinction-corrected CMD, extinction maps as a function of distance, and density maps
     "Guiglion2020": "https://arxiv.org/abs/2004.12666",  # rave w/ CNN
