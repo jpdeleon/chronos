@@ -89,7 +89,6 @@ __all__ = [
     "get_rotation_period",
     "get_transit_mask",
     "get_mag_err_from_flux",
-    "get_err_quadrature",
     "get_phase",
     "bin_data",
     "map_float",
@@ -870,10 +869,6 @@ def get_mag_err_from_flux(flux, flux_err):
     equal to 1.086/(S/N)
     """
     return 2.5 * np.log10(1 + flux_err / flux)
-
-
-def get_err_quadrature(err1, err2):
-    return np.sqrt(err1 ** 2 + err2 ** 2)
 
 
 def get_absolute_gmag(gmag, distance, a_g):

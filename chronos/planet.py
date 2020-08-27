@@ -93,6 +93,8 @@ class Planet(Star):
         """fpp.ini file for vespa calcfpp script
         See:
         https://github.com/timothydmorton/VESPA/blob/master/README.rst
+
+        See `save_ini_johannes(save_lc=True)` to save lc input to vespa
         """
         # errmsg = "This method is available for TESS mission"
         # assert self.mission=='tess', errmsg
@@ -155,6 +157,7 @@ class Planet(Star):
         period=None,
         epoch=None,
         duration=None,
+        phase_trim=0.12,
     ):
         """target.ini file for johannes lcfit script
         Parameters
@@ -304,7 +307,11 @@ class Planet(Star):
                         f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-fold.txt"
                     )
                     lcpath3 = Path(outdir, lcname3)
-                    fold.to_csv(
+                    # clip folded lc near phase=0
+                    idx = (fold.phase > -phase_trim) & (
+                        fold.phase < phase_trim
+                    )
+                    fold[idx].to_csv(
                         lcpath3,
                         columns=["time", "flux"],
                         header=False,

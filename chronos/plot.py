@@ -574,6 +574,28 @@ def plot_archival_images(
     https://s3.amazonaws.com/aasie/images/1538-3881/159/3/100/ajab5f15f2_hr.jpg
     Uses reproject to have identical fov:
     https://reproject.readthedocs.io/en/stable/
+
+    Parameters
+    ----------
+    ra, dec : float
+        target coordinates in degrees
+    survey1, survey2 : str
+        survey from which the images will come from
+    fp1, fp2 : path
+        filepaths if the images were downloaded locally
+    height, width
+        fov of view in arcmin (default=1')
+    cmap : str
+        colormap (default='gray')
+    reticle : bool
+        plot circle to mark the original position of target in survey1
+
+    The position offset can be computed as:
+    ```
+    import numpy as np
+    pm = np.hypot(pmra, pmdec) #mas/yr
+    offset = pm*baseline_year/1e3
+    ```
     """
     # poss1
     if fp1 is not None and fp2 is not None:
@@ -639,6 +661,7 @@ def plot_archival_images(
         # ax2.scatter(ra, dec, 'r+')
     ax2.coords["dec"].set_axislabel_position("r")
     ax2.coords["dec"].set_ticklabel_position("r")
+    ax2.coords["dec"].set_axislabel("DEC")
     ax2.set_xlabel("RA")
     filt2 = (
         header2["FILTER"]

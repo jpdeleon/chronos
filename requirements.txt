@@ -9,4 +9,4 @@ wotan==1.7
 scikit-image==0.16.2 #just for measure.find_contours
 # triceratops==0.2.1
 deepdish==0.3.6
-git+https://github.com/rodluger/k2plr.git@master#egg=k2plr
+-e git://github.com/rodluger/k2plr.git@master#egg=k2plr

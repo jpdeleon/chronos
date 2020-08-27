@@ -273,6 +273,23 @@ class Target:
         position (accounting for proper motion) and brightess
         (comparing Tmag to Gmag whenever possible)
 
+        Take caution:
+        * phot_proc_mode=0 (i.e. “Gold” sources, see Riello et al. 2018)
+        * astrometric_excess_noise_sig < 5
+        * astrometric_gof_al < 20
+        * astrometric_chi2_al
+        * astrometric_n_good_obs_al
+        * astrometric_primary_flag
+        * duplicated source=0
+        * visibility_periods_used
+        * phot_variable_flag
+        * flame_flags
+        * priam_flags
+        * phot_(flux)_excess_factor
+        (a measure of the inconsistency between GBP, G, and GRP bands
+        typically arising from binarity, crowdening and incomplete background
+        modelling).
+
         Parameter
         ---------
         radius : float
@@ -287,6 +304,14 @@ class Target:
 
         Notes:
         1. See column meaning here: https://mast.stsci.edu/api/v0/_c_a_o_mfields.html
+
+        2. Gaia DR2 parallax has -80 uas offset (Stassun & Toress 2018,
+        https://arxiv.org/pdf/1805.03526.pdf)
+
+        3. quadratically add 0.1 mas to the uncertainty to account for systematics
+        in the Gaia DR2 data (Luri+2018)
+
+        4. Gmag has an uncertainty of 0.01 mag (Casagrande & VandenBerg 2018)
 
         From Carillo+2019:
         2. the sample with the low parallax errors i.e. 0 < f < 0.1,

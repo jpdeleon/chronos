@@ -24,7 +24,6 @@ from chronos.cluster import ClusterCatalog
 from chronos.utils import (
     get_mamajek_table,
     get_mag_err_from_flux,
-    get_err_quadrature,
     map_float,
     get_mist_eep_table,
     DATA_PATH,
@@ -39,6 +38,7 @@ CATALOGS_STAR_PARMS = {
     "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia2+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
     "Queiroz2020": "https://arxiv.org/abs/1710.09970",  # starhorse: using APOGEE+Gaia2
     "HardegreeUllman2020": "https://arxiv.org/abs/2001.11511",  # Gaia2+LAMOST for K2 host stars (TICv8)
+    # see also: http://kevinkhu.com/table1.txt
     # https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt
     "Anders2019": "https://arxiv.org/abs/1904.11302",  # panstarrs+2MASS+AllWISE+some APOGEE
     # kinematic thin disc, thick disc, and halo membership probabilities:
@@ -569,9 +569,11 @@ class Star(Target):
         feh=None,
         add_parallax=True,
         add_dict=None,
-        bands="G BP RP J H K W1 W2 W3 TESS".split(),
-        min_mag_err=0.01,
+        bands=["J", "H", "K"],  # "G BP RP J H K W1 W2 W3 TESS".split(),
+        correct_Gmag=True,
+        plx_offset=-0.08,
         inflate_plx_err=True,
+        min_mag_err=0.01,
     ):
         """get parameters for isochrones
 
@@ -585,12 +587,14 @@ class Star(Target):
             default=True
         add_dict : dict
             additional params
-        min_mag_err : float
-            minimum magnitude error
+        correct_Gmag : bool
+            inflate Gmag and Gmag err (Casagrande & VandenBerg 2018)
+        plx_offset : float
+            systematic parallax offset (default=-80 uas, Stassun & Torres 2018)
         inflate_plx_err : bool
-            adds 0.01 parallax error in quadrature (default=True),
-            prescription by Luri+2018
-
+            adds 0.01 parallax error in quadrature (default=True) (Luri+2018)
+        min_mag_err : float
+            minimum magnitude uncertainty to use
         Returns
         -------
         iso_params : dict
@@ -614,7 +618,7 @@ class Star(Target):
         if teff == "gaia":
             # Use Teff from Gaia by default
             teff = gp["teff_val"]
-            teff_err = get_err_quadrature(
+            teff_err = np.hypot(
                 gp["teff_percentile_lower"], gp["teff_percentile_lower"]
             )
             if not np.any(np.isnan(map_float((tp["Teff"], tp["e_Teff"])))):
@@ -640,10 +644,10 @@ class Star(Target):
             ), "logg must be a tuple (value,error)"
             params.update({"logg": (logg[0], logg[1])})
         if add_parallax:
-            plx = gp["parallax"]
+            plx = gp["parallax"] + plx_offset
             if inflate_plx_err:
                 # inflate error based on Luri+2018
-                plx_err = get_err_quadrature(gp["parallax_error"], 0.1)
+                plx_err = np.hypot(gp["parallax_error"], 0.1)
             else:
                 plx_err = gp["parallax_error"]
             params.update({"parallax": (plx, plx_err)})
@@ -659,7 +663,11 @@ class Star(Target):
             if "TESS" in bands:
                 params.update({"TESS": (self.toi_Tmag, Tmag_err)})
         if "G" in bands:
-            gmag = gp["phot_g_mean_mag"]
+            if correct_Gmag:
+                # Casagrande & VandenBerg 2018
+                gmag = gp["phot_g_mean_mag"] * 0.9966 + 0.0505
+            else:
+                gmag = gp["phot_g_mean_mag"]
             gmag_err = get_mag_err_from_flux(
                 gp["phot_g_mean_flux"], gp["phot_g_mean_flux_error"]
             )
@@ -732,7 +740,7 @@ class Star(Target):
         self.iso_params = iso_params
         return iso_params
 
-    def save_ini_isochrones(self, outdir=".", **iso_kwargs):
+    def save_ini_isochrones(self, outdir=".", header=None, **iso_kwargs):
         """star.ini file for isochrones starfit script
         See:
         https://github.com/timothydmorton/isochrones/blob/master/README.rst
@@ -751,13 +759,24 @@ class Star(Target):
                 if k in ["Teff", "parallax", "logg", "feh"]:
                     par = k
                 else:
+                    # photometry e.g. J, H, K
                     par = k.upper()
-                starfit_arr.append(f"{par} = {vals[0]}, {vals[1]}")
+                if k == "Teff":
+                    starfit_arr.append(f"{par} = {vals[0]:.0f}, {vals[1]:.0f}")
+                else:
+                    starfit_arr.append(f"{par} = {vals[0]:.3f}, {vals[1]:.3f}")
+        if self.mission.lower() == "k2":
+            q = self.query_vizier_param("Kpmag")
+            if "IV/34/epic" in q:
+                Kpmag = q["IV/34/epic"]
+                starfit_arr.append(f"Kepler = {Kpmag:.3f}")
+
         outdir = target_name if outdir == "." else outdir
         outpath = Path(outdir, "star.ini")
         if not Path(outdir).exists():
             Path(outdir).mkdir()
-        np.savetxt(outpath, starfit_arr, fmt="%2s", header=target_name)
+        header = target_name if header is None else header
+        np.savetxt(outpath, starfit_arr, fmt="%2s", header=header)
         print(f"Saved: {outpath}\n{starfit_arr}")
 
     def init_isochrones(
