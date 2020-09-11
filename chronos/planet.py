@@ -223,12 +223,12 @@ class Planet(Star):
         df = tois[tois["TIC ID"] == self.ticid]
         nplanets = len(df)
         errmsg = f"{target_name} has {nplanets}"
-        if period is not None:
-            assert len(period) == nplanets, errmsg
-        if epoch is not None:
-            assert len(epoch) == nplanets, errmsg
-        if duration is not None:
-            assert len(duration) == nplanets, errmsg
+        # if period is not None:
+        #     assert len(period) == nplanets, errmsg
+        # if epoch is not None:
+        #     assert len(epoch) == nplanets, errmsg
+        # if duration is not None:
+        #     assert len(duration) == nplanets, errmsg
 
         outdir = target_name if outdir == "." else outdir
         lcs = []

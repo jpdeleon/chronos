@@ -5,6 +5,7 @@ classes for plotting cluster properties
 import sys
 import numpy as np
 import matplotlib.pyplot as pl
+import matplotlib.colors as mcolors
 from matplotlib.patches import Circle
 import pandas as pd
 import lightkurve as lk
@@ -57,6 +58,7 @@ __all__ = [
     "get_dss_data",
     "plot_archival_images",
     "plot_dss_image",
+    "plot_likelihood_grid",
 ]
 
 # http://gsss.stsci.edu/SkySurveys/Surveys.htm
@@ -72,6 +74,67 @@ dss_description = {
     "phase2_gsc2": "HST Phase 2 Target Positioning (GSC 2)",
     "phase2_gsc1": "HST Phase 2 Target Positioning (GSC 1)",
 }
+
+
+class MidPointLogNorm(mcolors.LogNorm):
+    """
+    Log normalization with midpoint offset
+
+    from
+    https://stackoverflow.com/questions/48625475/python-shifted-logarithmic-colorbar-white-color-offset-to-center
+    """
+
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        mcolors.LogNorm.__init__(self, vmin=vmin, vmax=vmax, clip=clip)
+        self.midpoint = midpoint
+
+    def __call__(self, value, clip=None):
+        # I'm ignoring masked values and all kinds of edge cases to make a
+        # simple example...
+        x, y = (
+            [np.log(self.vmin), np.log(self.midpoint), np.log(self.vmax)],
+            [0, 0.5, 1],
+        )
+        return np.ma.masked_array(np.interp(np.log(value), x, y))
+
+
+def plot_likelihood_grid(mass_grid, m2s, m3s, cmap="default", aspect_ratio=1):
+    """
+    Parameters
+    ----------
+    mass_grid : 3-d array
+        mass grid of likelihood values
+    """
+    fig, ax = pl.subplots(1, 1, figsize=(8, 8))
+    xmin, xmax = m2s[0], m2s[-1]
+    ymin, ymax = m3s[0], m3s[-1]
+
+    # norm = MidPointLogNorm(
+    #    vmin=mass_grid.min(), vmax=mass_grid.max(), midpoint=0
+    # )
+    # plot matrix
+    cbar = ax.imshow(
+        mass_grid,
+        origin="lower",
+        interpolation="none",
+        extent=[xmin, xmax, ymin, ymax],
+        cmap=cmap,
+        # norm=norm
+    )
+    pl.colorbar(
+        cbar, ax=ax, label="Likelihood", orientation="vertical"  # shrink=0.9,
+    )
+
+    # add labels
+    ax.set_aspect(aspect_ratio)
+    pl.setp(
+        ax,
+        xlim=(xmin, xmax),
+        ylim=(ymin, ymax),
+        xlabel="secondary star mass (Msun)",
+        ylabel="tertiary star mass (Msun)",
+    )
+    return fig
 
 
 def plot_mass_radius_diagram():

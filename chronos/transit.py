@@ -12,6 +12,208 @@ import batman
 
 LOG_TWO_PI = np.log(2 * np.pi)
 
+__all__ = ["get_likelihoods_mass_grid", "get_HEB_depth_from_masses"]
+
+
+def get_likelihoods_mass_grid(
+    m1,
+    m2s,
+    m3s,
+    obs,
+    log10age,
+    tracks,
+    feh,
+    bands=["TESS", "J", "H", "K"],
+    b=0,
+    use_tshape=False,
+    obs_min=0,
+    obs_max=1,
+    occultation=False,
+):
+    """
+    compute model likelihood over a mass grid of secondary and tertiary
+    stars in a HEB system. See also `plot_likelihood_grid`.
+
+    Parameters
+    ----------
+    m1 : float
+        central star mass
+    m2s : list
+        list of secondary star masses
+    m3s : list
+        list of tertiary star masses
+    tracks : str
+        MIST isochrones track from isochrone
+    obs : tuple
+        (value, error) of the parameter of interest e.g. observed transit depth
+    log10age : float
+        age of the system
+    feh : float
+        metallicity of the system
+    bands : list
+        list of band
+    """
+    errmsg = "obs must be a tuple of (value, error)"
+    assert isinstance(obs, tuple), errmsg
+
+    mass_grids = {}
+    for bp in bands:
+        mass_grid = np.zeros((len(m3s), len(m2s)))
+        for i, m2 in enumerate(m2s):
+            for j, m3 in enumerate(m3s):
+                if occultation:
+                    calc = get_HEB_depth_from_masses(
+                        m1,
+                        m2,
+                        m3,
+                        tracks,
+                        log10age,
+                        feh,
+                        band=bp,
+                        occultation=True,
+                    )
+                else:
+                    calc = get_HEB_depth_from_masses(
+                        m1,
+                        m2,
+                        m3,
+                        tracks,
+                        log10age,
+                        feh,
+                        band=bp,
+                        occultation=False,
+                    )
+                if use_tshape:
+                    calc = tshape_approx(np.sqrt(calc), b=b)
+                    # calc = max_k(calc)
+                if (calc >= obs_min) & (calc <= obs_max):
+                    ll = likelihood(calc, obs[0], obs[1])
+                else:
+                    ll = np.nan
+                mass_grid[j, i] = ll
+        mass_grids[bp] = mass_grid
+    return mass_grids
+
+
+def get_HEB_depth_from_masses(
+    mass1,
+    mass2,
+    mass3,
+    tracks,
+    log10age,
+    feh,
+    F0=1,
+    band="TESS",
+    occultation=False,
+):
+    """
+    compute the passband-dependent eclipse depth given masses of the hierarchical system,
+    assuming MIST, b=0, and m3 eclipsing m2
+    Parameters
+    ----------
+    mass1, mass2, mass3 : float
+        mass components of an HEB
+    tracks : obj
+        MIST isochrones track from isochrone
+    log10age : float
+        age of the system
+    feh : float
+        metallicity of the system
+    F0 : float
+        flux contamination factor
+    band : str
+        band
+    occultation : bool
+        compute depth during occultation (default=False)
+    """
+    band = band + "_mag"
+    star1 = tracks.generate(mass1, log10age, feh, return_dict=True)
+    mag1 = star1[band]
+
+    star2 = tracks.generate(mass2, log10age, feh, return_dict=True)
+    mag2 = star2[band]
+
+    star3 = tracks.generate(mass3, log10age, feh, return_dict=True)
+    mag3 = star3[band]
+
+    # rstar1 = star1["radius"]
+    rstar2 = star2["radius"]
+    rstar3 = star3["radius"]
+
+    # mag = -2.5*log10(F/F0)
+    f1 = F0 * 10 ** (-0.4 * mag1)
+    f2 = F0 * 10 ** (-0.4 * mag2)
+    f3 = F0 * 10 ** (-0.4 * mag3)
+
+    # total flux during out of transit/eclipse
+    f_out = f1 + f2 + f3
+
+    if occultation:
+        # flux during eclipse
+        f_in = f1 + f2
+    else:
+        # flux during transit
+        f_in = f1 + f2 - f2 * (rstar3 / rstar2) ** 2 + f3
+
+    return 1 - f_in / f_out
+
+
+def get_EB_depth_from_masses(
+    mass1, mass2, tracks, log10age, feh, F0=1, band="TESS", occultation=False
+):
+    """
+    compute the passband-dependent eclipse depth given masses of the binary system,
+    assuming MIST, b=0, and m2 eclipsing m1
+    Parameters
+    ----------
+    mass1, mass2 : float
+        mass components of an EB
+    tracks : obj
+        MIST isochrones track from isochrone
+    log10age : float
+        age of the system
+    feh : float
+        metallicity of the system
+    F0 : float
+        flux contamination factor
+    band : str
+        band
+    occultation : bool
+        compute depth during occultation (default=False)
+    """
+    assert mass1 >= mass2
+    band = band + "_mag"
+    star1 = tracks.generate(mass1, log10age, feh, return_dict=True)
+    mag1 = star1[band]
+
+    star2 = tracks.generate(mass2, log10age, feh, return_dict=True)
+    mag2 = star2[band]
+
+    rstar1 = star1["radius"]
+    rstar2 = star2["radius"]
+
+    # mag = -2.5*log10(F/F0)
+    f1 = F0 * 10 ** (-0.4 * mag1)
+    f2 = F0 * 10 ** (-0.4 * mag2)
+
+    # total flux during out of transit/eclipse
+    f_out = f1 + f2
+
+    if occultation:
+        # flux during eclipse
+        f_in = f1
+    else:
+        # flux during transit
+        f_in = f1 - f1 * (rstar2 / rstar1) ** 2 + f2
+
+    return 1 - f_in / f_out
+
+
+def likelihood(model, data, err):
+    return (1 / np.sqrt(2 * np.pi * err ** 2)) * np.exp(
+        -((data - model) / err) ** 2
+    )
+
 
 def blackbody_temperature(bmag, vmag):
     """

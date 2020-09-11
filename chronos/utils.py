@@ -111,6 +111,7 @@ __all__ = [
     "get_TGv8_catalog",
     "get_tois_in_TGv8_catalog",
     "get_filter_transmission_from_SVO",
+    "get_limbdark",
 ]
 
 # Ax/Av
@@ -1985,7 +1986,9 @@ def get_fluxes_within_mask(tpf, aper_mask, gaia_sources):
     return gamma
 
 
-def get_limbdark(band, tic_params, teff=None, logg=None, feh=None, **kwargs):
+def get_limbdark(
+    band, teff=None, logg=None, feh=None, tic_params=None, **kwargs
+):
     """
     """
     try:
@@ -1996,19 +1999,22 @@ def get_limbdark(band, tic_params, teff=None, logg=None, feh=None, **kwargs):
         )
         raise ModuleNotFoundError(command)
 
+    if (teff is None) & (logg is None) & (feh is None):
+        teff = (tic_params["Teff"], tic_params["e_Teff"])
+        logg = (tic_params["logg"], tic_params["e_logg"])
+        feh = (tic_params["MH"], tic_params["e_MH"])
+    else:
+        errmsg = "provide `tic_params`"
+        assert tic_params is not None, errmsg
+
     coeffs = ld.claret(
         band=band,
-        teff=teff[0] if np.isnan(tic_params["Teff"]) else tic_params["Teff"],
-        uteff=teff[1]
-        if np.isnan(tic_params["e_Teff"])
-        else tic_params["e_Teff"],
-        logg=logg[0] if np.isnan(tic_params["logg"]) else tic_params["logg"],
-        ulogg=logg[1]
-        if np.isnan(tic_params["e_logg"])
-        else tic_params["e_logg"],
-        feh=feh[0] if np.isnan(tic_params["MH"]) else tic_params["MH"],
-        ufeh=feh[1] if np.isnan(tic_params["e_MH"]) else tic_params["e_MH"],
-        **kwargs,
+        teff=teff[0],
+        uteff=teff[1],
+        logg=logg[0],
+        ulogg=logg[1],
+        feh=feh[0],
+        ufeh=feh[1] ** kwargs,
     )
     return coeffs
 

@@ -305,7 +305,7 @@ class Target:
         Notes:
         1. See column meaning here: https://mast.stsci.edu/api/v0/_c_a_o_mfields.html
 
-        2. Gaia DR2 parallax has -80 uas offset (Stassun & Toress 2018,
+        2. Gaia DR2 parallax has -0.08 mas offset (Stassun & Toress 2018,
         https://arxiv.org/pdf/1805.03526.pdf)
 
         3. quadratically add 0.1 mas to the uncertainty to account for systematics
@@ -314,7 +314,7 @@ class Target:
         4. Gmag has an uncertainty of 0.01 mag (Casagrande & VandenBerg 2018)
 
         From Carillo+2019:
-        2. the sample with the low parallax errors i.e. 0 < f < 0.1,
+        The sample with the low parallax errors i.e. 0 < f < 0.1,
         has distances derived from simply inverting the parallax
 
         Whereas, the sample with higher parallax errors i.e. f > 0.1
@@ -322,10 +322,13 @@ class Target:
         where they use a weak distance prior (i.e. exponentially decreasing space
         density prior) that changes with Galactic latitude and longitude
 
-        3. See also Gaia DR2 Cross-match for the celestial reference system (ICRS)
+        5. See also Gaia DR2 Cross-match for the celestial reference system (ICRS)
         https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu3ast/sec_cu3ast_proc/ssec_cu3ast_proc_xmatch.html
         and
         https://gea.esac.esa.int/archive/documentation/GDR2/Data_processing/chap_cu3ast/sec_cu3ast_cali/ssec_cu3ast_cali_frame.html
+
+        6. See https://github.com/tzdwi/TESS-Gaia and https://github.com/JohannesBuchner/nway
+        and Salvato+2018 Appendix A for catalog matching problem: https://arxiv.org/pdf/1705.10711.pdf
 
         See also CDIPS gaia query:
         https://github.com/lgbouma/cdips/blob/master/cdips/utils/gaiaqueries.py
