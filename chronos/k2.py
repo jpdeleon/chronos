@@ -108,6 +108,7 @@ class K2(Target):
         # if self.verbose:
         #     print(f"Target: {name}")
         self.K2_star_params = None
+        self.best_aper_mask = None
 
     def get_tpf(self):
         """
@@ -390,6 +391,202 @@ class K2(Target):
         )
         return tmask
 
+    def plot_gaia_sources_on_survey(
+        self,
+        gaia_sources=None,
+        aper_mask=None,
+        fov_rad=None,
+        depth=0.0,
+        kmax=1.0,
+        survey="DSS2 Red",
+        ax=None,
+        figsize=None,
+    ):
+        """Plot (superpose) Gaia sources on archival image
+
+        Parameters
+        ----------
+        gaia_sources : pd.DataFrame
+            gaia sources table
+        aper_mask : array
+            aperture mask (uses pipeline mask if None)
+        fov_rad : astropy.unit
+            FOV radius
+        survey : str
+            image survey; see from astroquery.skyview import SkyView;
+            SkyView.list_surveys()
+        ax : axis
+            subplot axis
+        Returns
+        -------
+        ax : axis
+            subplot axis
+        """
+        if aper_mask is None:
+            if self.best_aper_mask is None:
+                errmsg = "Provide `aper_mask`.\n"
+                errmsg += "Try: `tpf = self.get_tpf(); aper_mask = tpf.pipeline_mask`"
+                raise ValueError(errmsg)
+            else:
+                aper_mask = self.best_aper_mask
+
+        if self.tpf is None:
+            tpf = self.get_tpf()
+        else:
+            tpf = self.tpf
+        ny, nx = tpf.flux.shape[1:]
+
+        if fov_rad is None:
+            diag = np.sqrt(nx ** 2 + ny ** 2)
+            fov_rad = (diag * Kepler_pix_scale).to(u.arcsec)
+        if gaia_sources is None:
+            gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
+        if self.gaiaid is None:
+            # _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+            target_gaiaid = gaia_sources.loc[0, "source_id"]
+        else:
+            target_gaiaid = self.gaiaid
+
+        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
+        # make aperture mask
+        maskhdr = tpf.hdu[2].header  # self.k2sff_header
+        # make aperture mask outline
+        contour = np.zeros((ny, nx))
+        contour[np.where(aper_mask)] = 1
+        contour = np.lib.pad(contour, 1, PadWithZeros)
+        highres = zoom(contour, 100, order=0, mode="nearest")
+        extent = np.array([-1, nx, -1, ny])
+
+        if self.verbose:
+            print(
+                f"Querying {survey} ({fov_rad:.2f} x {fov_rad:.2f}) archival image"
+            )
+        # -----------create figure---------------#
+        if ax is None:
+            # get img hdu for subplot projection
+            results = SkyView.get_images(
+                position=self.target_coord.icrs.to_string(),
+                coordinates="icrs",
+                survey=survey,
+                radius=fov_rad,
+                grid=False,
+            )
+            if len(results) > 0:
+                hdu = results[0][0]
+            else:
+                errmsg = (
+                    "SkyView returned empty result. Try a different survey."
+                )
+                raise ValueError(errmsg)
+            # create figure with subplot projection
+            fig = pl.figure(figsize=figsize)
+            ax = fig.add_subplot(111, projection=WCS(hdu.header))
+        # plot survey img
+        # FIXME: SkyView throws error when self.target_coord.distance=nan
+        coord = SkyCoord(ra=self.target_coord.ra, dec=self.target_coord.dec)
+        fixed_target = FixedTarget(coord, name=self.target_name)
+        nax, hdu = plot_finder_image(
+            fixed_target,
+            ax=ax,
+            fov_radius=fov_rad,
+            survey=survey,
+            reticle=False,
+        )
+        imgwcs = WCS(hdu.header)
+        mx, my = hdu.data.shape
+        # plot mask
+        _ = ax.contour(
+            highres,
+            levels=[0.5],
+            extent=extent,
+            origin="lower",
+            colors="C0",
+            transform=ax.get_transform(WCS(maskhdr)),
+        )
+        idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+        target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
+
+        for _, row in gaia_sources.iterrows():
+            marker, s = "o", 100
+            r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
+            pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
+            if int(id) != int(target_gaiaid):
+                gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
+                if depth > kmax / gamma:
+                    # too deep to have originated from secondary star
+                    edgecolor = "C1"
+                    alpha = 1  # 0.5
+                else:
+                    # possible NEBs
+                    edgecolor = "C3"
+                    alpha = 1
+            else:
+                s = 200
+                edgecolor = "C2"
+                marker = "s"
+                alpha = 1
+            nax.scatter(
+                pix[0],
+                pix[1],
+                marker=marker,
+                s=s,
+                edgecolor=edgecolor,
+                alpha=alpha,
+                facecolor="none",
+            )
+        # orient such that north is up; left is east
+        ax.invert_yaxis()
+        if hasattr(ax, "coords"):
+            ax.coords[0].set_major_formatter("dd:mm")
+            ax.coords[1].set_major_formatter("dd:mm")
+        # set img limits
+        pl.setp(
+            nax,
+            xlim=(0, mx),
+            ylim=(0, my),
+            title=self.target_name
+            # title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
+        )
+        return ax
+
+    def get_K2_star_params(self):
+        """
+        """
+        if self.K2_star_params is None:
+            fp = Path(DATA_PATH, "apjsab7230t1_mrt.txt")
+            if not fp.exists():
+                get_K2_star_data()
+            tab = Table.read(fp, format="ascii")
+            df = tab.to_pandas()
+            self.K2_star_params = df
+        else:
+            df = self.K2_star_params
+        q = df.query(f"EPIC=={self.epicid}")
+        if len(q) > 1:
+            return q.iloc[0]
+        else:
+            return q
+
+    @property
+    def K2_Rstar(self):
+        q = self.get_K2_star_params()
+        return q.Rstar
+
+    @property
+    def K2_Rstar_errs(self):
+        q = self.get_K2_star_params()
+        return q[["e_Rstar", "E_Rstar"]]
+
+    @property
+    def K2_Mstar(self):
+        q = self.get_K2_star_params()
+        return q.Mstar
+
+    @property
+    def K2_Mstar_errs(self):
+        q = self.get_K2_star_params()
+        return q[["e_Mstar", "E_Mstar"]]
+
 
 class Everest(K2):
     """
@@ -429,6 +626,10 @@ class Everest(K2):
         self.filename = filename
         self.quality = None
         self.cadenceno = None
+        self.everest_best_aper_mask = None
+        self.everest_best_aper_mask_hdr = None
+        self.hires_img = None
+        self.hires_img_hdr = None
         self.everest_recarray = None
         self.lc_everest = self.get_everest_lc()
         if self.lc_everest.campaign is None:
@@ -497,6 +698,10 @@ class Everest(K2):
             with fits.open(url) as hl:
                 if self.verbose:
                     print(hl.info())
+
+                hdr = hl[0].header
+                assert self.campaign == hdr["CAMPAIGN"]
+
                 recarray = hl[1].data
                 self.everest_recarray = recarray
                 cols = recarray.columns.names
@@ -517,6 +722,21 @@ class Everest(K2):
                 #     bitmask = qf.OPTIONS[quality_bitmask]
                 #     qmask = qf.create_quality_mask(self.quality, bitmask)
                 #     time, flux, err = time[qmask], flux[qmask], err[qmask]
+
+                self.everest_best_aper_mask = self.best_aper_mask = hl[3].data
+                # ny, nx = mask.shape
+                self.everest_best_aper_mask_hdr = hl[3].header
+                # maskwcs = WCS(self.everest_best_aper_mask_hdr)
+
+                # stamp = hdulist[4].data
+                # first = stamp['STAMP1']
+                # mid   = stamp['STAMP2']
+                # last  = stamp['STAMP3']
+                # stack = np.nanmedian([first,mid,last], axis=0)
+
+                self.hires_img = hl[5].data
+                self.hires_img_hdr = hl[5].header
+
             # remove nans
             if remove_nans:
                 idx = np.isfinite(time) & np.isfinite(flux)
@@ -666,7 +886,9 @@ class K2sff(K2):
                 else:
                     best_aper_mask = prf_apertures[best_aper_mask_idx]
                 # lightcurves
-                self.k2sff_best_aper_mask = best_aper_mask
+                self.k2sff_best_aper_mask = (
+                    self.best_aper_mask
+                ) = best_aper_mask
                 recarray = hdulist[1].data
                 self.k2sff_recarray = recarray
                 cols = recarray.columns.names
@@ -700,191 +922,6 @@ class K2sff(K2):
             return lc
         except Exception as e:
             print(e)
-
-    def plot_gaia_sources_on_survey(
-        self,
-        gaia_sources=None,
-        fov_rad=None,
-        depth=0.0,
-        kmax=1.0,
-        survey="DSS2 Red",
-        ax=None,
-        figsize=None,
-    ):
-        """Plot (superpose) Gaia sources on archival image
-
-        Parameters
-        ----------
-        gaia_sources : pd.DataFrame
-            gaia sources table
-        fov_rad : astropy.unit
-            FOV radius
-        survey : str
-            image survey; see from astroquery.skyview import SkyView;
-            SkyView.list_surveys()
-        ax : axis
-            subplot axis
-        Returns
-        -------
-        ax : axis
-            subplot axis
-        """
-        if self.tpf is None:
-            tpf = self.get_tpf()
-        else:
-            tpf = self.tpf
-        ny, nx = tpf.flux.shape[1:]
-
-        if fov_rad is None:
-            diag = np.sqrt(nx ** 2 + ny ** 2)
-            fov_rad = (diag * Kepler_pix_scale).to(u.arcsec)
-        if gaia_sources is None:
-            gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
-        if self.gaiaid is None:
-            # _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-            target_gaiaid = gaia_sources.loc[0, "source_id"]
-        else:
-            target_gaiaid = self.gaiaid
-
-        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
-        # make aperture mask
-        maskhdr = tpf.hdu[2].header  # self.k2sff_header
-        # make aperture mask outline
-        contour = np.zeros((ny, nx))
-        contour[np.where(self.k2sff_best_aper_mask)] = 1
-        contour = np.lib.pad(contour, 1, PadWithZeros)
-        highres = zoom(contour, 100, order=0, mode="nearest")
-        extent = np.array([-1, nx, -1, ny])
-
-        if self.verbose:
-            print(
-                f"Querying {survey} ({fov_rad:.2f} x {fov_rad:.2f}) archival image"
-            )
-        # -----------create figure---------------#
-        if ax is None:
-            # get img hdu for subplot projection
-            results = SkyView.get_images(
-                position=self.target_coord.icrs.to_string(),
-                coordinates="icrs",
-                survey=survey,
-                radius=fov_rad,
-                grid=False,
-            )
-            if len(results) > 0:
-                hdu = results[0][0]
-            else:
-                errmsg = (
-                    "SkyView returned empty result. Try a different survey."
-                )
-                raise ValueError(errmsg)
-            # create figure with subplot projection
-            fig = pl.figure(figsize=figsize)
-            ax = fig.add_subplot(111, projection=WCS(hdu.header))
-        # plot survey img
-        # FIXME: SkyView throws error when self.target_coord.distance=nan
-        coord = SkyCoord(ra=self.target_coord.ra, dec=self.target_coord.dec)
-        fixed_target = FixedTarget(coord, name=self.target_name)
-        nax, hdu = plot_finder_image(
-            fixed_target,
-            ax=ax,
-            fov_radius=fov_rad,
-            survey=survey,
-            reticle=False,
-        )
-        imgwcs = WCS(hdu.header)
-        mx, my = hdu.data.shape
-        # plot mask
-        _ = ax.contour(
-            highres,
-            levels=[0.5],
-            extent=extent,
-            origin="lower",
-            colors="C0",
-            transform=ax.get_transform(WCS(maskhdr)),
-        )
-        idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
-        target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
-
-        for _, row in gaia_sources.iterrows():
-            marker, s = "o", 100
-            r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
-            pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
-            if int(id) != int(target_gaiaid):
-                gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
-                if depth > kmax / gamma:
-                    # too deep to have originated from secondary star
-                    edgecolor = "C1"
-                    alpha = 1  # 0.5
-                else:
-                    # possible NEBs
-                    edgecolor = "C3"
-                    alpha = 1
-            else:
-                s = 200
-                edgecolor = "C2"
-                marker = "s"
-                alpha = 1
-            nax.scatter(
-                pix[0],
-                pix[1],
-                marker=marker,
-                s=s,
-                edgecolor=edgecolor,
-                alpha=alpha,
-                facecolor="none",
-            )
-        # orient such that north is up; left is east
-        ax.invert_yaxis()
-        if hasattr(ax, "coords"):
-            ax.coords[0].set_major_formatter("dd:mm")
-            ax.coords[1].set_major_formatter("dd:mm")
-        # set img limits
-        pl.setp(
-            nax,
-            xlim=(0, mx),
-            ylim=(0, my),
-            title=self.target_name
-            # title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
-        )
-        return ax
-
-    def get_K2_star_params(self):
-        """
-        """
-        if self.K2_star_params is None:
-            fp = Path(DATA_PATH, "apjsab7230t1_mrt.txt")
-            if not fp.exists():
-                get_K2_star_data()
-            tab = Table.read(fp, format="ascii")
-            df = tab.to_pandas()
-            self.K2_star_params = df
-        else:
-            df = self.K2_star_params
-        q = df.query(f"EPIC=={self.epicid}")
-        if len(q) > 1:
-            return q.iloc[0]
-        else:
-            return q
-
-    @property
-    def K2_Rstar(self):
-        q = self.get_K2_star_params()
-        return q.Rstar
-
-    @property
-    def K2_Rstar_errs(self):
-        q = self.get_K2_star_params()
-        return q[["e_Rstar", "E_Rstar"]]
-
-    @property
-    def K2_Mstar(self):
-        q = self.get_K2_star_params()
-        return q.Mstar
-
-    @property
-    def K2_Mstar_errs(self):
-        q = self.get_K2_star_params()
-        return q[["e_Mstar", "E_Mstar"]]
 
 
 def get_K2_star_data():

@@ -6,6 +6,7 @@ helper functions for transit modeling
 
 import matplotlib.pyplot as pl
 import numpy as np
+from scipy.optimize import newton
 from astropy import units as u
 from astropy import constants as c
 import batman
@@ -718,3 +719,32 @@ def rho_from_mr(m, r, unit="sun", cgs=True):
 #     pl.xlabel("Time [days]")
 #     pl.ylabel("Relative Flux")
 #     pl.show()
+
+# https://gist.github.com/danhey/804a224d96823d0b3406a1c4118048c4
+def from_geometry(dphi):
+    psi = newton(compute_psi, 0.5, args=(dphi,))
+    ecc = np.abs(ecc_func(psi))
+    w = argper(ecc, psi)
+    return ecc, w
+
+
+def compute_psi(psi, dphi):
+    return psi - np.sin(psi) - 2 * np.pi * dphi
+
+
+def ecc_func(psi):
+    return np.sin(0.5 * (psi - np.pi)) * (
+        1.0 - 0.5 * (np.cos(0.5 * (psi - np.pi))) ** 2
+    ) ** (-0.5)
+
+
+def argper(ecc, psi):
+    if ecc <= 0.0:
+        return 0.0
+    return np.arccos(
+        1.0 / ecc * (1.0 - ecc ** 2) ** 0.5 * np.tan(0.5 * (psi - np.pi))
+    )
+
+
+# dphi = ph_secondary - ph_primary
+# geom_ecc, geom_per0 = from_geometry(dphi)

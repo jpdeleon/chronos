@@ -33,21 +33,21 @@ $ pytest tests/
 
 ## Dependencies
 * `astropy` & `astroquery` for star and catalog bookkeeping
-* `lightkurve`, `transitleastsquares`, & `wotan` for light curve analysis
-* `emcee` & `corner` for MCMC analysis
-* `isochrones` for isochrones analysis
-* `dustmass` for extinction calculation
-* `stardate` for gyrochronology
+* [`lightkurve`](https://github.com/KeplerGO/lightkurve), [`transitleastsquares`](https://github.com/hippke/tls), & [`wotan`](https://github.com/hippke/wotan) for light curve analysis
+* [`emcee`](https://github.com/dfm/emcee) & [`corner`](https://github.com/dfm/corner.py) for MCMC analysis
+* [`isochrones`](https://github.com/timothydmorton/isochrones) for isochrones analysis
+* [`dustmass`]() for extinction calculation
+* [`stardate`](https://github.com/RuthAngus/stardate) for gyrochronology
 * [`mrexo`](https://github.com/shbhuk/mrexo) for mass-radius relation
-* `triceratops` for FPP calculation based on lightc urve shape and contrast curve constraints
+* [`triceratops`](https://github.com/stevengiacalone/triceratops) for FPP calculation based on lightc urve shape and contrast curve constraints
 
 ## For next update
 * [`platon`](https://github.com/ideasrule/platon) for calculating transmission spectrum
 * [`theJoker`](https://github.com/adrn/thejoker) for two-body MCMC sampler
-* [`spock`](https://github.com/dtamayo/spock) for orbit stability analysis
+* [`spock`](https://github.com/dtamayo/spock), [`dynamite`](https://github.com/JeremyDietrich/dynamite), & [`resonance widths`](https://github.com/katvolk/analytical-resonance-widths) for orbit stability analysis
 * [`exoCMD`](https://github.com/gdransfield/ExoCMD)
-* `contaminante` for pixel level modeling
-* `allesfitter` for light curve model fitting
+* [`contaminante`](https://github.com/christinahedges/contaminante) for pixel level modeling
+* [`allesfitter`](https://github.com/MNGuenther/allesfitter) for light curve model fitting
 * `PyPopStar` for stellar population analysis
 * `sedfitter` for SED fitting
 * `maelstrom` for pulsating binary analysis
