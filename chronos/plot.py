@@ -13,6 +13,7 @@ import lightkurve as lk
 # from transitleastsquares import final_T0_fit
 from astropy.coordinates import Angle, SkyCoord, Distance
 from astropy.visualization import ZScaleInterval
+from astropy.time import Time
 from astroquery.mast import Catalogs
 from astropy.wcs import WCS
 from astropy.io import fits
@@ -237,6 +238,8 @@ def plot_gaia_sources_on_tpf(
     cmap="viridis",
     figsize=None,
     ax=None,
+    invert_xaxis=False,
+    invert_yaxis=False,
     pix_scale=TESS_pix_scale,
     **mask_kwargs,
 ):
@@ -388,9 +391,12 @@ def plot_gaia_sources_on_tpf(
     xdeg = (nx * pix_scale).to(u.arcmin)
     ydeg = (ny * pix_scale).to(u.arcmin)
     # orient such that north is up; east is left
-    ax.invert_yaxis()  # increasing upward
-    # FIXME: doesn't work
-    # ax.invert_xaxis() #decresing rightward
+    if invert_yaxis:
+        # ax.invert_yaxis()  # increasing upward
+        raise NotImplementedError()
+    if invert_xaxis:
+        # ax.invert_xaxis() #decresing rightward
+        raise NotImplementedError()
     if hasattr(ax, "coords"):
         ax.coords[0].set_major_formatter("dd:mm")
         ax.coords[1].set_major_formatter("dd:mm")
@@ -411,8 +417,10 @@ def plot_gaia_sources_on_survey(
     survey="DSS2 Red",
     verbose=True,
     ax=None,
-    outline_color="C6",  # pink
+    outline_color="C0",  # pink
     figsize=None,
+    invert_xaxis=False,
+    invert_yaxis=False,
     pix_scale=TESS_pix_scale,
     **mask_kwargs,
 ):
@@ -540,7 +548,12 @@ def plot_gaia_sources_on_survey(
             facecolor="none",
         )
     # orient such that north is up; left is east
-    ax.invert_yaxis()
+    if invert_yaxis:
+        # ax.invert_yaxis()
+        raise NotImplementedError()
+    if invert_xaxis:
+        # ax.invert_xaxis()
+        raise NotImplementedError()
     if hasattr(ax, "coords"):
         ax.coords[0].set_major_formatter("dd:mm")
         ax.coords[1].set_major_formatter("dd:mm")
@@ -623,13 +636,15 @@ def plot_archival_images(
     ra,
     dec,
     survey1="dss1",
-    survey2="poss2ukstu_red",
+    survey2="ps1",  # "poss2ukstu_red",
+    filter="i",
     fp1=None,
     fp2=None,
     height=1,
     width=1,
     cmap="gray",
     reticle=True,
+    return_baseline=False,
 ):
     """
     Plot two archival images
@@ -648,10 +663,17 @@ def plot_archival_images(
         filepaths if the images were downloaded locally
     height, width
         fov of view in arcmin (default=1')
+    filter : str
+        (g,r,i,z,y) filter if survey = PS1
     cmap : str
         colormap (default='gray')
     reticle : bool
         plot circle to mark the original position of target in survey1
+
+    Notes:
+    ------
+    Account for space motion:
+    https://docs.astropy.org/en/stable/coordinates/apply_space_motion.html
 
     The position offset can be computed as:
     ```
@@ -660,17 +682,46 @@ def plot_archival_images(
     offset = pm*baseline_year/1e3
     ```
     """
+    if (survey1 == "ps1") or (survey2 == "ps1"):
+        try:
+            import panstarrs3 as p3
+        except Exception:
+            raise ModuleNotFoundError(
+                "pip install git+https://github.com/jpdeleon/panstarrs3.git"
+            )
+    fov = np.hypot(width, height) * u.arcmin
+    ps = p3.Panstarrs(
+        ra=ra, dec=dec, fov=fov.to(u.arcsec), format="fits", color=False
+    )
+    img, hdr = ps.get_fits(filter=filter, verbose=False)
+
     # poss1
     if fp1 is not None and fp2 is not None:
         hdu1 = fits.open(fp1)[0]
         hdu2 = fits.open(fp2)[0]
     else:
-        hdu1 = get_dss_data(
-            ra, dec, height=height, width=width, survey=survey1
-        )
-        hdu2 = get_dss_data(
-            ra, dec, height=height, width=width, survey=survey2
-        )
+        if survey1 == "ps1":
+            hdu1 = fits.open(ps.get_url()[0])[0]
+            hdu1.header["DATE-OBS"] = Time(
+                hdu1.header["MJD-OBS"], format="mjd"
+            ).strftime("%Y-%m-%d")
+            hdu1.header["FILTER"] = hdu1.header["FPA.FILTER"].split(".")[0]
+            hdu1.header["SURVEY"] = "Panstarrs1"
+        else:
+            hdu1 = get_dss_data(
+                ra, dec, height=height, width=width, survey=survey1
+            )
+        if survey2 == "ps1":
+            hdu2 = fits.open(ps.get_url()[0])[0]
+            hdu2.header["DATE-OBS"] = Time(
+                hdu2.header["MJD-OBS"], format="mjd"
+            ).strftime("%Y-%m-%d")
+            hdu2.header["FILTER"] = hdu2.header["FPA.FILTER"].split(".")[0]
+            hdu2.header["SURVEY"] = "Panstarrs1"
+        else:
+            hdu2 = get_dss_data(
+                ra, dec, height=height, width=width, survey=survey2
+            )
     try:
         from reproject import reproject_interp
     except Exception:
@@ -695,13 +746,13 @@ def plot_archival_images(
             transform=ax1.get_transform("fk5"),
         )
         ax1.add_patch(c)
+    filt1 = (
+        hdu1.header["FILTER"]
+        if hdu1.header["FILTER"] is not None
+        else survey2.split("_")[1]
+    )
     # zmin, zmax = interval.get_limits(data1)
     # ax1.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
-    filt1 = (
-        header1["FILTER"]
-        if header1["FILTER"] is not None
-        else survey1.split("_")[1]
-    )
     title = f"{header1['SURVEY']} ({filt1})\n"
     title += f"{header1['DATE-OBS'][:10]}"
     ax1.set_title(title)
@@ -722,19 +773,23 @@ def plot_archival_images(
         )
         ax2.add_patch(c)
         # ax2.scatter(ra, dec, 'r+')
+    filt2 = (
+        hdu2.header["FILTER"]
+        if hdu2.header["FILTER"] is not None
+        else survey2.split("_")[1]
+    )
     ax2.coords["dec"].set_axislabel_position("r")
     ax2.coords["dec"].set_ticklabel_position("r")
     ax2.coords["dec"].set_axislabel("DEC")
     ax2.set_xlabel("RA")
-    filt2 = (
-        header2["FILTER"]
-        if header2["FILTER"] is not None
-        else survey2.split("_")[1]
-    )
     title = f"{header2['SURVEY']} ({filt2})\n"
     title += f"{header2['DATE-OBS'][:10]}"
     ax2.set_title(title)
-    return fig
+    if return_baseline:
+        baseline = int(header2["DATE-OBS"][:4]) - int(header1["DATE-OBS"][:4])
+        return fig, baseline
+    else:
+        return fig
 
 
 def plot_aperture_outline(

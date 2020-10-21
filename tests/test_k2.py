@@ -43,10 +43,12 @@ def test_k2_tpf():
 def test_everest():
     """
     """
-    assert isinstance(s.lc_everest, lk.LightCurve)
+    s = Everest(epicid=EPICID, campaign=CAMPAIGN, verbose=False)
+    assert isinstance(s.get_lc(), lk.LightCurve)
 
 
 def test_k2sff():
     """
     """
-    assert isinstance(s.lc_k2sff, lk.LightCurve)
+    s = K2sff(epicid=EPICID, campaign=CAMPAIGN, verbose=False)
+    assert isinstance(s.get_lc(), lk.LightCurve)

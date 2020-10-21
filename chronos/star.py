@@ -30,7 +30,7 @@ from chronos.utils import (
 )
 
 
-__all__ = ["Star"]
+__all__ = ["Star", "read_isochrones_results"]
 
 # latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, LAMOST, ALL-WISE, 2MASS
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
@@ -1527,3 +1527,31 @@ class Star(Target):
     # @property
     # def TGv8(self):
     #     pass
+
+
+def read_isochrones_results(fp, cols="radius mass Teff logg feh".split()):
+    """
+    """
+    d = {}
+    try:
+        texts = []
+        df = pd.read_hdf(fp, key="derived_samples").dropna()
+        for col in cols:
+            v, vlo, vhi = np.percentile(df[col], q=[50, 16, 84])
+            if col == "Teff":
+                d[col] = f"{v:.0f}"
+                d[col + "_lo"] = f"{v-vlo:.0f}"
+                d[col + "_hi"] = f"{vhi-v:.0f}"
+                msg = f"{col}: {v:.0f}-{v-vlo:.0f}+{vhi-v:.0f}"
+            else:
+                d[col] = f"{v:.2f}"
+                d[col + "_lo"] = f"{v-vlo:.2f}"
+                d[col + "_hi"] = f"{vhi-v:.2f}"
+                msg = f"{col}: {v:.2f}-{v-vlo:.2f}+{vhi-v:.2f}"
+            texts.append(msg)
+            print(msg)
+        np.savetxt("results.txt", texts, fmt="%s")
+    except Exception as e:
+        errmsg = f"Error: {e}"
+        print(errmsg)
+    return d

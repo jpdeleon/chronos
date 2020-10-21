@@ -233,6 +233,39 @@ class Target:
     #     values = (f"{p}={repr(getattr(self, p))}" for p in params)
     #     return f"{type(self).__name__}({', '.join(values)})"
 
+    def query_variable_star_catalogs(self):
+        """
+        See section 12.4 in Montalto+2020:
+        https://ui.adsabs.harvard.edu/abs/2020arXiv200809832M/abstract
+
+        1. International Variable Star Index catalog
+        AAVSO International Variable Star Index VSX (Watson+, 2006-2014)
+        https://ui.adsabs.harvard.edu/abs/2006SASS...25...47W/abstract
+
+        2. KELT Follow-Up Network and Transit False Positive Catalog (KELT-FUN, Collins et al. 2018)
+        3. SuperWASP dispositions and false positive catalogue (Schanche et al. 2019b)
+        """
+        # vizier_query = self.query_vizier_param("VSX")
+        # variable_from_literature = np.unique(list(vizier_query.values()))
+        # if len(variable_from_literature) > 0:
+        #     print("VSX from literature:\n", assoc_from_literature)
+
+        # from astroquery.simbad import Simbad
+        # result_table = Simbad.query_objectids("Polaris")
+        return NotImplementedError("method to be added soon")
+
+    def query_M_dwarf_catalog(self):
+        """
+        http://spider.ipac.caltech.edu/staff/davy/ARCHIVE/index.shtml
+        """
+        return NotImplementedError("method to be added soon")
+
+    def query_hypatia_catalog(self):
+        """
+        https://www.hypatiacatalog.com/
+        """
+        return NotImplementedError("method to be added soon")
+
     def query_TGv8_catalog(self, gaiaid=None, data_path=None):
         """
         Stellar parameters of TESS host stars (TICv8)

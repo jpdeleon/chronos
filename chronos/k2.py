@@ -36,6 +36,7 @@ from chronos.utils import (
     detrend,
     get_all_campaigns,
     get_transit_mask,
+    get_fluxes_within_mask,
     PadWithZeros,
 )
 
@@ -109,6 +110,7 @@ class K2(Target):
         #     print(f"Target: {name}")
         self.K2_star_params = None
         self.best_aper_mask = None
+        self.contratio = None
 
     def get_tpf(self):
         """
@@ -127,7 +129,9 @@ class K2(Target):
         """
         campaign = campaign if campaign is not None else self.campaign
         quality_bitmask = (
-            quality_bitmask if quality_bitmask else self.quality_bitmask
+            quality_bitmask
+            if quality_bitmask is not None
+            else self.quality_bitmask
         )
         if self.lcf is not None:
             # reload lcf if already in memory
@@ -238,8 +242,9 @@ class K2(Target):
     ):
         """
         """
-        if duration < 1:
-            print("Duration should be in hours.")
+        if duration is not None:
+            if duration < 1:
+                print("Duration should be in hours.")
         if window_length is None:
             window_length = 0.5 if duration is None else duration / 24 * 3
         if self.verbose:
@@ -567,6 +572,28 @@ class K2(Target):
         else:
             return q
 
+    def get_contratio(self, aper_mask=None, radius=60):
+        # compute Contamination
+        if aper_mask is None:
+            aper_mask = self.tpf.pipeline_mask
+        else:
+            aper_mask = self.best_aper_mask
+        if aper_mask is None:
+            raise ValueError("supply `aper_mask`")
+        # if self.gaia_sources is None:
+        #     gaia_sources = self.query_gaia_dr2_catalog(radius=radius)
+        # else:
+        #     gaia_sources = self.gaia_sources
+        gaia_sources = self.query_gaia_dr2_catalog(radius=radius)
+        fluxes = get_fluxes_within_mask(self.tpf, aper_mask, gaia_sources)
+        if sum(fluxes) > 1:
+            contratio = sum(fluxes) - 1
+        else:
+            # raise ValueError('No stars within aperture?')
+            contratio = 1
+        self.contratio = contratio
+        return contratio
+
     @property
     def K2_Rstar(self):
         q = self.get_K2_star_params()
@@ -684,8 +711,11 @@ class Everest(K2):
             returns time, flux, (err,) mask
         """
         flux_type = self.flux_type if flux_type is None else flux_type.upper()
-        if quality_bitmask is None:
-            quality_bitmask = self.quality_bitmask
+        quality_bitmask = (
+            quality_bitmask
+            if quality_bitmask is not None
+            else self.quality_bitmask
+        )
         if campaign is None:
             campaign = self.campaign
 
@@ -757,11 +787,12 @@ class Everest(K2):
                 centroid_col=None,
                 centroid_row=None,
                 quality=None,  # self.quality,
-                quality_bitmask=None,  # self.quality_bitmask,
+                quality_bitmask=quality_bitmask,
                 cadenceno=self.cadenceno,
                 targetid=self.epicid,
             )
-            return lc
+            idx = lc.time.argsort()
+            return lc[idx]
         except Exception as e:
             print(e)
 
@@ -846,7 +877,12 @@ class K2sff(K2):
         return url + fn, fn
 
     def get_k2sff_lc(
-        self, campaign=None, flux_type="fcor", normalize=True, remove_nans=True
+        self,
+        campaign=None,
+        flux_type="fcor",
+        quality_bitmask=None,
+        normalize=True,
+        remove_nans=True,
     ):
         """
         see also https://archive.stsci.edu/k2/hlsp/k2sff/search.php
@@ -856,6 +892,11 @@ class K2sff(K2):
         produces difference of ~0.04 ppt.
         """
         flux_type = self.flux_type if flux_type is None else flux_type.upper()
+        quality_bitmask = (
+            quality_bitmask
+            if quality_bitmask is not None
+            else self.quality_bitmask
+        )
         if campaign is None:
             campaign = self.campaign
 
@@ -915,11 +956,12 @@ class K2sff(K2):
                 centroid_col=None,
                 centroid_row=None,
                 quality=None,  # self.quality,
-                quality_bitmask=None,  # self.quality_bitmask,
+                quality_bitmask=quality_bitmask,
                 cadenceno=self.cadenceno,
                 targetid=self.epicid,
             )
-            return lc
+            idx = lc.time.argsort()
+            return lc[idx]
         except Exception as e:
             print(e)
 
@@ -972,3 +1014,83 @@ def plot_k2_campaign_fov(
     ax.set_xlabel("RA [deg]")
     ax.set_ylabel("DEC [deg]")
     return ax
+
+
+def get_lightcurves(
+    epicid,
+    pipeline="everest",
+    campaigns=None,
+    remove_outliers=False,
+    quality_bitmask=None,
+):
+    """
+    download all lightcurves in the given campaigns
+    """
+    if campaigns is None:
+        all_camps = get_all_campaigns(epicid)
+    else:
+        all_camps = campaigns
+
+    for n, camp in enumerate(all_camps):
+        if pipeline == "everest":
+            l = Everest(epicid=epicid, campaign=camp, verbose=False)
+            lc = l.lc_everest
+        elif pipeline == "k2sff":
+            l = K2sff(epicid=epicid, campaign=camp, verbose=False)
+            lc = l.lc_k2sff
+        else:
+            l = K2(epicid=epicid, campaign=camp, verbose=False)
+            lc = l.get_lc()
+
+        if quality_bitmask == "hard":
+            lc = lc[lc.quality == 0]
+
+        if remove_outliers:
+            lc, mask = lc.remove_outliers(
+                sigma_upper=3, sigma_lower=10, return_mask=True
+            )
+
+        if n == 0:
+            lcs = lc.copy()
+        else:
+            lcs = lcs.append(lc)
+        print(
+            f"{camp}: cdpp={lc.estimate_cdpp():.2f}, std={lc.flux.std():.2f}"
+        )
+
+    lcs.campaign = all_camps
+    return lcs
+
+
+def get_secondary_eclipse_threshold(self, flat, t14, per, t0, factor=3):
+    """
+    get the mean of the std x sigma of binned out-of-eclipse lightcurve
+    useful as a constraint in fpp.ini file in vespa.
+    This effectively means no secondary eclipse is detected above this level.
+
+    flat : lk.LightCurve
+        flattened light curve where transits will be masked
+    factor : float
+        factor = 3 means 3-sigma
+    """
+    tmask = get_transit_mask(flat, period=per, epoch=t0, duration_hours=t14)
+    fold = flat[~tmask].fold(period=per, t0=t0)
+
+    means = []
+    chunks = np.arange(-0.5, 0.51, t14 / 24 / per)
+    for n, x in enumerate(chunks):
+        if n == 0:
+            x1 = -0.5
+            x2 = x
+        elif n == len(chunks):
+            x1 = x
+            x2 = 0.5
+        else:
+            x1 = chunks[n - 1]
+            x2 = x
+        idx = (fold.phase > x1) & (fold.phase < x2)
+        mean = np.nanmean(fold.flux[idx])
+        print(mean)
+        means.append(mean)
+
+    return factor * np.nanstd(means)

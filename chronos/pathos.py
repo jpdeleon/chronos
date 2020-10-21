@@ -219,13 +219,13 @@ class PATHOS(Target):
             # msg += f"Using sector={self.sector} in {self.all_sectors}.\n"
             raise ValueError(msg)
 
-    def get_pathos_lc(self, lc_type=None, aper_idx=None, sort=True):
+    def get_pathos_lc(self, lctype=None, aper_idx=None, sort=True):
         """
         Parameters
         ----------
         """
         aper = aper_idx if aper_idx is not None else self.aper_idx
-        lctype = lc_type if lc_type is not None else self.lctype
+        lctype = lctype if lctype is not None else self.lctype
 
         tstr = "TIME"
         if lctype == "raw":
@@ -299,16 +299,19 @@ class PATHOS(Target):
         """
         raise NotImplementedError()
 
-    def plot_all_lcs(self):
+    def plot_all_lcs(self, lctype="corr", sigma=10):
         """
         """
         pathos_lcs = {}
         fig, ax = pl.subplots(1, 1, figsize=(10, 6))
         for aper in [1, 2, 3]:
-            lc = self.get_pathos_lc(aper_idx=aper)
-            lc.plot(ax=ax, label=f"aper={aper}")
+            lc = self.get_pathos_lc(
+                lctype=lctype, aper_idx=aper
+            ).remove_outliers(sigma=sigma)
+            lc.scatter(ax=ax, label=f"aper={aper}")
             pathos_lcs[aper] = lc
         ax.set_title(f"{self.target_name} (sector {self.sector})")
+        ax.legend(title=f"lc={lctype}")
         return fig
 
     def get_flat_lc(

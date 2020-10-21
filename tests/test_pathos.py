@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-test methods of pathos module
+test methods of cdips module
 """
 from matplotlib.axes import Axes
 import lightkurve as lk
@@ -12,20 +12,20 @@ SECTOR = 10
 QUALITY_BITMASK = "default"
 
 
-cdips = PATHOS(
+p = PATHOS(
     # ticid=TICID,
     toiid=TOIID,
     sector=SECTOR,
-    lctype="flux",
+    lctype="corr",
     aper_idx=1,
     quality_bitmask=QUALITY_BITMASK,
 )
 
 
-def test_pathos_init():
-    assert isinstance(cdips.lc, lk.LightCurve)
+def test_cdips_init():
+    assert isinstance(p.lc, lk.LightCurve)
 
 
 def test_cdips_plot():
-    ax = cdips.lc.plot()
+    ax = p.lc.plot()
     assert isinstance(ax, Axes)

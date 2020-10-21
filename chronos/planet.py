@@ -13,6 +13,7 @@ from astropy.visualization import hist
 from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive as nea
 
 from chronos.star import Star
+from chronos.k2 import K2
 from chronos.lightcurve import ShortCadence
 from chronos.constants import TESS_TIME_OFFSET
 from chronos.utils import get_RV_K, get_RM_K, get_tois
@@ -24,8 +25,8 @@ __all__ = ["Planet"]
 class Planet(Star):
     def __init__(
         self,
-        starname=None,
-        letter="b",
+        hostname=None,
+        candidate=".01",
         toiid=None,
         ticid=None,
         epicid=None,
@@ -43,7 +44,7 @@ class Planet(Star):
         thin=1,
     ):
         super().__init__(
-            name=starname,
+            name=hostname,
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
@@ -62,32 +63,36 @@ class Planet(Star):
         """
         Attributes
         ----------
-        starname : str
+        hostname : str
             host star name
-        letter : str
-            planet letter (default=b)
+        candidate : str
+            planet candidate number (default=.01)
         """
-        self.starname = starname
-        self.letter = letter
+        self.hostname = hostname
+        self.candidate = candidate
         self.planet_params = None
         self.nea_params = None
         self.lcfit_cmd = None
 
     def describe_system(self):
-        Rp, Rp_err = self.toi_Rp, self.toi_Rp_err
-        rearth = r"R$_{\oplus}$"
-        Porb = self.toi_period
-        Rstar, Rstar_err = self.toi_Rstar, self.toi_Rstar_err
-        rsun = r"R$_{\odot}$"
-        Mstar = self.starhorse_Mstar
-        msun = r"M$_{\odot}$"
-        spec_type = self.get_spectral_type()
-        desc = f"A {Rp:.1f}+/-{Rp_err:.1f} {rearth} planet orbiting an {spec_type} "
-        desc += (
-            f"({Rstar:.1f}+/-{Rstar_err:.1f} {rsun}, {Mstar:.1f} {msun}) star "
-        )
-        desc += f"every {Porb:.2f} d."
-        print(r"{}".format(desc))
+        if self.mission == "tess":
+            Rp, Rp_err = self.toi_Rp, self.toi_Rp_err
+            rearth = r"R$_{\oplus}$"
+            Porb = self.toi_period
+            Rstar, Rstar_err = self.toi_Rstar, self.toi_Rstar_err
+            rsun = r"R$_{\odot}$"
+            Mstar = self.starhorse_Mstar
+            msun = r"M$_{\odot}$"
+            spec_type = self.get_spectral_type()
+            desc = f"A {Rp:.1f}+/-{Rp_err:.1f} {rearth} planet orbiting an {spec_type} "
+            desc += f"({Rstar:.1f}+/-{Rstar_err:.1f} {rsun}, {Mstar:.1f} {msun}) star "
+            desc += f"every {Porb:.2f} d."
+            print(r"{}".format(desc))
+        elif self.mission == "k2":
+            print("No prior information on planet parameters.")
+        else:
+            errmsg = "mission is either `tess` or `k2`"
+            raise ValueError(errmsg)
 
     def save_ini_vespa(self, outdir=".", fpp_params=None):
         """fpp.ini file for vespa calcfpp script
@@ -118,7 +123,7 @@ class Planet(Star):
         if depth is None:
             print("Manually append 'rprs' to file")
         else:
-            fpp_arr.append(f"rprs = {depth:.4f}")
+            fpp_arr.append(f"rprs = {np.sqrt(depth):.4f}")
         if self.mission.lower() == "tess":
             fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
             fpp_arr.append("band = TESS")
@@ -126,7 +131,9 @@ class Planet(Star):
             fpp_arr.append(f"cadence = {30*u.minute.to(u.day):.2f}")
             fpp_arr.append("band = Kepler")
         print("Double check entries for cadence and band.")
-        fpp_arr.append(f"photfile = {target_name}-lc-folded.txt")
+        fpp_arr.append(
+            f"photfile = {target_name}{self.candidate}-lc-folded.txt"
+        )
         fpp_arr.append("[constraints]")
         if self.mission.lower() == "tess":
             fpp_arr.append("maxrad = 60.0")  # arcsec
@@ -149,6 +156,7 @@ class Planet(Star):
         outdir=".",
         save_lc=False,
         cadence="short",
+        pipeline="everest",
         lctype="pdcsap",
         teff=None,
         logg=None,
@@ -170,6 +178,8 @@ class Planet(Star):
             (default='short')
         lctype : str
             (default='pdcsap')
+        pipeline : str
+            everest or k2sff (if mission=='k2')
         teff : tuple
         logg : tuple
         feh : tuple
@@ -207,41 +217,86 @@ class Planet(Star):
         if rstar is not None:
             assert isinstance(rstar, tuple)
 
-        Teff = self.toi_Teff if teff is None else teff[0]
-        Teff_err = self.toi_Teff_err if teff is None else teff[1]
-        log10g = self.toi_logg if logg is None else logg[0]
-        log10g_err = self.toi_logg_err if logg is None else logg[1]
-        metfeh = self.toi_feh if feh is None else feh[0]
-        metfeh_err = self.toi_feh_err if feh is None else feh[1]
-        Rstar = self.toi_Rstar if rstar is None else rstar[0]
-        Rstar_err = self.toi_Rstar_err if rstar is None else rstar[1]
-
         target_name = self.target_name.replace(" ", "")
-
-        # get TOI candidate ephemerides
-        tois = get_tois(clobber=False)
-        df = tois[tois["TIC ID"] == self.ticid]
-        nplanets = len(df)
-        errmsg = f"{target_name} has {nplanets}"
-        # if period is not None:
-        #     assert len(period) == nplanets, errmsg
-        # if epoch is not None:
-        #     assert len(epoch) == nplanets, errmsg
-        # if duration is not None:
-        #     assert len(duration) == nplanets, errmsg
-
         outdir = target_name if outdir == "." else outdir
-        lcs = []
-        if save_lc:
-            if cadence == "short":
-                print(f"Querying {cadence} cadence PDCSAP light curve")
-                sc = ShortCadence(ticid=self.ticid)
-                for sector in tqdm(self.all_sectors):
+
+        if self.mission == "tess":
+            Teff = self.toi_Teff if teff is None else teff[0]
+            Teff_err = self.toi_Teff_err if teff is None else teff[1]
+            log10g = self.toi_logg if logg is None else logg[0]
+            log10g_err = self.toi_logg_err if logg is None else logg[1]
+            metfeh = self.toi_feh if feh is None else feh[0]
+            metfeh_err = self.toi_feh_err if feh is None else feh[1]
+            Rstar = self.toi_Rstar if rstar is None else rstar[0]
+            Rstar_err = self.toi_Rstar_err if rstar is None else rstar[1]
+
+            # get TOI candidate ephemerides
+            tois = get_tois(clobber=False)
+            df = tois[tois["TIC ID"] == self.ticid]
+            nplanets = len(df)
+            errmsg = f"{target_name} has {nplanets}"
+            # if period is not None:
+            #     assert len(period) == nplanets, errmsg
+            # if epoch is not None:
+            #     assert len(epoch) == nplanets, errmsg
+            # if duration is not None:
+            #     assert len(duration) == nplanets, errmsg
+
+            lcs = []
+            if save_lc:
+                if cadence == "short":
+                    kernel_size = 501
+                    print(f"Querying {cadence} cadence PDCSAP light curve")
+                    sc = ShortCadence(ticid=self.ticid)
+                    for sector in tqdm(self.all_sectors):
+                        try:
+                            lc = sc.get_lc(lctype=lctype, sector=sector)
+                            # BTJD
+                            lc.time = lc.time + TESS_TIME_OFFSET
+                            lcname = (
+                                f"{target_name}-{lctype}-s{sector}-raw.txt"
+                            )
+                            lcpath = Path(outdir, lcname)
+                            # for johannes
+                            lc.to_csv(
+                                lcpath,
+                                columns=["time", "flux"],
+                                header=False,
+                                sep=" ",
+                                index=False,
+                            )
+                            lcs.append(lc)
+                            print("Saved: ", lcpath)
+                        except Exception as e:
+                            print(
+                                f"Error: Cannot save {cadence} cadence light curve\n{e}"
+                            )
+                else:
+                    kernel_size = 49
+                    errmsg = "Only cadence='short' is available for now."
+                    raise ValueError(errmsg)
+            else:
+                lcname = (
+                    f"{target_name}-{lctype}-s{self.all_sectors[0]}-raw.txt"
+                )
+        else:
+            kernel_size = 49
+            if teff is None:
+                errmsg = "Provide `teff`, `logg`, `feh`"
+                raise ValueError(errmsg)
+
+            Teff, Teff_err = teff
+            log10g, log10g_err = logg
+            metfeh, metfeh_err = feh
+            Rstar, Rstar_err = rstar
+
+            lcs = []
+            if save_lc:
+                sc = K2(epicid=self.epicid)
+                for camp in tqdm(self.all_campaigns):
                     try:
-                        lc = sc.get_lc(lctype=lctype, sector=sector)
-                        # BTJD
-                        lc.time = lc.time + TESS_TIME_OFFSET
-                        lcname = f"{target_name}-{lctype}-s{sector}-raw.txt"
+                        lc = sc.get_lc(lctype=lctype, campaign=camp)
+                        lcname = f"{target_name}-{lctype}-c{camp}-raw.txt"
                         lcpath = Path(outdir, lcname)
                         # for johannes
                         lc.to_csv(
@@ -258,72 +313,71 @@ class Planet(Star):
                             f"Error: Cannot save {cadence} cadence light curve\n{e}"
                         )
             else:
-                errmsg = "Only cadence='short' is available for now."
-                raise ValueError(errmsg)
-        else:
-            lcname = f"{target_name}-{lctype}-s{self.all_sectors[0]}-raw.txt"
+                lcname = (
+                    f"{target_name}-{lctype}-s{self.all_campaigns[0]}-raw.txt"
+                )
 
         out = f"#command: lcfit -b {self.mission.upper()[0]} -i {lcname} -c {target_name}.ini "
-        out += "-o johannes --mcmc-burn 500 --mcmc-thin 10 --mcmc-steps 1000 -k 501"
+        out += f"-o johannes --mcmc-steps 1000 --mcmc-burn 500 --mcmc-thin 10 -k {kernel_size}"
         self.lcfit_cmd = out
         out += "\n[planets]\n"
-        # flat_lcs = []
-        for i, (k, row) in enumerate(df.iterrows()):
-            d = row
-            per = d["Period (days)"] if period is None else period[i]
-            t0 = d["Epoch (BJD)"] if epoch is None else epoch[i]
-            dur = (
-                d["Duration (hours)"] / 24 if duration is None else duration[i]
-            )
-            if save_lc:
-                for lc in lcs:
-                    # save folded lc for vespa
-                    # TODO: merge all sectors in one folded lc
-                    flat = sc.get_flat_lc(
-                        lc,
-                        period=per,
-                        epoch=t0,
-                        duration=dur * 24,
-                        window_length=5 * dur,
-                        edge_cutoff=0.1,
-                    )
-                    flat = flat.remove_nans()
-                    # flat_lcs.append(flat)
-                    lcname2 = (
-                        f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-flat.txt"
-                    )
-                    lcpath2 = Path(outdir, lcname2)
-                    flat.to_csv(
-                        lcpath2,
-                        columns=["time", "flux"],
-                        header=False,
-                        sep=" ",
-                        index=False,
-                    )
-                    print("Saved: ", lcpath2)
+        if self.mission == "tess":
+            for i, (k, row) in enumerate(df.iterrows()):
+                d = row
+                per = d["Period (days)"] if period is None else period[i]
+                t0 = d["Epoch (BJD)"] if epoch is None else epoch[i]
+                dur = (
+                    d["Duration (hours)"] / 24
+                    if duration is None
+                    else duration[i]
+                )
+                if save_lc and self.mission == "tess":
+                    for lc in lcs:
+                        # save folded lc for vespa
+                        # TODO: merge all sectors in one folded lc
+                        flat = sc.get_flat_lc(
+                            lc,
+                            period=per,
+                            epoch=t0,
+                            duration=dur * 24,
+                            window_length=5 * dur,
+                            edge_cutoff=0.1,
+                        )
+                        flat = flat.remove_nans()
+                        # flat_lcs.append(flat)
+                        lcname2 = f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-flat.txt"
+                        lcpath2 = Path(outdir, lcname2)
+                        flat.to_csv(
+                            lcpath2,
+                            columns=["time", "flux"],
+                            header=False,
+                            sep=" ",
+                            index=False,
+                        )
+                        print("Saved: ", lcpath2)
 
-                    fold = flat.fold(period=per, t0=t0).remove_nans()
-                    lcname3 = (
-                        f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-fold.txt"
-                    )
-                    lcpath3 = Path(outdir, lcname3)
-                    # clip folded lc near phase=0
-                    idx = (fold.phase > -phase_trim) & (
-                        fold.phase < phase_trim
-                    )
-                    fold[idx].to_csv(
-                        lcpath3,
-                        columns=["time", "flux"],
-                        header=False,
-                        sep=" ",
-                        index=False,
-                    )
-                    print("Saved: ", lcpath3)
-            print(f"==={d.TOI}===")
-            out += f"\t[[{d.TOI}]]\n"
-            out += f"\t\tper = {per:.6f}\n"
-            out += f"\t\tt0 = {t0:.6f}\n"
-            out += f"\t\tt14 = {dur:.2f}\n"
+                        fold = flat.fold(period=per, t0=t0).remove_nans()
+                        lcname3 = f"{target_name}-0{i+1}-{lctype}-s{lc.sector}-fold.txt"
+                        lcpath3 = Path(outdir, lcname3)
+                        # clip folded lc near phase=0
+                        idx = (fold.phase > -phase_trim) & (
+                            fold.phase < phase_trim
+                        )
+                        fold[idx].to_csv(
+                            lcpath3,
+                            columns=["time", "flux"],
+                            header=False,
+                            sep=" ",
+                            index=False,
+                        )
+                        print("Saved: ", lcpath3)
+                print(f"==={d.TOI}===")
+                out += f"\t[[{d.TOI}]]\n"
+                out += f"\t\tper = {per:.6f}\n"
+                out += f"\t\tt0 = {t0:.6f}\n"
+                out += f"\t\tt14 = {dur:.2f}\n"
+        else:
+            raise NotImplementedError()
         out += "[star]\n"
         out += f"\tteff = {Teff:.0f}, {Teff_err:.0f}\n"
         out += f"\tlogg = {log10g:.2f}, {log10g_err:.2f}\n"
@@ -387,7 +441,7 @@ class Planet(Star):
             e.g. V1298 Tab b (case-sensitive)
         """
         if query_string is None:
-            query_string = f"{self.target_name.title()} {self.letter}"
+            query_string = f"{self.target_name.title()} {self.candidate}"
         params = nea.query_planet(query_string, all_columns=True).to_pandas()
         # dataframe to series
         if len(params) > 0:

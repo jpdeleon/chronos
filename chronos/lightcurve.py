@@ -27,6 +27,7 @@ from chronos.cdips import CDIPS
 from chronos.pathos import PATHOS
 from chronos.plot import plot_tls, plot_odd_even, plot_aperture_outline
 from chronos.utils import (
+    get_all_sectors,
     remove_bad_data,
     parse_aperture_mask,
     get_fluxes_within_mask,
@@ -1083,6 +1084,113 @@ def plot_pixel_lcs(self, mask=None):
         ax.set_ylim(0, 1.3)
         if j != y[-1]:
             ax.set_xlabel("")
+    return fig
+
+
+def get_lightcurves(
+    ticid,
+    pipeline="pdcsap",
+    cadence="short",
+    sectors=None,
+    remove_outliers=False,
+    quality_bitmask=None,
+):
+    """
+    download all lightcurves in the given sectors
+    """
+    if sectors is None:
+        all_sectors = get_all_sectors(ticid)
+    else:
+        all_sectors = sectors
+
+    for n, sector in enumerate(all_sectors):
+        if pipeline == "pdcsap":
+            l = ShortCadence(ticid=ticid, sector=sector, verbose=False)
+            lc = l.get_lc()
+        else:
+            errmsg = "pdcsap is only currently available"
+            raise NotImplementedError(errmsg)
+
+        if quality_bitmask == "hard":
+            lc = lc[lc.quality == 0]
+
+        if remove_outliers:
+            lc, mask = lc.remove_outliers(
+                sigma_upper=3, sigma_lower=10, return_mask=True
+            )
+
+        if n == 0:
+            lcs = lc.copy()
+        else:
+            lcs = lcs.append(lc)
+        print(
+            f"{sector}: cdpp={lc.estimate_cdpp():.2f}, std={lc.flux.std():.2f}"
+        )
+
+    lcs.sector = all_sectors
+    return lcs
+
+
+def get_secondary_eclipse_threshold(self, flat, t14, per, t0, factor=3):
+    """
+    get the mean of the std x sigma of binned out-of-eclipse lightcurve
+    useful as a constraint in fpp.ini file in vespa.
+    This effectively means no secondary eclipse is detected above this level.
+
+    flat : lk.LightCurve
+        flattened light curve where transits will be masked
+    factor : float
+        factor = 3 means 3-sigma
+    """
+    tmask = get_transit_mask(flat, period=per, epoch=t0, duration_hours=t14)
+    fold = flat[~tmask].fold(period=per, t0=t0)
+
+    means = []
+    chunks = np.arange(-0.5, 0.51, t14 / 24 / per)
+    for n, x in enumerate(chunks):
+        if n == 0:
+            x1 = -0.5
+            x2 = x
+        elif n == len(chunks):
+            x1 = x
+            x2 = 0.5
+        else:
+            x1 = chunks[n - 1]
+            x2 = x
+        idx = (fold.phase > x1) & (fold.phase < x2)
+        mean = np.nanmean(fold.flux[idx])
+        print(mean)
+        means.append(mean)
+
+    return factor * np.nanstd(means)
+
+
+def plot_out_of_transit(flat, per, t0, depth):
+    """
+    """
+    fig, axs = pl.subplots(3, 1, figsize=(10, 10), gridspec_kw={"hspace": 0.1})
+    dy = 5 if depth < 0.01 else 1.5
+    ylim = (1 - dy * depth, 1 + 1.1 * depth)
+
+    _ = plot_fold_lc(
+        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[0]
+    )
+    axs[0].axhline(1 - depth, 0, 1, c="C1", ls="--")
+    pl.setp(axs[0], xlim=(-0.5, 0.5), ylim=ylim)
+
+    _ = plot_fold_lc(
+        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[1]
+    )
+    axs[1].axhline(1 - depth, 0, 1, c="C1", ls="--")
+    axs[1].legend("")
+    pl.setp(axs[1], xlim=(-0.3, 0.3), title="", ylim=ylim)
+
+    _ = plot_fold_lc(
+        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[2]
+    )
+    axs[2].axhline(1 - depth, 0, 1, c="C1", ls="--")
+    axs[2].legend("")
+    pl.setp(axs[2], xlim=(-0.1, 0.1), title="", ylim=ylim)
     return fig
 
 
