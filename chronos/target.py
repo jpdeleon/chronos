@@ -475,6 +475,12 @@ class Target:
                 print(msg)
             if (ens >= 5) or (gof >= 20):
                 print("See https://arxiv.org/pdf/1804.11082.pdf\n")
+            delta = np.hypot(target["pmra"], target["pmdec"])
+            if abs(delta) > 10:
+                print("High proper-motion star:")
+                print(
+                    f"(pmra,pmdec)=({target['pmra']:.2f},{target['pmdec']:.2f}) mas/yr"
+                )
             if target["visibility_periods_used"] < 6:
                 msg = "visibility_periods_used<6 so no astrometric solution\n"
                 msg += "See https://arxiv.org/pdf/1804.09378.pdf\n"

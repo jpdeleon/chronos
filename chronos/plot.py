@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 r"""
 classes for plotting cluster properties
+
+For inspiration, see http://www.astroexplorer.org/
 """
 import sys
 import numpy as np
@@ -585,6 +587,8 @@ def get_dss_data(
         (default=poss2ukstu_red) see `dss_description`
     height, width : float
         image cutout height and width [arcmin]
+    epoch : str
+        default=J2000
     Returns
     -------
     hdu
@@ -611,13 +615,13 @@ def get_dss_data(
             raise Exception(f"Error: {e}")
 
 
-def plot_dss_image(hdu, cmap="gray", ax=None):
+def plot_dss_image(hdu, cmap="gray", contrast=0.5, ax=None):
     """
     Plot output of get_dss_data:
     hdu = get_dss_data(ra, dec)
     """
     data, header = hdu.data, hdu.header
-    interval = ZScaleInterval(contrast=0.5)
+    interval = ZScaleInterval(contrast=contrast)
     zmin, zmax = interval.get_limits(data)
 
     if ax is None:
@@ -629,6 +633,10 @@ def plot_dss_image(hdu, cmap="gray", ax=None):
     title = f"{header['SURVEY']} ({header['FILTER']})\n"
     title += f"{header['DATE-OBS'][:10]}"
     ax.set_title(title)
+    # set RA from hourangle to degree
+    if hasattr(ax, "coords"):
+        ax.coords[0].set_major_formatter("dd:mm:ss")
+        ax.coords[1].set_major_formatter("dd:mm:ss")
     return ax
 
 
@@ -644,6 +652,8 @@ def plot_archival_images(
     width=1,
     cmap="gray",
     reticle=True,
+    color="red",
+    contrast=0.5,
     return_baseline=False,
 ):
     """
@@ -669,7 +679,10 @@ def plot_archival_images(
         colormap (default='gray')
     reticle : bool
         plot circle to mark the original position of target in survey1
-
+    color : str
+        default='red'
+    contrast : float
+        ZScale contrast
     Notes:
     ------
     Account for space motion:
@@ -685,15 +698,20 @@ def plot_archival_images(
     if (survey1 == "ps1") or (survey2 == "ps1"):
         try:
             import panstarrs3 as p3
+
+            fov = np.hypot(width, height) * u.arcmin
+            ps = p3.Panstarrs(
+                ra=ra,
+                dec=dec,
+                fov=fov.to(u.arcsec),
+                format="fits",
+                color=False,
+            )
+            img, hdr = ps.get_fits(filter=filter, verbose=False)
         except Exception:
             raise ModuleNotFoundError(
                 "pip install git+https://github.com/jpdeleon/panstarrs3.git"
             )
-    fov = np.hypot(width, height) * u.arcmin
-    ps = p3.Panstarrs(
-        ra=ra, dec=dec, fov=fov.to(u.arcsec), format="fits", color=False
-    )
-    img, hdr = ps.get_fits(filter=filter, verbose=False)
 
     # poss1
     if fp1 is not None and fp2 is not None:
@@ -731,31 +749,36 @@ def plot_archival_images(
     array, footprint = reproject_interp(hdu2, hdu1.header)
 
     fig = pl.figure(figsize=(10, 5), constrained_layout=True)
-    interval = ZScaleInterval(contrast=0.5)
+    interval = ZScaleInterval(contrast=contrast)
 
     # data1 = hdu1.data
     header1 = hdu1.header
     ax1 = fig.add_subplot("121", projection=WCS(header1))
-    _ = plot_dss_image(hdu1, cmap=cmap, ax=ax1)
+    _ = plot_dss_image(hdu1, cmap=cmap, contrast=contrast, ax=ax1)
     if reticle:
         c = Circle(
             (ra, dec),
             0.001,
-            edgecolor="red",
+            edgecolor=color,
             facecolor="none",
+            lw=2,
             transform=ax1.get_transform("fk5"),
         )
         ax1.add_patch(c)
     filt1 = (
         hdu1.header["FILTER"]
         if hdu1.header["FILTER"] is not None
-        else survey2.split("_")[1]
+        else survey1.split("_")[1]
     )
     # zmin, zmax = interval.get_limits(data1)
     # ax1.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
     title = f"{header1['SURVEY']} ({filt1})\n"
     title += f"{header1['DATE-OBS'][:10]}"
     ax1.set_title(title)
+    # set RA from hourangle to degree
+    if hasattr(ax1, "coords"):
+        ax1.coords[0].set_major_formatter("dd:mm:ss")
+        ax1.coords[1].set_major_formatter("dd:mm:ss")
 
     # recent
     data2, header2 = hdu2.data, hdu2.header
@@ -767,8 +790,9 @@ def plot_archival_images(
         c = Circle(
             (ra, dec),
             0.001,
-            edgecolor="red",
+            edgecolor=color,
             facecolor="none",
+            lw=2,
             transform=ax2.get_transform("fk5"),
         )
         ax2.add_patch(c)
@@ -785,6 +809,10 @@ def plot_archival_images(
     title = f"{header2['SURVEY']} ({filt2})\n"
     title += f"{header2['DATE-OBS'][:10]}"
     ax2.set_title(title)
+    # set RA from hourangle to degree
+    if hasattr(ax2, "coords"):
+        ax2.coords[0].set_major_formatter("dd:mm:ss")
+        ax2.coords[1].set_major_formatter("dd:mm:ss")
     if return_baseline:
         baseline = int(header2["DATE-OBS"][:4]) - int(header1["DATE-OBS"][:4])
         return fig, baseline

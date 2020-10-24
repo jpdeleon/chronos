@@ -43,7 +43,13 @@ from chronos.utils import (
 pl.style.use("default")
 log = logging.getLogger(__name__)
 
-__all__ = ["K2", "Everest", "K2sff", "plot_k2_campaign_fov"]
+__all__ = [
+    "K2",
+    "Everest",
+    "K2sff",
+    "plot_k2_campaign_fov",
+    "plot_everest_k2sff_comparison",
+]
 
 
 class _KeplerLightCurve(lk.KeplerLightCurve):
@@ -792,7 +798,7 @@ class Everest(K2):
                 targetid=self.epicid,
             )
             idx = lc.time.argsort()
-            return lc[idx]
+            return lc[idx].copy()
         except Exception as e:
             print(e)
 
@@ -961,7 +967,7 @@ class K2sff(K2):
                 targetid=self.epicid,
             )
             idx = lc.time.argsort()
-            return lc[idx]
+            return lc[idx].copy()
         except Exception as e:
             print(e)
 
@@ -1094,3 +1100,71 @@ def get_secondary_eclipse_threshold(self, flat, t14, per, t0, factor=3):
         means.append(mean)
 
     return factor * np.nanstd(means)
+
+
+def plot_everest_k2sff_comparison(
+    epicid,
+    campaign=None,
+    quality_bitmask=None,
+    nbin=1,
+    sigma_upper=5,
+    sigma_lower=10,
+):
+    """
+    compare light curves from everest and k2sff pipelines
+    """
+    if campaign == "all":
+        camps = get_all_campaigns(epicid)
+        camp_label = "C".join([str(c) for c in camps])
+
+        # everest
+        print("EVEREST lc cdpp:")
+        for n, camp in enumerate(camps):
+            e = Everest(epicid=epicid, campaign=camp, verbose=False)
+            l = e.lc_everest.remove_outliers(
+                sigma_upper=sigma_upper, sigma_lower=sigma_lower
+            )
+            if quality_bitmask == "hard":
+                l = l[(l.quality == 0) | (np.isnan(l.quality))]
+            if n == 0:
+                lc = l.copy()
+            else:
+                lc = lc.append(l)
+            print(f"C{camp}: {lc.estimate_cdpp():.2f}")
+        lc = lc.bin(nbin)
+        # k2sff
+        print("K2SFF lc cdpp:")
+        for n, camp in enumerate(camps):
+            k = K2sff(epicid=epicid, campaign=camp, verbose=False)
+            l = k.lc_k2sff.remove_outliers(sigma_lower=10)  # by eye
+            if quality_bitmask == "hard":
+                l = l[(l.quality == 0) | (np.isnan(l.quality))]
+            if n == 0:
+                lc2 = l.copy()
+            else:
+                lc2 = lc.append(l)
+            print(f"C{camp}: {lc.estimate_cdpp():.2f}")
+        lc2 = lc2.bin(nbin)
+    else:
+        e = Everest(epicid=epicid, campaign=campaign, verbose=False)
+        lc = e.lc_everest.remove_outliers(
+            sigma_upper=sigma_upper, sigma_lower=sigma_lower
+        )
+        if quality_bitmask == "hard":
+            lc = lc[(lc.quality == 0) | (np.isnan(lc.quality))]
+        print("EVEREST lc cdpp:")
+        print(f"C{campaign}: {lc.estimate_cdpp():.2f}")
+
+        k = K2sff(epicid=epicid, campaign=campaign, verbose=False)
+        lc2 = k.lc_k2sff.remove_outliers(
+            sigma_upper=sigma_upper, sigma_lower=sigma_lower
+        )
+        if quality_bitmask == "hard":
+            lc2 = lc2[(lc2.quality == 0) | (np.isnan(lc2.quality))]
+        print("K2SFF lc cdpp:")
+        print(f"C{campaign}: {lc2.estimate_cdpp():.2f}")
+        camp_label = lc2.campaign
+    ax = lc.scatter(label="everest")
+    lc2.scatter(label="k2sff", ax=ax)
+    ax.set_title(f"EPIC {epicid} (C{camp_label})")
+    return ax.figure

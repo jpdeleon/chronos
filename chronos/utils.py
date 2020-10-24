@@ -376,6 +376,9 @@ def get_mist_eep_table():
 
 
 def get_nexsci_archive(table="all"):
+    """
+    direct download from NExSci archive
+    """
     base_url = "https://exoplanetarchive.ipac.caltech.edu/"
     settings = "cgi-bin/nstedAPI/nph-nstedAPI?table="
     if table == "all":
@@ -388,6 +391,21 @@ def get_nexsci_archive(table="all"):
         raise ValueError("table=[all, confirmed, composite]")
     df = pd.read_csv(url)
     return df
+
+
+def get_nexsci_candidates(cache=False):
+    """
+    """
+    try:
+        from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
+    except Exception:
+        raise ModuleNotFoundError("pip install astroquery --update")
+    candidates = NasaExoplanetArchive.query_criteria(
+        table="k2candidates", cache=cache
+    )
+    nexsci_pc = candidates.to_pandas()
+    # nexsci_pc = nexsci_pc.query("k2c_disp=='CONFIRMED'")
+    return nexsci_pc.query("k2c_disp=='CANDIDATE'")
 
 
 def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):
@@ -2170,7 +2188,7 @@ def get_RV_K(
 
 def get_RM_K(vsini_kms, rp_Rearth, Rs_Rsun):
     """Compute the approximate semi-amplitude for the Rossiter-McLaughlin
-    effect in m/s"""
+    effect in m/s given sky-projected rotation velocity and depth"""
     D = (rp_Rearth * u.Rearth.to(u.m) / Rs_Rsun * u.Rsun.to(u.m)) ** 2
     return (vsini_kms * D / (1 - D)) * 1e3
 
