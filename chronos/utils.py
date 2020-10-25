@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-general helper functions
+Module for general helper functions
 """
 
 # Import standard library
@@ -112,6 +112,7 @@ __all__ = [
     "get_tois_in_TGv8_catalog",
     "get_filter_transmission_from_SVO",
     "get_limbdark",
+    "get_secondary_eclipse_threshold",
 ]
 
 # Ax/Av
@@ -2230,3 +2231,37 @@ def split_func(x):
 def flatten_list(lol):
     """flatten list of list (lol)"""
     return list(itertools.chain.from_iterable(lol))
+
+
+def get_secondary_eclipse_threshold(flat, t14, per, t0, factor=3):
+    """
+    get the mean of the std x sigma of binned out-of-eclipse lightcurve
+    useful as a constraint in fpp.ini file in vespa.
+    This effectively means no secondary eclipse is detected above this level.
+
+    flat : lk.LightCurve
+        flattened light curve where transits will be masked
+    factor : float
+        factor = 3 means 3-sigma
+    """
+    tmask = get_transit_mask(flat, period=per, epoch=t0, duration_hours=t14)
+    fold = flat[~tmask].fold(period=per, t0=t0)
+
+    means = []
+    chunks = np.arange(-0.5, 0.51, t14 / 24 / per)
+    for n, x in enumerate(chunks):
+        if n == 0:
+            x1 = -0.5
+            x2 = x
+        elif n == len(chunks):
+            x1 = x
+            x2 = 0.5
+        else:
+            x1 = chunks[n - 1]
+            x2 = x
+        idx = (fold.phase > x1) & (fold.phase < x2)
+        mean = np.nanmean(fold.flux[idx])
+        print(mean)
+        means.append(mean)
+
+    return factor * np.nanstd(means)

@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for manipulating lightcurve
+Module for manipulating TESS light curve.
+See k2 module for K2 light curve.
+
+Tess class is a holder for methods applicable for TESS targets.
+LongCadence and ShortCadence classes provide the core TESS light curve functionalities.
 """
 # Import standard library
 from os.path import join, exists
@@ -22,6 +26,7 @@ from transitleastsquares import transitleastsquares
 
 # Import from package
 from chronos.config import DATA_PATH
+from chronos.target import Target
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
 from chronos.pathos import PATHOS
@@ -33,6 +38,7 @@ from chronos.utils import (
     get_fluxes_within_mask,
     get_transit_mask,
     detrend,
+    get_toi,
 )
 from chronos.constants import TESS_TIME_OFFSET
 
@@ -43,11 +49,112 @@ fitsoutdir = join("/home", user, "data/transit")
 pl.style.use("default")
 log = logging.getLogger(__name__)
 
-__all__ = ["ShortCadence", "LongCadence"]
+__all__ = ["Tess", "LongCadence", "ShortCadence"]
+
+
+class Tess(Target):
+    """
+    Provides static methods applicable for TESS targets
+    """
+
+    def __ini__(
+        self,
+        name=None,
+        toiid=None,
+        ticid=None,
+        epicid=None,
+        gaiaDR2id=None,
+        ra_deg=None,
+        dec_deg=None,
+        mission="tess",
+        search_radius=3,
+    ):
+        super().__init__(
+            name=name,
+            toiid=toiid,
+            ticid=ticid,
+            epicid=epicid,
+            gaiaDR2id=gaiaDR2id,
+            ra_deg=ra_deg,
+            dec_deg=dec_deg,
+            search_radius=search_radius,
+            mission=mission,
+        )
+
+    # @staticmethod
+    def plot_pdc_sap_comparison(self, period=None, t0=None):
+        """
+        """
+        sc = ShortCadence(toiid=self.toiid, ticid=self.ticid)
+        sap = sc.lc_sap
+        pdcsap = sc.lc_pdcsap
+        if (period is None) | (t0 is None):
+            if self.toi_params is not None:
+                period = self.toi_period
+                t0 = self.toi_epoch
+        else:
+            raise ValueError("Provide `period` and `t0`.")
+        ax = sap.bin(11).fold(period=period, t0=t0).scatter(label="SAP")
+        _ = (
+            pdcsap.bin(11)
+            .fold(period=period, t0=t0)
+            .scatter(ax=ax, label="PDCSAP")
+        )
+        # ax.set_xlim(-0.1,0.1)
+        ax.set_title(f"TOI {self.toiid} (sector {sap.sector})")
+        return ax
+
+    # @staticmethod
+    def get_lightcurves(
+        self,
+        pipeline="pdcsap",
+        cadence="short",
+        sectors=None,
+        remove_outliers=False,
+        quality_bitmask=None,
+    ):
+        """
+        download all lightcurves in the given sectors
+        """
+        if sectors is None:
+            all_sectors = self.all_sectors
+        else:
+            all_sectors = sectors
+
+        for n, sector in enumerate(all_sectors):
+            if pipeline == "pdcsap":
+                l = ShortCadence(
+                    ticid=self.ticid, sector=sector, verbose=False
+                )
+                lc = l.get_lc()
+            else:
+                errmsg = "pdcsap is only currently available"
+                raise NotImplementedError(errmsg)
+
+            if quality_bitmask == "hard":
+                lc = lc[(lc.quality == 0) | np.isnan(lc.quality)]
+
+            if remove_outliers:
+                lc, mask = lc.remove_outliers(
+                    sigma_upper=3, sigma_lower=10, return_mask=True
+                )
+
+            if n == 0:
+                lcs = lc.copy()
+            else:
+                lcs = lcs.append(lc)
+            print(
+                f"{sector}: cdpp={lc.estimate_cdpp():.2f}, std={lc.flux.std():.2f}"
+            )
+
+        lcs.sector = all_sectors
+        return lcs
 
 
 class LongCadence(FFI_cutout):
     """
+    handles lightcurve creation and manipulation for TESS long cadence data
+    using `FFI_cutout`. Inherits FFI_cutout class.
     """
 
     def __init__(
@@ -60,6 +167,7 @@ class LongCadence(FFI_cutout):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
+        mission="tess",
         search_radius=3,
         sap_mask="square",
         aper_radius=1,
@@ -68,20 +176,11 @@ class LongCadence(FFI_cutout):
         cutout_size=(15, 15),
         quality_bitmask="default",
         apply_data_quality_mask=False,
-        mission="tess",
         calc_fpp=False,
         clobber=True,
         verbose=True,
-        # mission="TESS",
-        # quarter=None,
-        # month=None,
-        # campaign=None,
-        # limit=None,
     ):
         """
-        handles lightcurve creation and manipulation for TESS long cadence data
-        using `FFI_cutout`
-
         Attributes
         ----------
         sap_mask : str
@@ -129,6 +228,7 @@ class LongCadence(FFI_cutout):
         self.cdips = None
         self.pathos = None
         self.tls_results = None
+        _ = self.make_custom_lc()
 
         if self.verbose:
             print(f"Using {self.mission.upper()} long cadence.\n")
@@ -451,6 +551,8 @@ class LongCadence(FFI_cutout):
 
 class ShortCadence(Tpf):
     """
+    handles lightcurve creation and manipulation for TESS short cadence data
+    using `lightkurve`. Inherits Tpf class.
     """
 
     def __init__(
@@ -463,6 +565,7 @@ class ShortCadence(Tpf):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
+        mission="tess",
         search_radius=3,
         sap_mask="pipeline",
         aper_radius=1,
@@ -474,11 +577,6 @@ class ShortCadence(Tpf):
         calc_fpp=False,
         clobber=True,
         verbose=True,
-        # mission="TESS",
-        # quarter=None,
-        # month=None,
-        # campaign=None,
-        # limit=None,
     ):
         """
         sap_mask : str
@@ -523,6 +621,7 @@ class ShortCadence(Tpf):
         self.lc_pdcsap = None
         self.contratio = None
         self.tls_results = None
+        _ = self.get_lc()
 
         if self.verbose:
             print(f"Using {self.mission.upper()} short cadence.\n")
@@ -1085,114 +1184,3 @@ def plot_pixel_lcs(self, mask=None):
         if j != y[-1]:
             ax.set_xlabel("")
     return fig
-
-
-def get_lightcurves(
-    ticid,
-    pipeline="pdcsap",
-    cadence="short",
-    sectors=None,
-    remove_outliers=False,
-    quality_bitmask=None,
-):
-    """
-    download all lightcurves in the given sectors
-    """
-    if sectors is None:
-        all_sectors = get_all_sectors(ticid)
-    else:
-        all_sectors = sectors
-
-    for n, sector in enumerate(all_sectors):
-        if pipeline == "pdcsap":
-            l = ShortCadence(ticid=ticid, sector=sector, verbose=False)
-            lc = l.get_lc()
-        else:
-            errmsg = "pdcsap is only currently available"
-            raise NotImplementedError(errmsg)
-
-        if quality_bitmask == "hard":
-            lc = lc[lc.quality == 0]
-
-        if remove_outliers:
-            lc, mask = lc.remove_outliers(
-                sigma_upper=3, sigma_lower=10, return_mask=True
-            )
-
-        if n == 0:
-            lcs = lc.copy()
-        else:
-            lcs = lcs.append(lc)
-        print(
-            f"{sector}: cdpp={lc.estimate_cdpp():.2f}, std={lc.flux.std():.2f}"
-        )
-
-    lcs.sector = all_sectors
-    return lcs
-
-
-def get_secondary_eclipse_threshold(self, flat, t14, per, t0, factor=3):
-    """
-    get the mean of the std x sigma of binned out-of-eclipse lightcurve
-    useful as a constraint in fpp.ini file in vespa.
-    This effectively means no secondary eclipse is detected above this level.
-
-    flat : lk.LightCurve
-        flattened light curve where transits will be masked
-    factor : float
-        factor = 3 means 3-sigma
-    """
-    tmask = get_transit_mask(flat, period=per, epoch=t0, duration_hours=t14)
-    fold = flat[~tmask].fold(period=per, t0=t0)
-
-    means = []
-    chunks = np.arange(-0.5, 0.51, t14 / 24 / per)
-    for n, x in enumerate(chunks):
-        if n == 0:
-            x1 = -0.5
-            x2 = x
-        elif n == len(chunks):
-            x1 = x
-            x2 = 0.5
-        else:
-            x1 = chunks[n - 1]
-            x2 = x
-        idx = (fold.phase > x1) & (fold.phase < x2)
-        mean = np.nanmean(fold.flux[idx])
-        print(mean)
-        means.append(mean)
-
-    return factor * np.nanstd(means)
-
-
-def plot_out_of_transit(flat, per, t0, depth):
-    """
-    """
-    fig, axs = pl.subplots(3, 1, figsize=(10, 10), gridspec_kw={"hspace": 0.1})
-    dy = 5 if depth < 0.01 else 1.5
-    ylim = (1 - dy * depth, 1 + 1.1 * depth)
-
-    _ = plot_fold_lc(
-        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[0]
-    )
-    axs[0].axhline(1 - depth, 0, 1, c="C1", ls="--")
-    pl.setp(axs[0], xlim=(-0.5, 0.5), ylim=ylim)
-
-    _ = plot_fold_lc(
-        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[1]
-    )
-    axs[1].axhline(1 - depth, 0, 1, c="C1", ls="--")
-    axs[1].legend("")
-    pl.setp(axs[1], xlim=(-0.3, 0.3), title="", ylim=ylim)
-
-    _ = plot_fold_lc(
-        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[2]
-    )
-    axs[2].axhline(1 - depth, 0, 1, c="C1", ls="--")
-    axs[2].legend("")
-    pl.setp(axs[2], xlim=(-0.1, 0.1), title="", ylim=ylim)
-    return fig
-
-
-# class LightCurve(ShortCadence, LongCadence):
-#     raise NotImplementedError

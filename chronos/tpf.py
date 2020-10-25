@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for manipulating targetpixelfile
+Module for manipulating TESS targetpixelfile (tpf).
+K2 tpf lives in k2 module.
 
 NOTE: query_gaia_dr2_catalog method from Target hangs when called
 so make sure to populate self.gaia_params first if needed
@@ -49,6 +50,7 @@ class Tpf(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
+        mission="tess",
         search_radius=3,
         sap_mask="pipeline",
         aper_radius=1,
@@ -56,15 +58,9 @@ class Tpf(Target):
         percentile=95,
         quality_bitmask="default",
         apply_data_quality_mask=False,
-        mission="tess",
         clobber=True,
         verbose=True,
         calc_fpp=False,
-        # mission="TESS",
-        # quarter=None,
-        # month=None,
-        # campaign=None,
-        # limit=None,
     ):
         """
         Attributes
@@ -445,6 +441,7 @@ class FFI_cutout(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
+        mission="tess",
         search_radius=3,
         sap_mask="square",
         aper_radius=1,
@@ -456,11 +453,6 @@ class FFI_cutout(Target):
         calc_fpp=False,
         clobber=True,
         verbose=True,
-        # mission="TESS",
-        # quarter=None,
-        # month=None,
-        # campaign=None,
-        # limit=None,
     ):
         """
         Attributes
@@ -508,7 +500,7 @@ class FFI_cutout(Target):
                 raise Exception(errmsg)
         self.calc_fpp = calc_fpp
         if self.sector is None:
-            msg = f"Target not found in any TESS sectors"
+            msg = "Target not found in any TESS sectors"
             assert len(self.all_sectors) > 0, msg
             self.sector = self.all_sectors[0]  # get first sector by default
             print(f"Available sectors: {self.all_sectors}")

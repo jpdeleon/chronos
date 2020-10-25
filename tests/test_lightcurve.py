@@ -1,11 +1,27 @@
 # -*- coding: utf-8 -*-
+"""
+test methods of lightcurve module
+"""
 import lightkurve as lk
-from chronos import ShortCadence, LongCadence
 
+# from matplotlib.figure import Figure
+from matplotlib.axes import Axes
+from chronos import Tess, ShortCadence, LongCadence
+
+TOIID = 837
 TICID = 460205581
 SECTOR = 10
 CUTOUT_SIZE = (15, 15)
 QUALITY_BITMASK = "default"
+
+
+def test_tess_methods():
+    t = Tess(toiid=TOIID)
+    ax = t.plot_pdc_sap_comparison()
+    assert isinstance(ax, Axes)
+
+    lcs = t.get_lightcurves()
+    assert isinstance(lcs, lk.LightCurve)
 
 
 def test_sc_pipeline():

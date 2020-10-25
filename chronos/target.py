@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for searching object
+Module for star bookkeeping, e.g. position, catalog cross-matching, archival data look-up.
 """
 
 # Import standard library
@@ -54,7 +54,11 @@ log = logging.getLogger(__name__)
 __all__ = ["Target"]
 
 
-class Target:
+class Target(object):
+    """
+    Performs target resolution basic catalog cross-matching and archival data look-up
+    """
+
     def __init__(
         self,
         name=None,
@@ -65,14 +69,12 @@ class Target:
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
+        mission="tess",
         search_radius=3,
         verbose=True,
         clobber=False,
-        mission="tess",
     ):
         """
-        handles target resolution and basic catalog queries
-
         Attributes
         ----------
         search_radius : float

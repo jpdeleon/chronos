@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
+"""
+test methods of k2 module
+"""
 import pandas as pd
 import lightkurve as lk
-from chronos.k2 import K2, Everest, K2sff
+from chronos.k2 import K2, Everest, K2sff, _KeplerLightCurve
+from matplotlib.figure import Figure
+
+# from matplotlib.axes import Axes
 
 EPICID = 211916756  # k2-95
 CAMPAIGN = 5  # or 18
@@ -22,10 +28,14 @@ def test_k2_attributes():
 
 
 def test_k2_lc_pipeline():
-    s.get_lc("sap")
     assert isinstance(s.lc_sap, lk.LightCurve)
-    s.get_lc("pdcsap")
     assert isinstance(s.lc_pdcsap, lk.LightCurve)
+
+
+def test_k2_methods():
+    lcs = K2.get_lightcurves(EPICID)
+    # assert isinstance(lcs, lk.LightCurve)
+    assert isinstance(lcs, _KeplerLightCurve)
 
 
 # def test_k2_lc_custom():
@@ -44,11 +54,16 @@ def test_everest():
     """
     """
     s = Everest(epicid=EPICID, campaign=CAMPAIGN, verbose=False)
-    assert isinstance(s.get_lc(), lk.LightCurve)
+    assert isinstance(s.lc_everest, lk.LightCurve)
 
 
 def test_k2sff():
     """
     """
     s = K2sff(epicid=EPICID, campaign=CAMPAIGN, verbose=False)
-    assert isinstance(s.get_lc(), lk.LightCurve)
+    assert isinstance(s.lc_k2sff, lk.LightCurve)
+
+
+def test_k2_plots():
+    fig = K2.plot_everest_k2sff_comparison(EPICID)
+    assert isinstance(fig, Figure)

@@ -1,14 +1,15 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 
-# This code is copied verbatim from https://github.com/mzechmeister/GLS/tree/master/python
-#
-# Copyright (c) 2012 Sebastian Schröter, Stefan Czesla, and Mathias Zechmeister
+"""
+This code is copied verbatim from https://github.com/mzechmeister/GLS/tree/master/python
 
-# Note : The software is also available as part of the PyAstronomy package.
-#        See: http://www.hs.uni-hamburg.de/DE/Ins/Per/Czesla/index.html
-#             https://github.com/sczesla/PyAstronomy/blob/master/src/pyTiming/pyPeriod/gls.py
+Copyright (c) 2012 Sebastian Schröter, Stefan Czesla, and Mathias Zechmeister
 
+Note : The software is also available as part of the PyAstronomy package.
+       See: http://www.hs.uni-hamburg.de/DE/Ins/Per/Czesla/index.html
+            https://github.com/sczesla/PyAstronomy/blob/master/src/pyTiming/pyPeriod/gls.py
+"""
 from __future__ import print_function, division
 import numpy as np
 from numpy import sum, pi, cos, sin, arctan2, exp, log, sqrt, dot, arange

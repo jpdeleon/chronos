@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for searching and querying cluster catalogs
+Module for searching and querying cluster catalogs.
 
 See also from astroquery.xmatch import XMatch
 """

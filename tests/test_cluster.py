@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-
+test methods of cluster module
 """
 from chronos.cluster import ClusterCatalog, Cluster
 

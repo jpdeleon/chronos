@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-from matplotlib.figure import Figure
+"""
+test methods of gls module
+"""
+# from matplotlib.figure import Figure
 from chronos import LongCadence, Gls
 
 TICID = 460205581
@@ -14,6 +17,7 @@ def test_gls():
 
     data = lc.time, lc.flux, lc.flux_err
     gls = Gls(data, Pbeg=1, verbose=False)
+    assert isinstance(gls.best, dict)
     # fig = gls.plot(block=True)
-    fig = gls.plot(block=False)
-    assert isinstance(fig, Figure)
+    # fig = gls.plot(block=False)
+    # assert isinstance(fig, Figure)

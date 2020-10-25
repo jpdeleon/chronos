@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 r"""
-classes for plotting cluster properties
+Module for plotting cluster properties.
 
 For inspiration, see http://www.astroexplorer.org/
 """
@@ -30,6 +30,7 @@ import deepdish as dd
 
 # Import from package
 from chronos.target import Target
+from chronos.lightcurve import plot_fold_lc
 from chronos.cluster import ClusterCatalog, Cluster
 from chronos.constants import Kepler_pix_scale, TESS_pix_scale
 from chronos.utils import (
@@ -48,7 +49,6 @@ __all__ = [
     "plot_tls",
     "plot_odd_even",
     "plot_hrd_spectral_types",
-    "plot_pdc_sap_comparison",
     "plot_rotation_period",
     "plot_possible_NEBs",
     "plot_interactive",
@@ -57,11 +57,12 @@ __all__ = [
     "plot_gaia_sources_on_survey",
     "plot_gaia_sources_on_tpf",
     "plot_cluster_kinematics",
-    "df_to_gui",
     "get_dss_data",
     "plot_archival_images",
     "plot_dss_image",
     "plot_likelihood_grid",
+    "plot_out_of_transit",
+    "df_to_gui",
 ]
 
 # http://gsss.stsci.edu/SkySurveys/Surveys.htm
@@ -1112,30 +1113,6 @@ def plot_odd_even(
     return fig
 
 
-def plot_pdc_sap_comparison(toiid, sector=None):
-    toi = get_toi(toi=toiid, verbose=False)
-    period = toi["Period (days)"].values[0]
-    t0 = toi["Epoch (BJD)"].values[0]
-    tic = toi["TIC ID"].values[0]
-
-    lcf = lk.search_lightcurvefile(
-        f"TIC {tic}", sector=sector, mission="TESS"
-    ).download()
-    if lcf is not None:
-        sap = lcf.SAP_FLUX.remove_nans().normalize()
-        pdcsap = lcf.PDCSAP_FLUX.remove_nans().normalize()
-
-        ax = sap.bin(11).fold(period=period, t0=t0).scatter(label="SAP")
-        _ = (
-            pdcsap.bin(11)
-            .fold(period=period, t0=t0)
-            .scatter(ax=ax, label="PDCSAP")
-        )
-        # ax.set_xlim(-0.1,0.1)
-        ax.set_title(f"TOI {toiid} (sector {sap.sector})")
-    return lcf, ax
-
-
 def plot_hrd_spectral_types(
     x=None,
     y=None,
@@ -1303,6 +1280,35 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
     ax.plot(dmags, kmax / gammas, "r-")
     ax.set_yscale("log")
     return ax
+
+
+def plot_out_of_transit(flat, per, t0, depth):
+    """
+    """
+    fig, axs = pl.subplots(3, 1, figsize=(10, 10), gridspec_kw={"hspace": 0.1})
+    dy = 5 if depth < 0.01 else 1.5
+    ylim = (1 - dy * depth, 1 + 1.1 * depth)
+
+    _ = plot_fold_lc(
+        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[0]
+    )
+    axs[0].axhline(1 - depth, 0, 1, c="C1", ls="--")
+    pl.setp(axs[0], xlim=(-0.5, 0.5), ylim=ylim)
+
+    _ = plot_fold_lc(
+        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[1]
+    )
+    axs[1].axhline(1 - depth, 0, 1, c="C1", ls="--")
+    axs[1].legend("")
+    pl.setp(axs[1], xlim=(-0.3, 0.3), title="", ylim=ylim)
+
+    _ = plot_fold_lc(
+        flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[2]
+    )
+    axs[2].axhline(1 - depth, 0, 1, c="C1", ls="--")
+    axs[2].legend("")
+    pl.setp(axs[2], xlim=(-0.1, 0.1), title="", ylim=ylim)
+    return fig
 
 
 def plot_interactive(

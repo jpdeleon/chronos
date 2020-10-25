@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Stellar characterization module
+Module for stellar characterization.
 """
 # Import standard library
 from os.path import join
@@ -30,7 +30,7 @@ from chronos.utils import (
 )
 
 
-__all__ = ["Star", "read_isochrones_results"]
+__all__ = ["Star"]
 
 # latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, LAMOST, ALL-WISE, 2MASS
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
@@ -60,10 +60,15 @@ CATALOGS_STAR_PARMS = {
 
 #
 # https://docs.google.com/document/d/1s6OgiJlBVwonAYvQ3VONB4ioWOn0SHtJesrnaXJETBA/edit
-CATALOG_EB = {"": ""}  # parametees of EB in APOGEE16 stars
+CATALOG_EB = {"": ""}  # parameters of EB in APOGEE16 stars
 
 
 class Star(Target):
+    """
+    Performs physics-related calculations for stellar characterization.
+    Inherits the Target class.
+    """
+
     def __init__(
         self,
         name=None,
@@ -73,8 +78,8 @@ class Star(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        search_radius=3,
         mission="tess",
+        search_radius=3,
         prot=None,
         mcmc_steps=1000,
         burnin=500,
@@ -1528,30 +1533,42 @@ class Star(Target):
     # def TGv8(self):
     #     pass
 
+    @staticmethod
+    def read_isochrones_results(
+        fp, cols="radius mass Teff logg feh".split(), savetxt=True
+    ):
+        """
 
-def read_isochrones_results(fp, cols="radius mass Teff logg feh".split()):
-    """
-    """
-    d = {}
-    try:
-        texts = []
-        df = pd.read_hdf(fp, key="derived_samples").dropna()
-        for col in cols:
-            v, vlo, vhi = np.percentile(df[col], q=[50, 16, 84])
-            if col == "Teff":
-                d[col] = f"{v:.0f}"
-                d[col + "_lo"] = f"{v-vlo:.0f}"
-                d[col + "_hi"] = f"{vhi-v:.0f}"
-                msg = f"{col}: {v:.0f}-{v-vlo:.0f}+{vhi-v:.0f}"
-            else:
-                d[col] = f"{v:.2f}"
-                d[col + "_lo"] = f"{v-vlo:.2f}"
-                d[col + "_hi"] = f"{vhi-v:.2f}"
-                msg = f"{col}: {v:.2f}-{v-vlo:.2f}+{vhi-v:.2f}"
-            texts.append(msg)
-            print(msg)
-        np.savetxt("results.txt", texts, fmt="%s")
-    except Exception as e:
-        errmsg = f"Error: {e}"
-        print(errmsg)
-    return d
+        Attributes
+        ----------
+        fp : str
+            file path to *.h5 file produced by isochrones starfit script
+        cols : list
+            list of parameters to read/save
+        savetxt : bool
+            save summary in txt file
+        """
+        d = {}
+        try:
+            texts = []
+            df = pd.read_hdf(fp, key="derived_samples").dropna()
+            for col in cols:
+                v, vlo, vhi = np.percentile(df[col], q=[50, 16, 84])
+                if col == "Teff":
+                    d[col] = f"{v:.0f}"
+                    d[col + "_lo"] = f"{v-vlo:.0f}"
+                    d[col + "_hi"] = f"{vhi-v:.0f}"
+                    msg = f"{col}: {v:.0f}-{v-vlo:.0f}+{vhi-v:.0f}"
+                else:
+                    d[col] = f"{v:.2f}"
+                    d[col + "_lo"] = f"{v-vlo:.2f}"
+                    d[col + "_hi"] = f"{vhi-v:.2f}"
+                    msg = f"{col}: {v:.2f}-{v-vlo:.2f}+{vhi-v:.2f}"
+                texts.append(msg)
+                print(msg)
+            if savetxt:
+                np.savetxt("results.txt", texts, fmt="%s")
+        except Exception as e:
+            errmsg = f"Error: {e}"
+            print(errmsg)
+        return d

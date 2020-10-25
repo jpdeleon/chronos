@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for k2 lightcurves produced by EVEREST and K2SFF pipelines
+Module for K2 tpf from MAST and light curves produced by EVEREST and K2SFF pipelines.
+K2 is the base class inherited by Everest and K2sff classes
 """
 # Import standard library
 from pathlib import Path
@@ -38,18 +39,13 @@ from chronos.utils import (
     get_transit_mask,
     get_fluxes_within_mask,
     PadWithZeros,
+    get_secondary_eclipse_threshold,
 )
 
 pl.style.use("default")
 log = logging.getLogger(__name__)
 
-__all__ = [
-    "K2",
-    "Everest",
-    "K2sff",
-    "plot_k2_campaign_fov",
-    "plot_everest_k2sff_comparison",
-]
+__all__ = ["K2", "Everest", "K2sff"]
 
 
 class _KeplerLightCurve(lk.KeplerLightCurve):
@@ -117,6 +113,7 @@ class K2(Target):
         self.K2_star_params = None
         self.best_aper_mask = None
         self.contratio = None
+        _ = self._get_lc()
 
     def get_tpf(self):
         """
@@ -129,7 +126,7 @@ class K2(Target):
         self.tpf = tpf
         return tpf
 
-    def get_lc(self, lctype="pdcsap", campaign=None, quality_bitmask=None):
+    def _get_lc(self, lctype="pdcsap", campaign=None, quality_bitmask=None):
         """
         FIXME: refactor to lightcurve.py?
         """
@@ -620,10 +617,158 @@ class K2(Target):
         q = self.get_K2_star_params()
         return q[["e_Mstar", "E_Mstar"]]
 
+    @staticmethod
+    def plot_k2_campaign_fov(
+        campaign, figsize=(8, 5), ax=None, color="k", text_offset=0
+    ):
+        """
+        plot FOV of a given K2 campaign
+        """
+        footprint_dict = get_K2_campaign_fov()
+        if ax is None:
+            fig, ax = pl.subplots(1, 1, figsize=figsize)
+        channels = footprint_dict[f"c{campaign}"]["channels"]
+
+        for c in channels.keys():
+            channel = channels[c]
+            x = channel["corners_ra"] + channel["corners_ra"][:1]
+            y = channel["corners_dec"] + channel["corners_dec"][:1]
+            ax.plot(x, y, color=color)
+        ax.annotate(
+            campaign,
+            (x[0] + text_offset, y[0] + text_offset),
+            color=color,
+            fontsize=20,
+        )
+        ax.set_xlabel("RA [deg]")
+        ax.set_ylabel("DEC [deg]")
+        return ax
+
+    @staticmethod
+    def get_lightcurves(
+        epicid,
+        pipeline="everest",
+        campaigns=None,
+        remove_outliers=False,
+        quality_bitmask=None,
+    ):
+        """
+        download all lightcurves in the given campaigns
+        """
+        if campaigns is None:
+            all_camps = get_all_campaigns(epicid)
+        else:
+            all_camps = campaigns
+        print(f"Retrieving {pipeline} light curves.")
+
+        for n, camp in enumerate(all_camps):
+            if pipeline == "everest":
+                l = Everest(epicid=epicid, campaign=camp, verbose=False)
+                lc = l.lc_everest
+            elif pipeline == "k2sff":
+                l = K2sff(epicid=epicid, campaign=camp, verbose=False)
+                lc = l.lc_k2sff
+            elif (pipeline == "pdcsap") | (pipeline == "sap"):
+                l = K2(epicid=epicid, campaign=camp, verbose=False)
+                if pipeline == "pdcsap":
+                    lc = l.lc_pdcsap
+                else:
+                    lc = l.lc_sap
+            else:
+                pipelines = "sap, pdcsap, everest, k2sff"
+                raise ValueError(f"`pipeline` not in {pipelines}")
+
+            if quality_bitmask == "hard":
+                lc = lc[(lc.quality == 0) | (np.isnan(lc.quality))]
+
+            if remove_outliers:
+                lc, mask = lc.remove_outliers(
+                    sigma_upper=3, sigma_lower=10, return_mask=True
+                )
+
+            if n == 0:
+                lcs = lc.copy()
+            else:
+                lcs = lcs.append(lc)
+            print(
+                f"{camp}: cdpp={lc.estimate_cdpp():.2f}, std={lc.flux.std():.2f}"
+            )
+
+        lcs.campaign = all_camps
+        return lcs
+
+    @staticmethod
+    def plot_everest_k2sff_comparison(
+        epicid,
+        campaign=None,
+        quality_bitmask=None,
+        nbin=1,
+        sigma_upper=5,
+        sigma_lower=10,
+    ):
+        """
+        compare light curves from everest and k2sff pipelines
+        """
+        if campaign == "all":
+            camps = get_all_campaigns(epicid)
+            camp_label = "C".join([str(c) for c in camps])
+
+            # everest
+            print("EVEREST lc cdpp:")
+            for n, camp in enumerate(camps):
+                e = Everest(epicid=epicid, campaign=camp, verbose=False)
+                l = e.lc_everest.remove_outliers(
+                    sigma_upper=sigma_upper, sigma_lower=sigma_lower
+                )
+                if quality_bitmask == "hard":
+                    l = l[(l.quality == 0) | (np.isnan(l.quality))]
+                if n == 0:
+                    lc = l.copy()
+                else:
+                    lc = lc.append(l)
+                print(f"C{camp}: {lc.estimate_cdpp():.2f}")
+            lc = lc.bin(nbin)
+            # k2sff
+            print("K2SFF lc cdpp:")
+            for n, camp in enumerate(camps):
+                k = K2sff(epicid=epicid, campaign=camp, verbose=False)
+                l = k.lc_k2sff.remove_outliers(sigma_lower=10)  # by eye
+                if quality_bitmask == "hard":
+                    l = l[(l.quality == 0) | (np.isnan(l.quality))]
+                if n == 0:
+                    lc2 = l.copy()
+                else:
+                    lc2 = lc.append(l)
+                print(f"C{camp}: {lc.estimate_cdpp():.2f}")
+            lc2 = lc2.bin(nbin)
+        else:
+            e = Everest(epicid=epicid, campaign=campaign, verbose=False)
+            lc = e.lc_everest.remove_outliers(
+                sigma_upper=sigma_upper, sigma_lower=sigma_lower
+            )
+            if quality_bitmask == "hard":
+                lc = lc[(lc.quality == 0) | (np.isnan(lc.quality))]
+            print("EVEREST lc cdpp:")
+            print(f"C{lc.campaign}: {lc.estimate_cdpp():.2f}")
+
+            k = K2sff(epicid=epicid, campaign=campaign, verbose=False)
+            lc2 = k.lc_k2sff.remove_outliers(
+                sigma_upper=sigma_upper, sigma_lower=sigma_lower
+            )
+            if quality_bitmask == "hard":
+                lc2 = lc2[(lc2.quality == 0) | (np.isnan(lc2.quality))]
+            print("K2SFF lc cdpp:")
+            print(f"C{lc2.campaign}: {lc2.estimate_cdpp():.2f}")
+            camp_label = lc2.campaign
+        ax = lc.scatter(label="everest")
+        lc2.scatter(label="k2sff", ax=ax)
+        ax.set_title(f"EPIC {epicid} (C{camp_label})")
+        return ax.figure
+
 
 class Everest(K2):
     """
-    everest pipeline
+    EVEREST pipeline
     """
 
     def __init__(
@@ -647,9 +792,7 @@ class Everest(K2):
             dec_deg=dec_deg,
             verbose=verbose,
         )
-        """Initialize Everest
-
-        Attributes
+        """Attributes
         ----------
 
         """
@@ -805,6 +948,7 @@ class Everest(K2):
 
 class K2sff(K2):
     """
+    K2SFF pipeline
     """
 
     def __init__(
@@ -830,8 +974,7 @@ class K2sff(K2):
             verbose=verbose,
             clobber=clobber,
         )
-        """Initialize Everest
-
+        """
         Attributes
         ----------
 
@@ -972,18 +1115,7 @@ class K2sff(K2):
             print(e)
 
 
-def get_K2_star_data():
-    """
-    Hardegree-Ullmann+2020:
-    https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt
-    """
-    url = "https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt"
-    fp = Path(DATA_PATH, "apjsab7230t1_mrt.txt")
-    print("Downloading Table X of Hardegree-Ullmann+2020:")
-    urlretrieve(url, fp)
-    print("Saved: ", fp)
-
-
+# get_K2_campaign_fov not as staticmethod so it can be called by plot_k2_campaign_fov
 def get_K2_campaign_fov():
     """
     K2 campaign FOV footprint in json format
@@ -995,176 +1127,14 @@ def get_K2_campaign_fov():
     return footprint_dict
 
 
-def plot_k2_campaign_fov(
-    campaign, figsize=(8, 5), ax=None, color="k", text_offset=0
-):
+def get_K2_star_data():
     """
-    plot FOV of a given K2 campaign
+    Hardegree-Ullmann+2020:
+    https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt
     """
-    footprint_dict = get_K2_campaign_fov()
-    if ax is None:
-        fig, ax = pl.subplots(1, 1, figsize=figsize)
-    channels = footprint_dict[f"c{campaign}"]["channels"]
-
-    for c in channels.keys():
-        channel = channels[c]
-        x = channel["corners_ra"] + channel["corners_ra"][:1]
-        y = channel["corners_dec"] + channel["corners_dec"][:1]
-        ax.plot(x, y, color=color)
-    ax.annotate(
-        campaign,
-        (x[0] + text_offset, y[0] + text_offset),
-        color=color,
-        fontsize=20,
-    )
-    ax.set_xlabel("RA [deg]")
-    ax.set_ylabel("DEC [deg]")
-    return ax
-
-
-def get_lightcurves(
-    epicid,
-    pipeline="everest",
-    campaigns=None,
-    remove_outliers=False,
-    quality_bitmask=None,
-):
-    """
-    download all lightcurves in the given campaigns
-    """
-    if campaigns is None:
-        all_camps = get_all_campaigns(epicid)
-    else:
-        all_camps = campaigns
-
-    for n, camp in enumerate(all_camps):
-        if pipeline == "everest":
-            l = Everest(epicid=epicid, campaign=camp, verbose=False)
-            lc = l.lc_everest
-        elif pipeline == "k2sff":
-            l = K2sff(epicid=epicid, campaign=camp, verbose=False)
-            lc = l.lc_k2sff
-        else:
-            l = K2(epicid=epicid, campaign=camp, verbose=False)
-            lc = l.get_lc()
-
-        if quality_bitmask == "hard":
-            lc = lc[lc.quality == 0]
-
-        if remove_outliers:
-            lc, mask = lc.remove_outliers(
-                sigma_upper=3, sigma_lower=10, return_mask=True
-            )
-
-        if n == 0:
-            lcs = lc.copy()
-        else:
-            lcs = lcs.append(lc)
-        print(
-            f"{camp}: cdpp={lc.estimate_cdpp():.2f}, std={lc.flux.std():.2f}"
-        )
-
-    lcs.campaign = all_camps
-    return lcs
-
-
-def get_secondary_eclipse_threshold(self, flat, t14, per, t0, factor=3):
-    """
-    get the mean of the std x sigma of binned out-of-eclipse lightcurve
-    useful as a constraint in fpp.ini file in vespa.
-    This effectively means no secondary eclipse is detected above this level.
-
-    flat : lk.LightCurve
-        flattened light curve where transits will be masked
-    factor : float
-        factor = 3 means 3-sigma
-    """
-    tmask = get_transit_mask(flat, period=per, epoch=t0, duration_hours=t14)
-    fold = flat[~tmask].fold(period=per, t0=t0)
-
-    means = []
-    chunks = np.arange(-0.5, 0.51, t14 / 24 / per)
-    for n, x in enumerate(chunks):
-        if n == 0:
-            x1 = -0.5
-            x2 = x
-        elif n == len(chunks):
-            x1 = x
-            x2 = 0.5
-        else:
-            x1 = chunks[n - 1]
-            x2 = x
-        idx = (fold.phase > x1) & (fold.phase < x2)
-        mean = np.nanmean(fold.flux[idx])
-        print(mean)
-        means.append(mean)
-
-    return factor * np.nanstd(means)
-
-
-def plot_everest_k2sff_comparison(
-    epicid,
-    campaign=None,
-    quality_bitmask=None,
-    nbin=1,
-    sigma_upper=5,
-    sigma_lower=10,
-):
-    """
-    compare light curves from everest and k2sff pipelines
-    """
-    if campaign == "all":
-        camps = get_all_campaigns(epicid)
-        camp_label = "C".join([str(c) for c in camps])
-
-        # everest
-        print("EVEREST lc cdpp:")
-        for n, camp in enumerate(camps):
-            e = Everest(epicid=epicid, campaign=camp, verbose=False)
-            l = e.lc_everest.remove_outliers(
-                sigma_upper=sigma_upper, sigma_lower=sigma_lower
-            )
-            if quality_bitmask == "hard":
-                l = l[(l.quality == 0) | (np.isnan(l.quality))]
-            if n == 0:
-                lc = l.copy()
-            else:
-                lc = lc.append(l)
-            print(f"C{camp}: {lc.estimate_cdpp():.2f}")
-        lc = lc.bin(nbin)
-        # k2sff
-        print("K2SFF lc cdpp:")
-        for n, camp in enumerate(camps):
-            k = K2sff(epicid=epicid, campaign=camp, verbose=False)
-            l = k.lc_k2sff.remove_outliers(sigma_lower=10)  # by eye
-            if quality_bitmask == "hard":
-                l = l[(l.quality == 0) | (np.isnan(l.quality))]
-            if n == 0:
-                lc2 = l.copy()
-            else:
-                lc2 = lc.append(l)
-            print(f"C{camp}: {lc.estimate_cdpp():.2f}")
-        lc2 = lc2.bin(nbin)
-    else:
-        e = Everest(epicid=epicid, campaign=campaign, verbose=False)
-        lc = e.lc_everest.remove_outliers(
-            sigma_upper=sigma_upper, sigma_lower=sigma_lower
-        )
-        if quality_bitmask == "hard":
-            lc = lc[(lc.quality == 0) | (np.isnan(lc.quality))]
-        print("EVEREST lc cdpp:")
-        print(f"C{campaign}: {lc.estimate_cdpp():.2f}")
-
-        k = K2sff(epicid=epicid, campaign=campaign, verbose=False)
-        lc2 = k.lc_k2sff.remove_outliers(
-            sigma_upper=sigma_upper, sigma_lower=sigma_lower
-        )
-        if quality_bitmask == "hard":
-            lc2 = lc2[(lc2.quality == 0) | (np.isnan(lc2.quality))]
-        print("K2SFF lc cdpp:")
-        print(f"C{campaign}: {lc2.estimate_cdpp():.2f}")
-        camp_label = lc2.campaign
-    ax = lc.scatter(label="everest")
-    lc2.scatter(label="k2sff", ax=ax)
-    ax.set_title(f"EPIC {epicid} (C{camp_label})")
-    return ax.figure
+    url = "https://iopscience.iop.org/0067-0049/247/1/28/suppdata/apjsab7230t1_mrt.txt"
+    fp = Path(DATA_PATH, "apjsab7230t1_mrt.txt")
+    if not fp.exists():
+        print("Downloading Table X of Hardegree-Ullmann+2020:")
+        urlretrieve(url, fp)
+        print("Saved: ", fp)
