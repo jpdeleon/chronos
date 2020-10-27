@@ -59,6 +59,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "get_k2_data_from_exofop",
     "get_nexsci_archive",
+    "get_nexsci_candidates",
     "get_tepcat",
     "get_tess_ccd_info",
     "get_all_campaigns",
@@ -113,6 +114,7 @@ __all__ = [
     "get_filter_transmission_from_SVO",
     "get_limbdark",
     "get_secondary_eclipse_threshold",
+    "query_WDSC",
 ]
 
 # Ax/Av
@@ -139,9 +141,26 @@ def query_asas_sn_catalog():
     https://asas-sn.osu.edu/photometry
     http://www.astrouw.edu.pl/asas/?page=acvs
     """
-    raise NotImplementedError()
+    raise NotImplementedError('To be added soon.')
 
 
+def query_KEBC():
+    """
+    http://keplerebs.villanova.edu/
+    """
+    url = 'http://keplerebs.villanova.edu/'
+    raise NotImplementedError('See vizier: J/AJ/151/68/catalog instead')
+
+
+def query_WDSC():
+    """
+    Washington Double Star Catalog
+    """
+    url = "http://www.astro.gsu.edu/wds/Webtextfiles/wdsnewframe.html"
+    df = pd.read_csv(url)
+    return df
+
+    
 def get_k2_data_from_exofop(epic, table="star"):
     """
     get data from exofop table
@@ -333,15 +352,6 @@ def get_TGv8_catalog(data_path=None):
 def get_max_dmag_from_depth(depth):
     """maximum delta magnitude from transit depth"""
     return 2.5 * np.log10(depth)
-
-
-def query_WDSC():
-    """
-    Washington Double Star Catalog
-    """
-    url = "http://www.astro.gsu.edu/wds/Webtextfiles/wdsnewframe.html"
-    df = pd.read_csv(url)
-    return df
 
 
 def get_tepcat(catalog="all"):

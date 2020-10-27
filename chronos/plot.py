@@ -30,7 +30,6 @@ import deepdish as dd
 
 # Import from package
 from chronos.target import Target
-from chronos.lightcurve import plot_fold_lc
 from chronos.cluster import ClusterCatalog, Cluster
 from chronos.constants import Kepler_pix_scale, TESS_pix_scale
 from chronos.utils import (
@@ -62,6 +61,7 @@ __all__ = [
     "plot_dss_image",
     "plot_likelihood_grid",
     "plot_out_of_transit",
+    "plot_fold_lc",
     "df_to_gui",
 ]
 
@@ -1310,6 +1310,24 @@ def plot_out_of_transit(flat, per, t0, depth):
     pl.setp(axs[2], xlim=(-0.1, 0.1), title="", ylim=ylim)
     return fig
 
+def plot_fold_lc(
+    flat, period=None, epoch=None, duration=None, binsize=10, ax=None
+):
+    """
+    plot folded lightcurve (uses TOI ephemeris by default)
+    """
+    if ax is None:
+        fig, ax = pl.subplots(figsize=(12, 8))
+    errmsg = "Provide period and epoch."
+    assert (period is not None) & (epoch is not None), errmsg
+    fold = flat.fold(period=period, t0=epoch)
+    fold.scatter(ax=ax, c="k", alpha=0.5, label="raw")
+    fold.bin(binsize).scatter(ax=ax, s=20, c="C1", label=f"bin {binsize}")
+    if duration is not None:
+        xlim = 3 * duration / 24 / period
+        ax.set_xlim(-xlim, xlim)
+    ax.set_title(f"{flat.target_name} (sector {flat.sector})")
+    return ax
 
 def plot_interactive(
     catalog_name="CantatGaudin2020",

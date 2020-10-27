@@ -462,7 +462,7 @@ class LongCadence(FFI_cutout):
         return_trend=False,
         **wotan_kwargs,
     ):
-        return get_flat_lc(
+        return _get_flat_lc(
             self=self,
             lc=lc,
             period=period,
@@ -477,7 +477,7 @@ class LongCadence(FFI_cutout):
     def plot_trend_flat_lcs(
         self, lc, period=None, epoch=None, duration=None, binsize=10, **kwargs
     ):
-        return plot_trend_flat_lcs(
+        return _plot_trend_flat_lcs(
             self=self,
             lc=lc,
             period=period,
@@ -490,7 +490,7 @@ class LongCadence(FFI_cutout):
     def plot_fold_lc(
         self, flat=None, period=None, epoch=None, duration=None, ax=None
     ):
-        return plot_fold_lc(
+        return _plot_fold_lc(
             self=self,
             flat=flat,
             period=period,
@@ -547,6 +547,35 @@ class LongCadence(FFI_cutout):
     @property
     def cadence(self):
         return "long"
+
+    @staticmethod
+    def plot_out_of_transit(flat, per, t0, depth):
+        """
+        """
+        fig, axs = pl.subplots(3, 1, figsize=(10, 10), gridspec_kw={"hspace": 0.1})
+        dy = 5 if depth < 0.01 else 1.5
+        ylim = (1 - dy * depth, 1 + 1.1 * depth)
+
+        _ = _plot_fold_lc(
+            flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[0]
+        )
+        axs[0].axhline(1 - depth, 0, 1, c="C1", ls="--")
+        pl.setp(axs[0], xlim=(-0.5, 0.5), ylim=ylim)
+
+        _ = _plot_fold_lc(
+            flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[1]
+        )
+        axs[1].axhline(1 - depth, 0, 1, c="C1", ls="--")
+        axs[1].legend("")
+        pl.setp(axs[1], xlim=(-0.3, 0.3), title="", ylim=ylim)
+
+        _ = _plot_fold_lc(
+            flat, period=per, epoch=t0 + per / 2, duration=None, ax=axs[2]
+        )
+        axs[2].axhline(1 - depth, 0, 1, c="C1", ls="--")
+        axs[2].legend("")
+        pl.setp(axs[2], xlim=(-0.1, 0.1), title="", ylim=ylim)
+        return fig
 
 
 class ShortCadence(Tpf):
@@ -906,7 +935,7 @@ class ShortCadence(Tpf):
         return_trend=False,
         **wotan_kwargs,
     ):
-        return get_flat_lc(
+        return _get_flat_lc(
             self=self,
             lc=lc,
             period=period,
@@ -921,7 +950,7 @@ class ShortCadence(Tpf):
     def plot_trend_flat_lcs(
         self, lc, period=None, epoch=None, duration=None, binsize=10, **kwargs
     ):
-        return plot_trend_flat_lcs(
+        return _plot_trend_flat_lcs(
             self=self,
             lc=lc,
             period=period,
@@ -932,7 +961,7 @@ class ShortCadence(Tpf):
         )
 
     def plot_fold_lc(self, flat, period=None, epoch=None, ax=None):
-        return plot_fold_lc(
+        return _plot_fold_lc(
             self=self, flat=flat, period=period, epoch=epoch, ax=ax
         )
 
@@ -1004,7 +1033,7 @@ Either class inherits different classes
 """
 
 
-def get_flat_lc(
+def _get_flat_lc(
     self,
     lc,
     period=None,
@@ -1058,7 +1087,7 @@ def get_flat_lc(
         return flat
 
 
-def plot_trend_flat_lcs(
+def _plot_trend_flat_lcs(
     self, lc, period=None, epoch=None, duration=None, binsize=10, **kwargs
 ):
     """
@@ -1118,7 +1147,7 @@ def plot_trend_flat_lcs(
     return fig
 
 
-def plot_fold_lc(
+def _plot_fold_lc(
     self, flat, period=None, epoch=None, duration=None, binsize=10, ax=None
 ):
     """
@@ -1144,7 +1173,7 @@ def plot_fold_lc(
     return ax
 
 
-def plot_pixel_lcs(self, mask=None):
+def _plot_pixel_lcs(self, mask=None):
     """
     Experimental: See eleanor.visualization.pixel_by_pixel():
 
