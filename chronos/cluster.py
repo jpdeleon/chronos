@@ -51,14 +51,19 @@ __all__ = [
 ]
 
 PROT_CATALOG_DICT = {
-    "Reinhold2020": "J/A+A/635/A43",
-    # M48/NGC2548
-    "Barnes2015": "J/A+A/583/A73",
-    # NGC 6811
-    "Meibom2011": "J/ApJ/733/L9",
-    # USco and ρ Oph
-    "Rebull2018": "J/AJ/155/196",
-    "Rebull2016": "J/AJ/152/114",
+    # See table1: https://arxiv.org/pdf/1905.10588.pdf
+    "Barnes2015": "J/A+A/583/A73",  # , M48/NGC2548
+    "Meibom2011_NGC6811": "J/ApJ/733/L9",
+    "Curtis2019_NGC6811": "J/AJ/158/77",  # 1Gyr
+    "Douglas2017_Praesepe": "J/ApJ/842/83",  # 680 Myr
+    "Rebull2016_Pleiades": "J/AJ/152/114",  # 100 Myr
+    "Rebull2018_USco_rhoOph": "J/AJ/155/196",  # 10 Myr
+    "Rebull2020_Taurus": "J/AJ/159/273",
+    "Reinhold2020_K2C0C18": "J/A+A/635/A43",
+    # http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=
+    "Douglas2019_Praesepe": "2019ApJ...879..100D",
+    "Fang2020_PleiadesPraesepeHyades": "2020MNRAS.495.2949F",
+    "Gillen2020_BlancoI": "2020MNRAS.492.1008G",
 }
 
 # tables = Vizier.get_catalogs(PROT_CATALOG_DICT["Barnes2015"])
@@ -1263,7 +1268,7 @@ class ClusterCatalog(CatalogDownloader):
             return False
 
     def plot_all_clusters(
-        self, x=None, y=None, c=None, cmap=pl.get_cmap("Blues")
+        self, x=None, y=None, c=None, cmap=pl.get_cmap("Blues"), ax=None
     ):
         """visualize all clusters in catalog"""
         n = "Cluster"
@@ -1286,7 +1291,7 @@ class ClusterCatalog(CatalogDownloader):
         if (x is None) and (y is None):
             print(f"Choose `x` & `y` from\n{df.columns.tolist()}")
         else:
-            ax = df.plot(kind="scatter", x=x, y=y, c=c, cmap=cmap)
+            ax = df.plot(kind="scatter", x=x, y=y, c=c, ax=ax, cmap=cmap)
             _ = df[[n, x, y]].apply(annotate_df, axis=1)
             ax.set_title(f"{self.catalog_name} catalog")
             return ax

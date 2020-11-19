@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ["CDIPS", "get_cdips_inventory", "get_url_in_cdips_inventory"]
 
-CDIPS_SECTORS = [6, 7, 8, 9, 10, 11, 12, 13]
+CDIPS_SECTORS = np.arange(1, 14, 1)
 CDIPS_APER_PIX = [1, 1.5, 2.25]
 CDIPS_PAPER = "https://ui.adsabs.harvard.edu/abs/2019ApJS..245...13B/abstract"
 CDIPS_REPORT = "http://lgbouma.com/cdips_documentation/20191127_vetting_report_description_document.pdf"
@@ -164,6 +164,8 @@ class CDIPS(Target):
         # self.mission = mission
         self.lctype = lctype
         self.lctypes = ["flux", "mag", "tfa", "pca"]
+        if self.lctype not in self.lctypes:
+            raise ValueError(f"Type not among {self.lctypes}")
         self.aper_idx = str(aper_idx)
         assert self.aper_idx in [
             "1",
@@ -184,11 +186,10 @@ class CDIPS(Target):
         self.time = self.lc.time
         self.flux = self.lc.flux
         self.err = self.lc.flux_err
-        if self.lctype not in self.lctypes:
-            raise ValueError(f"Type not among {self.lctypes}")
         ctois = get_ctois()
         self.cdips_candidates = ctois[ctois["User"] == "bouma"]
         self.ffi_cutout = None
+        self.aper_mask = None
 
     def get_mast_table(self):
         """https://archive.stsci.edu/hlsp/cdips
@@ -237,7 +238,7 @@ class CDIPS(Target):
             + f"s{sec}/cam{self.cam}_ccd{self.ccd}"
             + f"/hlsp_cdips_tess_ffi_gaiatwo{gid}-"
             + f"{sec}-cam{self.cam}-ccd{self.ccd}"
-            + f"_tess_v01_llc.fits"
+            + "_tess_v01_llc.fits"
         )
         return fp
 
@@ -342,23 +343,26 @@ class CDIPS(Target):
         This is an estimate of CDIPS aperture since
         self.hdulist[1].data.names does not contain aperture
         """
+        aper_pix = CDIPS_APER_PIX[int(self.aper_idx) - 1]  # aper_idx=(1,2,3)
         print(
-            "CDIPS has no aperture info in fits. Estimating aperture instead."
+            f"CDIPS has no aperture info in fits. Estimating aperture instead using aper_idx={aper_pix} pix."
         )
-        # first download tpf cutout
-        self.ffi_cutout = FFI_cutout(
-            sector=self.sector,
-            gaiaDR2id=self.gaiaid,
-            toiid=self.toiid,
-            ticid=self.ticid,
-            search_radius=self.search_radius,
-            quality_bitmask=self.quality_bitmask,
-        )
+        if self.ffi_cutout is None:
+            # first download tpf cutout
+            self.ffi_cutout = FFI_cutout(
+                sector=self.sector,
+                gaiaDR2id=self.gaiaid,
+                toiid=self.toiid,
+                ticid=self.ticid,
+                search_radius=self.search_radius,
+                quality_bitmask=self.quality_bitmask,
+            )
         tpf = self.ffi_cutout.get_tpf_tesscut()
         idx = int(self.aper_idx) - 1  #
         aper_mask = parse_aperture_mask(
             tpf, sap_mask=sap_mask, aper_radius=CDIPS_APER_PIX[idx]
         )
+        self.aper_mask = aper_mask
         return aper_mask
 
     def plot_all_lcs(self):

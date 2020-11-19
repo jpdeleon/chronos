@@ -1310,6 +1310,7 @@ def plot_out_of_transit(flat, per, t0, depth):
     pl.setp(axs[2], xlim=(-0.1, 0.1), title="", ylim=ylim)
     return fig
 
+
 def plot_fold_lc(
     flat, period=None, epoch=None, duration=None, binsize=10, ax=None
 ):
@@ -1326,8 +1327,13 @@ def plot_fold_lc(
     if duration is not None:
         xlim = 3 * duration / 24 / period
         ax.set_xlim(-xlim, xlim)
-    ax.set_title(f"{flat.target_name} (sector {flat.sector})")
+    if hasattr(flat, "target_name"):
+        target_name = flat.target_name
+    else:
+        target_name = f"TIC {flat.targetid}"
+    ax.set_title(f"{target_name} (sector {flat.sector})")
     return ax
+
 
 def plot_interactive(
     catalog_name="CantatGaudin2020",

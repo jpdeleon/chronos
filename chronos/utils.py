@@ -141,15 +141,15 @@ def query_asas_sn_catalog():
     https://asas-sn.osu.edu/photometry
     http://www.astrouw.edu.pl/asas/?page=acvs
     """
-    raise NotImplementedError('To be added soon.')
+    raise NotImplementedError("To be added soon.")
 
 
 def query_KEBC():
     """
     http://keplerebs.villanova.edu/
     """
-    url = 'http://keplerebs.villanova.edu/'
-    raise NotImplementedError('See vizier: J/AJ/151/68/catalog instead')
+    # url = "http://keplerebs.villanova.edu/"
+    raise NotImplementedError("See vizier: J/AJ/151/68/catalog instead")
 
 
 def query_WDSC():
@@ -160,7 +160,7 @@ def query_WDSC():
     df = pd.read_csv(url)
     return df
 
-    
+
 def get_k2_data_from_exofop(epic, table="star"):
     """
     get data from exofop table

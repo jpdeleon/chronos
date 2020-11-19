@@ -145,6 +145,8 @@ class PATHOS(Target):
         self.quality_bitmask = quality_bitmask
         self.lc = self.get_pathos_lc()
         self.pathos_candidates = self.get_pathos_candidates()
+        self.ffi_cutout = None
+        self.aper_mask = None
 
     def get_pathos_candidates(self):
         fp = Path(DATA_PATH, "pathos_candidates.csv")
@@ -275,22 +277,24 @@ class PATHOS(Target):
         This is an estimate of PATHOS aperture only
         """
         print(
-            "PATHOS has no aperture info in fits. Estimating aperture instead."
+            f"PATHOS has no aperture info in fits. Estimating aperture instead using aper_idx={self.aper_idx} pix."
         )
-        # first download tpf cutout
-        self.ffi_cutout = FFI_cutout(
-            sector=self.sector,
-            gaiaDR2id=self.gaiaid,
-            toiid=self.toiid,
-            ticid=self.ticid,
-            search_radius=self.search_radius,
-            quality_bitmask=self.quality_bitmask,
-        )
+        if self.ffi_cutout is None:
+            # first download tpf cutout
+            self.ffi_cutout = FFI_cutout(
+                sector=self.sector,
+                gaiaDR2id=self.gaiaid,
+                toiid=self.toiid,
+                ticid=self.ticid,
+                search_radius=self.search_radius,
+                quality_bitmask=self.quality_bitmask,
+            )
         tpf = self.ffi_cutout.get_tpf_tesscut()
         idx = int(self.aper_idx) - 1  #
         aper_mask = parse_aperture_mask(
             tpf, sap_mask=sap_mask, aper_radius=idx
         )
+        self.aper_mask = aper_mask
         return aper_mask
 
     def validate_target_header(self):
@@ -304,7 +308,7 @@ class PATHOS(Target):
         """
         pathos_lcs = {}
         fig, ax = pl.subplots(1, 1, figsize=(10, 6))
-        for aper in [1, 2, 3]:
+        for aper in [1, 2, 3, 4]:
             lc = self.get_pathos_lc(
                 lctype=lctype, aper_idx=aper
             ).remove_outliers(sigma=sigma)
