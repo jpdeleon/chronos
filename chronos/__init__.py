@@ -9,6 +9,7 @@ from .planet import *
 from .cluster import *
 from .tpf import *
 from .lightcurve import *
+from .qlp import *
 from .cdips import *
 from .pathos import *
 from .k2 import *

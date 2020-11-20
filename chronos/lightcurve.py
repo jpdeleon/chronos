@@ -30,6 +30,7 @@ from chronos.target import Target
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
 from chronos.pathos import PATHOS
+from chronos.qlp import QLP
 from chronos.plot import plot_tls, plot_odd_even, plot_aperture_outline
 from chronos.utils import (
     get_all_sectors,
@@ -49,25 +50,7 @@ fitsoutdir = join("/home", user, "data/transit")
 pl.style.use("default")
 log = logging.getLogger(__name__)
 
-__all__ = ["Tess", "LongCadence", "ShortCadence", "QLP"]
-
-QLP_SECTORS = np.arange(11, 27, 1)
-
-
-class _TessLightCurve(lk.TessLightCurve):
-    """augments parent class by adding convenience methods"""
-
-    def detrend(self, polyorder=1, break_tolerance=None):
-        lc = self.copy()
-        half = lc.time.shape[0] // 2
-        if half % 2 == 0:
-            # add 1 if even
-            half += 1
-        return lc.flatten(
-            window_length=half,
-            polyorder=polyorder,
-            break_tolerance=break_tolerance,
-        )
+__all__ = ["Tess", "LongCadence", "ShortCadence"]
 
 
 class Tess(Target):
@@ -169,235 +152,6 @@ class Tess(Target):
         return lcs
 
 
-class QLP(Target):
-    """
-    http://archive.stsci.edu/hlsp/qlp
-    """
-
-    def __init__(
-        self,
-        sector=None,
-        name=None,
-        toiid=None,
-        ticid=None,
-        epicid=None,
-        gaiaDR2id=None,
-        ra_deg=None,
-        dec_deg=None,
-        quality_bitmask=None,
-        search_radius=3,
-        aper="best",
-        lctype="KSPSAP",
-        mission="tess",
-        verbose=True,
-        clobber=True,
-    ):
-        super().__init__(
-            name=name,
-            toiid=toiid,
-            ticid=ticid,
-            epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
-            ra_deg=ra_deg,
-            dec_deg=dec_deg,
-            search_radius=search_radius,
-            verbose=verbose,
-        )
-        """Initialize QLP
-
-        Attributes
-        ----------
-        lctype : str
-            KSPSAP : Normalized light curve detrended by kepler spline
-        aper : str
-            best, small, large
-        """
-        self.sector = sector
-        if self.sector is None:
-            print(f"Available sectors: {self.all_sectors}")
-            if len(self.all_sectors) == 1:
-                self.sector = self.all_sectors[0]
-            else:
-                idx = [
-                    True if s in QLP_SECTORS else False
-                    for s in self.all_sectors
-                ]
-                if sum(idx) == 0:
-                    msg = f"QLP lc is currently available for sectors={QLP_SECTORS}\n"
-                    raise ValueError(msg)
-                if sum(idx) == 1:
-                    self.sector = self.all_sectors[idx][
-                        0
-                    ]  # get first available
-                else:
-                    self.sector = self.all_sectors[idx][
-                        0
-                    ]  # get first available
-                    # get first available
-                    print(
-                        f"QLP lc may be available for sectors {self.all_sectors[idx]}"
-                    )
-            print(f"Using sector={self.sector}.")
-
-        if self.gaiaid is None:
-            _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-
-        self.aper = aper
-        self.apers = ["best", "small", "large"]
-        if self.aper not in self.apers:
-            raise ValueError(f"Type not among {self.apers}")
-        self.quality_bitmask = quality_bitmask
-        self.fits_url = None
-        self.hdulist = None
-        self.header0 = None
-        self.lctype = lctype.upper()
-        self.lctypes = ["SAP", "KSPSAP"]
-        if self.lctype not in self.lctypes:
-            raise ValueError(f"Type not among {self.lctypes}")
-        self.data, self.header = self.get_qlp_fits()
-        self.lc = self.get_qlp_lc()
-        self.lc.targetid = self.ticid
-        self.cadence = self.header["TIMEDEL"] * u.d
-        self.time = self.lc.time
-        self.flux = self.lc.flux
-        self.err = self.lc.flux_err
-
-        self.ffi_cutout = None
-        self.aper_mask = None
-
-    def get_qlp_url(self):
-        """
-        hlsp_qlp_tess_ffi_<sector>-<tid>_tess_v01_llc.<exten>
-        where:
-
-        <sector> = The Sector represented as a 4-digit, zero-padded string,
-                    preceded by an 's', e.g., 's0026' for Sector 26.
-        <tid> = The full, 16-digit, zeo-padded TIC ID.
-        <exten> = The light curve data type, either "fits" or "txt".
-        """
-        base = "https://archive.stsci.edu/hlsps/qlp/"
-        assert self.sector is not None
-        sec = str(self.sector).zfill(4)
-        tic = str(self.ticid).zfill(16)
-        fp = (
-            base
-            + f"s{sec}/{tic[:4]}/{tic[4:8]}/{tic[8:12]}/{tic[12:16]}/hlsp_qlp_tess_ffi_s{sec}-{tic}_tess_v01_llc.fits"
-        )
-        return fp
-
-    def get_qlp_fits(self):
-        """get qlp target and light curve header and data
-        """
-        fp = self.get_qlp_url()
-        try:
-            hdulist = fits.open(fp)
-            if self.verbose:
-                print(hdulist.info())
-            lc_data = hdulist[1].data
-            lc_header = hdulist[1].header
-
-            # set
-            self.fits_url = fp
-            self.hdulist = hdulist
-            self.header0 = hdulist[0].header
-            return lc_data, lc_header
-
-        except Exception:
-            msg = f"File not found:\n{fp}\n"
-            raise ValueError(msg)
-
-    def get_qlp_lc(self, lc_type=None, aper=None, sort=True):
-        """
-        Parameters
-        ----------
-        lc_type : str
-            {SAP, KSPSAP}
-        """
-        lc_type = lc_type.upper() if lc_type is not None else self.lctype
-        aper = aper.upper() if aper is not None else self.aper
-        assert lc_type in self.lctypes
-        assert aper in self.apers
-
-        if self.verbose:
-            print(f"Using QLP {lc_type} (rad={self.aper}) lightcurve.")
-
-        time = self.data["TIME"] + 2457000  # BJD, days
-        if aper == "small":
-            flux = self.data["KSPSAP_FLUX_SML"]
-        elif aper == "large":
-            flux = self.data["KSPSAP_FLUX_LAG"]
-        else:
-            flux = self.data[f"{lc_type}_FLUX"]
-
-        if lc_type == "KSPSAP":
-            err = self.data[f"{lc_type}_FLUX_ERR"]
-        else:
-            err = np.ones_like(flux) * np.std(flux)
-        x = self.data["SAP_X"]
-        y = self.data["SAP_Y"]
-        quality = self.data["QUALITY"]
-        cadence = self.data["CADENCENO"]
-        if sort:
-            idx = np.argsort(time)
-        else:
-            idx = np.ones_like(time, bool)
-        # hack tess lightkurve
-        return _TessLightCurve(
-            time=time[idx],
-            flux=flux[idx],
-            flux_err=err[idx],
-            # FIXME: only day works when using lc.to_periodogram()
-            time_format="jd",  # TIMEUNIT is d in fits header
-            time_scale="tdb",  # TIMESYS in fits header
-            centroid_col=x,
-            centroid_row=y,
-            quality=quality,
-            quality_bitmask=self.quality_bitmask,
-            cadenceno=cadence,
-            sector=self.sector,
-            targetid=self.toi_params["TIC ID"]
-            if self.toi_params is not None
-            else self.ticid,
-            ra=self.target_coord.ra.deg,
-            dec=self.target_coord.dec.deg,
-            label=None,
-            meta=None,
-        ).normalize()
-
-    def validate_target_header(self):
-        """
-        see self.header0
-        """
-        raise NotImplementedError()
-
-    def get_aper_mask_qlp(self, sap_mask="round"):
-        """
-        This is an estimate of QLP aperture based on
-        self.hdulist[1].header['BESTAP']
-
-        See:
-        https://archive.stsci.edu/hlsps/qlp/hlsp_qlp_tess_ffi_all_tess_v1_data-prod-desc.pdf
-        """
-        rad = float(self.header["BESTAP"].split(":")[0])
-        print(f"Estimating QLP aperture using r={rad} pix.")
-        if self.ffi_cutout is None:
-            # first download tpf cutout
-            self.ffi_cutout = FFI_cutout(
-                sector=self.sector,
-                gaiaDR2id=self.gaiaid,
-                toiid=self.toiid,
-                ticid=self.ticid,
-                search_radius=self.search_radius,
-                quality_bitmask=self.quality_bitmask,
-            )
-        tpf = self.ffi_cutout.get_tpf_tesscut()
-        aper_mask = parse_aperture_mask(
-            tpf, sap_mask=sap_mask, aper_radius=round(rad)
-        )
-        self.aper_mask = aper_mask
-        return aper_mask
-
-
 class LongCadence(FFI_cutout):
     """
     handles lightcurve creation and manipulation for TESS long cadence data
@@ -474,6 +228,7 @@ class LongCadence(FFI_cutout):
         self.contratio = None
         self.cdips = None
         self.pathos = None
+        self.qlp = None
         self.tls_results = None
         _ = self.make_custom_lc()
 
@@ -604,6 +359,25 @@ class LongCadence(FFI_cutout):
         # add method
         lc.detrend = lambda: detrend(lc)
         return lc
+
+    def get_qlp_lc(self, sector=None, lctype="kspsap", verbose=False):
+        verbose = verbose if verbose is not None else self.verbose
+        sector = sector if sector is not None else self.sector
+        if self.gaiaid is None:
+            d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+            self.gaiaid = int(d.source_id)
+        qlp = QLP(
+            toiid=self.toiid,
+            ticid=self.ticid,
+            gaiaDR2id=self.gaiaid,
+            sector=sector,
+            lctype=lctype,
+            verbose=verbose,
+        )
+        self.qlp = qlp
+        self.lc_qlp = qlp.lc
+        self.lc_qlp.targetid = self.ticid
+        return qlp.lc
 
     def get_cdips_lc(
         self, sector=None, aper_idx=3, lctype="flux", verbose=False

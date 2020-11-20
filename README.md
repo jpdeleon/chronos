@@ -20,7 +20,7 @@ $ pytest tests/
 * `star.py`: physics-related calculations, e.g. extinction, spectral typing, isochrones, gyrochronology (inherits `target`)
 * `planet.py`: planet parameters calculations (inherits `star`)
 * `tpf.py`: targetpixel file manipulation
-* `lightcurve.py`: light curve analysis either using SPOC or custom pipeline for short and long cadence (inherits `tpf`)
+* `lightcurve.py`: light curve analysis either using SPOC, QLP, or custom pipeline for short and long cadence (inherits `tpf`)
 * `k2.py`: tpf and light curve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
 * `cluster.py`: cluster catalog, cluster analysis + plotting
 * `cdips.py` & `pathos.py`: api for CDIPS and PATHOS pipelines

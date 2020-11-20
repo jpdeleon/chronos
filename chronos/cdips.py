@@ -188,6 +188,7 @@ class CDIPS(Target):
         self.err = self.lc.flux_err
         ctois = get_ctois()
         self.cdips_candidates = ctois[ctois["User"] == "bouma"]
+        self.tpf_tesscut = None
         self.ffi_cutout = None
         self.aper_mask = None
 
@@ -357,10 +358,12 @@ class CDIPS(Target):
                 search_radius=self.search_radius,
                 quality_bitmask=self.quality_bitmask,
             )
-        tpf = self.ffi_cutout.get_tpf_tesscut()
+        self.tpf_tesscut = self.ffi_cutout.get_tpf_tesscut()
         idx = int(self.aper_idx) - 1  #
         aper_mask = parse_aperture_mask(
-            tpf, sap_mask=sap_mask, aper_radius=CDIPS_APER_PIX[idx]
+            self.tpf_tesscut,
+            sap_mask=sap_mask,
+            aper_radius=CDIPS_APER_PIX[idx],
         )
         self.aper_mask = aper_mask
         return aper_mask
