@@ -244,6 +244,7 @@ def plot_gaia_sources_on_tpf(
     invert_xaxis=False,
     invert_yaxis=False,
     pix_scale=TESS_pix_scale,
+    verbose=True,
     **mask_kwargs,
 ):
     """
@@ -257,6 +258,8 @@ def plot_gaia_sources_on_tpf(
     TODO: correct for proper motion difference between
     survey image and gaia DR2 positions
     """
+    if verbose:
+        print("Plotting nearby gaia sources on tpf.")
     assert target_gaiaid is not None
     img = np.nanmedian(tpf.flux, axis=0)
     # make aperture mask
@@ -418,13 +421,13 @@ def plot_gaia_sources_on_survey(
     kmax=1.0,
     sap_mask="pipeline",
     survey="DSS2 Red",
-    verbose=True,
     ax=None,
     outline_color="C0",  # pink
     figsize=None,
     invert_xaxis=False,
     invert_yaxis=False,
     pix_scale=TESS_pix_scale,
+    verbose=True,
     **mask_kwargs,
 ):
     """Plot (superpose) Gaia sources on archival image
@@ -456,6 +459,8 @@ def plot_gaia_sources_on_survey(
     TODO: correct for proper motion difference between
     survey image and gaia DR2 positions
     """
+    if verbose:
+        print("Plotting nearby gaia sources on survey image.")
     assert target_gaiaid is not None
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:

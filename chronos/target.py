@@ -665,7 +665,7 @@ class Target(object):
             if self.toi_depth is not None:
                 depth = self.toi_depth
             else:
-                print("Supply depth, else depth=0")
+                print("Supply depth, else depth=0.")
                 depth = 0
         if depth is not None:
             d["true_depth_pri"] = d["gamma_pri"] * depth
@@ -690,7 +690,7 @@ class Target(object):
             if self.toi_depth is not None:
                 depth = self.toi_depth
             else:
-                print("Supply depth, else depth=0")
+                print("Supply depth, else depth=0.")
                 depth = 0
 
         if self.tic_params is None:
@@ -702,7 +702,7 @@ class Target(object):
         Tmax = Tmag + dT
         if self.verbose:
             print(
-                f"Given depth={depth*100:.4f}%, Tmag={Tmax:.2f} is the max. mag of a resolved companion that can reproduce this transit"
+                f"Given depth={depth*100:.4f}%, Tmag={Tmax:.2f} is the max. mag of a resolved companion that can reproduce this transit."
             )
         return Tmax
 
@@ -830,7 +830,7 @@ class Target(object):
                 sigma=sigma,
             )
             if verbose:
-                print(f"{param}: {idx2.sum()} matched")
+                print(f"{param}: {idx2.sum()} matched.")
             idxs.append(idx2)
 
         # sum matches along row (cluster)
@@ -853,7 +853,7 @@ class Target(object):
             else:
                 return cluster
         else:
-            print("Target not likely a cluster member")
+            print("Target not likely a cluster member.")
 
     def get_nearest_cluster_member(
         self,
@@ -935,7 +935,7 @@ class Target(object):
                         # query distance
                         if self.verbose:
                             print(
-                                "Querying parallax from Gaia DR2 to get distance"
+                                "Querying parallax from Gaia DR2 to get distance..."
                             )
                         self.target_coord = get_target_coord_3d(
                             self.target_coord
@@ -992,11 +992,11 @@ class Target(object):
         radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
         if self.verbose:
             print(
-                f"Searching MAST for ({self.target_coord.to_string()}) with radius={radius}"
+                f"Searching MAST for ({self.target_coord.to_string()}) with radius={radius}."
             )
         table = Observations.query_region(self.target_coord, radius=radius)
         if table is None:
-            print("No result from MAST")
+            print("No result from MAST.")
         else:
             df = table.to_pandas()
             if self.verbose:
@@ -1020,13 +1020,13 @@ class Target(object):
         radius = radius * u.arcsec if radius is not None else 3 * u.arcsec
         if self.verbose:
             print(
-                f"Searching MAST for ({self.target_coord}) with radius={radius}"
+                f"Searching MAST for ({self.target_coord}) with radius={radius}."
             )
         simbad = Simbad()
         simbad.add_votable_fields("typed_id", "otype", "sptype", "rot", "mk")
         table = simbad.query_region(self.target_coord, radius=radius)
         if table is None:
-            print("No result from Simbad")
+            print("No result from Simbad.")
         else:
             df = table.to_pandas()
             df = df.drop(
@@ -1050,10 +1050,10 @@ class Target(object):
         https://astroquery.readthedocs.io/en/latest/vizier/vizier.html
         """
         verbose = self.verbose if verbose is None else verbose
-        radius = 3 * u.arcsec if radius is None else radius * u.arcsec
+        radius = self.search_radius if radius is None else radius * u.arcsec
         if self.verbose:
             print(
-                f"Searching Vizier: ({self.target_coord.to_string()}) with radius={radius}"
+                f"Searching Vizier: ({self.target_coord.to_string()}) with radius={radius}."
             )
         # standard column sorted in increasing distance
         v = Vizier(
@@ -1063,7 +1063,7 @@ class Target(object):
         )
         tables = v.query_region(self.target_coord, radius=radius)
         if tables is None:
-            print("No result from Vizier")
+            print("No result from Vizier.")
         else:
             if verbose:
                 print(f"{len(tables)} tables found.")
@@ -1088,7 +1088,7 @@ class Target(object):
                 for i in np.argwhere(idx).flatten()
             }
             if self.verbose:
-                print(f"Found {sum(idx)} references with {param}")
+                print(f"Found {sum(idx)} references with {param}.")
             return vals
         else:
             cols = [i.to_pandas().columns.tolist() for i in tabs]
@@ -1135,7 +1135,7 @@ class Target(object):
                             e = tabs[tabid].to_pandas()[ecols]
                             phot.append(e)
                 else:
-                    print(f"No {cat} data in vizier")
+                    print(f"No {cat} data in vizier.")
         d = pd.concat(phot, axis=1).squeeze()
         d.name = self.target_name
         return d
@@ -1156,7 +1156,7 @@ class Target(object):
 
         if self.verbose:
             print(
-                f"Searching ESO: ({self.target_coord.to_string()}) with diameter={diameter}"
+                f"Searching ESO: ({self.target_coord.to_string()}) with diameter={diameter}."
             )
         ssap_resultset = ssap_service.search(
             pos=self.target_coord, diameter=diameter
@@ -1211,7 +1211,7 @@ class Target(object):
             elif len(df) > 0:
                 # if verbose:
                 print(
-                    f"\nFound {len(df)} {instru} spectra with SNR>{min_snr}\n"
+                    f"\nFound {len(df)} {instru} spectra with SNR>{min_snr}.\n"
                 )
                 targetnames = (
                     df["TARGETNAME"]
@@ -1235,7 +1235,7 @@ class Target(object):
             else:
                 print("No data matches the given criteria.")
         else:
-            print("No result from ESO")
+            print("No result from ESO.")
 
     def query_harps_bank_table(self, **kwargs):
         """

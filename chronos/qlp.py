@@ -25,7 +25,6 @@ from astropy.io import fits
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
-
 from chronos.tpf import FFI_cutout
 
 # from chronos.plot import plot_tls, plot_odd_even
@@ -57,7 +56,7 @@ class _TessLightCurve(lk.TessLightCurve):
         )
 
 
-class QLP(FFI_cutout):
+class QLP(Target):
     """
     http://archive.stsci.edu/hlsp/qlp
     """
@@ -77,8 +76,6 @@ class QLP(FFI_cutout):
         aper="best",
         lctype="KSPSAP",
         mission="tess",
-        apply_data_quality_mask=False,
-        calc_fpp=False,
         verbose=True,
         clobber=True,
     ):
@@ -105,9 +102,7 @@ class QLP(FFI_cutout):
         self.sector = sector
         if self.sector is None:
             print(f"Available sectors: {self.all_sectors}")
-            if len(self.all_sectors) == 1:
-                self.sector = self.all_sectors[0]
-            else:
+            if len(self.all_sectors) != 1:
                 idx = [
                     True if s in QLP_SECTORS else False
                     for s in self.all_sectors

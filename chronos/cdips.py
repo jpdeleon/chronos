@@ -121,9 +121,7 @@ class CDIPS(Target):
         self.sector = sector
         if self.sector is None:
             print(f"Available sectors: {self.all_sectors}")
-            if len(self.all_sectors) == 1:
-                self.sector = self.all_sectors[0]
-            else:
+            if len(self.all_sectors) != 1:
                 idx = [
                     True if s in CDIPS_SECTORS else False
                     for s in self.all_sectors

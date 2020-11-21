@@ -312,7 +312,7 @@ class LongCadence(FFI_cutout):
 
         if use_pld:
             if self.verbose:
-                print("Removing scattered light + applying PLD")
+                print("Removing scattered light + applying PLD...")
             pld = lk.TessPLDCorrector(
                 self.tpf_tesscut, aperture_mask=self.aper_mask
             )
@@ -327,7 +327,7 @@ class LongCadence(FFI_cutout):
             self.corrector = pld
         else:
             if self.verbose:
-                print("Removing scattered light")
+                print("Removing scattered light...")
             # Make a design matrix and pass it to a linear regression corrector
             regressors = tpf_tesscut.flux[~idx][:, ~self.aper_mask]
             dm = (
@@ -695,7 +695,7 @@ class ShortCadence(Tpf):
                 )
                 if self.verbose:
                     print(
-                        f"Searching lightcurvefile for {query_str} (sector {sector})"
+                        f"Searching lightcurvefile for {query_str} (sector {sector})."
                     )
                 q = lk.search_lightcurvefile(
                     query_str, sector=sector, mission=MISSION
@@ -703,14 +703,14 @@ class ShortCadence(Tpf):
                 if len(q) == 0:
                     if self.verbose:
                         print(
-                            f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})"
+                            f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})."
                         )
                     q = lk.search_lightcurvefile(
                         self.target_coord, sector=sector, mission=MISSION
                     )
                 assert q is not None, "Empty result. Check long cadence."
                 if self.verbose:
-                    print(f"Found {len(q)} lightcurves")
+                    print(f"Found {len(q)} lightcurve(s).")
                 if (sector == "all") & (len(self.all_sectors) > 1):
                     lcf = q.download_all(quality_bitmask=quality_bitmask)
                 else:
@@ -722,7 +722,7 @@ class ShortCadence(Tpf):
             )
             if self.verbose:
                 print(
-                    f"Searching lightcurvefile for {query_str} (sector {sector})"
+                    f"Searching lightcurvefile for {query_str} (sector {sector})."
                 )
             q = lk.search_lightcurvefile(
                 query_str, sector=sector, mission=MISSION
@@ -730,14 +730,14 @@ class ShortCadence(Tpf):
             if len(q) == 0:
                 if self.verbose:
                     print(
-                        f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})"
+                        f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})."
                     )
                 q = lk.search_lightcurvefile(
                     self.target_coord, sector=sector, mission=MISSION
                 )
             assert q is not None, "Empty result. Check long cadence."
             if self.verbose:
-                print(f"Found {len(q)} lightcurves")
+                print(f"Found {len(q)} lightcurve(s).")
             if (sector == "all") & (len(self.all_sectors) > 1):
                 lcf = q.download_all(quality_bitmask=quality_bitmask)
             else:
@@ -842,7 +842,7 @@ class ShortCadence(Tpf):
 
         if use_pld:
             if self.verbose:
-                print("Removing scattered light + applying PLD")
+                print("Removing scattered light + applying PLD...")
             pld = lk.TessPLDCorrector(self.tpf, aperture_mask=self.aper_mask)
             if background_mask is None:
                 background_mask = ~self.aper_mask
@@ -855,7 +855,7 @@ class ShortCadence(Tpf):
             self.corrector = pld
         else:
             if self.verbose:
-                print("Removing scattered light")
+                print("Removing scattered light...")
             # Make a design matrix and pass it to a linear regression corrector
             regressors = tpf.flux[~idx][:, ~self.aper_mask]
             dm = (
@@ -1008,7 +1008,7 @@ class ShortCadence(Tpf):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         if (period is None) or (epoch is None):
             if self.tls_results is None:
-                print("Running TLS")
+                print("Running TLS...")
                 _ = self.run_tls(flat, plot=False)
             period = self.tls_results.period
             epoch = self.tls_results.T0
@@ -1081,7 +1081,7 @@ def _get_flat_lc(
         window_length = 0.5 if duration is None else duration / 24 * 3
     if self.verbose:
         print(
-            f"Using {method} filter with window_length={window_length:.2f} day"
+            f"Using {method} filter with window_length={window_length:.2f} day."
         )
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask = get_transit_mask(
@@ -1133,7 +1133,7 @@ def _plot_trend_flat_lcs(
     if (period is not None) & (epoch is not None) & (duration is not None):
         if self.verbose:
             print(
-                f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr"
+                f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr."
             )
         tmask = get_transit_mask(
             lc, period=period, epoch=epoch, duration_hours=duration

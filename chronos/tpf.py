@@ -109,9 +109,13 @@ class Tpf(Target):
         self.calc_fpp = calc_fpp
 
         if self.sector is None:
+            msg = "Target not found in any TESS sectors."
+            assert len(self.all_sectors) > 0, msg
             self.sector = self.all_sectors[0]  # get first sector by default
-            print(f"Available sectors: {self.all_sectors}")
-            print(f"Using sector={self.sector}.")
+        if self.sector == -1:
+            self.sector = self.all_sectors[-1]
+        print(f"Available sectors: {self.all_sectors}")
+        print(f"Using sector={self.sector}.")
 
     def get_tpf(self, sector=None, quality_bitmask=None, return_df=False):
         """Download tpf from MAST given coordinates
@@ -146,7 +150,7 @@ class Tpf(Target):
                 # search by TICID
                 ticstr = f"TIC {self.ticid}"
                 if self.verbose:
-                    print(f"\nSearching mast for {ticstr}\n")
+                    print(f"\nSearching mast for {ticstr}.\n")
                 res = lk.search_targetpixelfile(
                     ticstr, mission=MISSION, sector=None
                 )
@@ -154,7 +158,7 @@ class Tpf(Target):
                 # search by position
                 if self.verbose:
                     print(
-                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
+                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()}).\n"
                     )
                 res = lk.search_targetpixelfile(
                     self.target_coord,
@@ -168,18 +172,18 @@ class Tpf(Target):
             #     tpf = self.tpf
             # else:
             if self.verbose:
-                print("Searching targetpixelfile using lightkurve")
+                print("Searching targetpixelfile using lightkurve.")
             if self.ticid:
                 ticstr = f"TIC {self.ticid}"
                 if self.verbose:
-                    print(f"\nSearching mast for {ticstr}\n")
+                    print(f"\nSearching mast for {ticstr}.\n")
                 res = lk.search_targetpixelfile(
                     ticstr, mission=MISSION, sector=None
                 )
             else:
                 if self.verbose:
                     print(
-                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()})\n"
+                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()}).\n"
                     )
                 res = lk.search_targetpixelfile(
                     self.target_coord,
@@ -209,8 +213,8 @@ class Tpf(Target):
                 # ticid = int(df.iloc[sector_idx]["target_name"])
                 fitsfilename = df.iloc[sector_idx]["productFilename"]
 
-            msg = f"{len(df)} tpf(s) found in sector(s) {all_sectors}\n"
-            msg += f"Using data from sector {sector} only\n"
+            msg = f"{len(df)} tpf(s) found in sector(s) {all_sectors}.\n"
+            msg += f"Using data from sector {sector} only.\n"
             if self.verbose:
                 logging.info(msg)
                 print(msg)
@@ -231,7 +235,7 @@ class Tpf(Target):
             else:
                 if self.verbose:
                     print(
-                        "Loading TIC {} from {}/...\n".format(
+                        "Loading TIC {} from {}/\n".format(
                             self.ticid, fitsoutdir
                         )
                     )
@@ -406,7 +410,7 @@ class Tpf(Target):
             if self.verbose:
                 nstars = self.triceratops.stars.shape[0]
                 # ETA is a wild guess here
-                print(f"ETA: {nstars/10} mins")
+                print(f"ETA: {nstars/10} mins.")
             time_start = timer()
             self.triceratops.calc_probs(
                 time=time,
@@ -418,7 +422,7 @@ class Tpf(Target):
             hours, rem = divmod(timer() - time_start, 3600)
             minutes, seconds = divmod(rem, 60)
             if self.verbose:
-                print(f"Run time: {int(minutes)}min {int(seconds)}sec")
+                print(f"Run time: {int(minutes)}min {int(seconds)}sec.")
                 print(f"FPP={self.triceratops.FPP:.4f}")
             errmsg = "Check fold lc for NaNs."
             assert not np.isnan(self.triceratops.FPP), errmsg
@@ -503,8 +507,10 @@ class FFI_cutout(Target):
             msg = "Target not found in any TESS sectors"
             assert len(self.all_sectors) > 0, msg
             self.sector = self.all_sectors[0]  # get first sector by default
-            print(f"Available sectors: {self.all_sectors}")
-            print(f"Using sector={self.sector}.")
+        if self.sector == -1:
+            self.sector = self.all_sectors[-1]
+        print(f"Available sectors: {self.all_sectors}")
+        print(f"Using sector={self.sector}.")
 
     def get_tpf_tesscut(self, sector=None, cutout_size=None):
         """
@@ -684,7 +690,7 @@ class FFI_cutout(Target):
             if self.verbose:
                 nstars = self.triceratops.stars.shape[0]
                 # ETA is a wild guess here
-                print(f"ETA: {nstars/10} mins")
+                print(f"ETA: {nstars/10} mins.")
             time_start = timer()
             self.triceratops.calc_probs(
                 time=time,
@@ -697,7 +703,7 @@ class FFI_cutout(Target):
             minutes, seconds = divmod(rem, 60)
             fpp = self.triceratops.FPP
             if self.verbose:
-                print(f"Run time: {int(minutes)}min {int(seconds)}sec")
+                print(f"Run time: {int(minutes)}min {int(seconds)}sec.")
                 print(f"FPP={fpp:.4f}")
             errmsg = "Check fold lc for NaNs."
             assert not np.isnan(fpp), errmsg
