@@ -109,7 +109,7 @@ CATALOG_DICT = {
     # nu Cha assoc
     "Bell2015": "J/MNRAS/454/593",
     # volans-carina: 90 Myr @ 85 pc
-    # "Gagne2018c": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2018ApJ...865..136G",
+    "Gagne2018c": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2018ApJ...865..136G",
     # Ruprecht 147 DANCe: oldest open cluster @ 300pc
     "Olivares2019": "J/A+A/625/A115",
     # Membership & properties of moving groups with Gaia
@@ -121,8 +121,9 @@ CATALOG_DICT = {
     # Young Nearby Moving Groups from a Sample of Chromospherically Active Stars in RAVE
     "RamirezPreciado2018": "J/ApJ/867/93",
     # Young Nearby Moving Groups from a Sample of Chromospherically Active Stars in RAVE II
+    # See also RAVE I: https://ui.adsabs.harvard.edu/abs/2013ApJ...776..127Z/abstract
     "Zerjal2017": "J/ApJ/835/61",
-    # 146 nearby, young, low-mass stars young stars from all-sky search
+    # 146 nearby, young, low-mass young stars from all-sky search
     "Binks2020": "J/MNRAS/491/215",
     # Young Binaries and Lithium-rich Stars in the Solar Neighborhood
     "Bowler2019": "http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=2019ApJ...877...60B",
@@ -145,6 +146,10 @@ CATALOG_DICT = {
     "Schneider2019": "J/AJ/157/234",
     # young harps RV
     "Grandjean2020": "J/A+A/633/A44",
+    # Gaia CKS II: Planet radius demographics as a function of stellar mass and age
+    "Berger2020": "J/AJ/160/108",
+    # Lithium abundances of KOIs from CKS spectra
+    "Berger2018": "J/ApJ/855/115",
     # 'BailerJones2018': 'I/347', #distances
     # 'Luo2019': 'V/149', #Lamost
     # "Cody2018": "",
@@ -1770,6 +1775,7 @@ def plot_cmd(
     figsize=(8, 8),
     estimate_color=False,
     cmap="viridis",
+    add_text=True,
     ax=None,
 ):
     """Plot color-magnitude diagram using absolute G magnitude and dereddened Bp-Rp from Gaia photometry
@@ -1877,16 +1883,16 @@ def plot_cmd(
     if color == "radius_val":
         rstar = np.log10(df[color].astype(float))
         c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
-        fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
+        ax.figure.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
     else:
-        ax.scatter(df[xaxis], df[yaxis], marker=".")
+        ax.scatter(df[xaxis], df[yaxis], c=color, marker=".")
     ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
     ax.set_xlim(df[xaxis].min(), df[xaxis].max())
     ax.invert_yaxis()
     ax.set_ylabel(r"$G$ [mag]", fontsize=16)
-
-    text = len(df[["bp_rp0", "abs_gmag"]].dropna())
-    ax.text(0.8, 0.8, f"n={text}", fontsize=14, transform=ax.transAxes)
+    if add_text:
+        text = len(df[["bp_rp0", "abs_gmag"]].dropna())
+        ax.text(0.8, 0.8, f"n={text}", fontsize=14, transform=ax.transAxes)
     return ax
 
 
@@ -1906,6 +1912,7 @@ def plot_hrd(
     color="radius_val",
     cmap="viridis",
     annotate_Sun=False,
+    add_text=True,
     ax=None,
 ):
     """Plot HR diagram using luminosity and Teff
@@ -1958,16 +1965,16 @@ def plot_hrd(
             label=target_label,
         )
     # df.plot.scatter(ax=ax, x="bp_rp", y="abs_gmag", marker=".")
-    rstar = np.log10(df[color].astype(float))
     # luminosity can be computed from abs mag; note Mag_sun = 4.85
     # df["abs_gmag"] = get_absolute_gmag(
     #     df["phot_g_mean_mag"], df["distance"], df["a_g_val"])
     # df["lum_val"] = 10**(0.4*(4.85-df["abs_gmag"])
     if color == "radius_val":
+        rstar = np.log10(df[color].astype(float))
         c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
-        fig.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
+        ax.figure.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
     else:
-        ax.scatter(df[xaxis], df[yaxis], marker=".")
+        ax.scatter(df[xaxis], df[yaxis], c=color, marker=".")
 
     if annotate_Sun:
         assert (yaxis == "lum_val") & (xaxis == "teff_val")
@@ -2012,8 +2019,11 @@ def plot_hrd(
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel(r"$T_{\rm{eff}}$/K", fontsize=16)
-    text = len(df[[xaxis, yaxis]].dropna())
-    ax.text(0.8, 0.8, f"nstars={text}", fontsize=14, transform=ax.transAxes)
+    if add_text:
+        text = len(df[[xaxis, yaxis]].dropna())
+        ax.text(
+            0.8, 0.8, f"nstars={text}", fontsize=14, transform=ax.transAxes
+        )
     return ax
 
 

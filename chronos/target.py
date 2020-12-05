@@ -73,6 +73,7 @@ class Target(object):
         search_radius=3,
         verbose=True,
         clobber=False,
+        check_if_variable=False,
     ):
         """
         Attributes
@@ -182,8 +183,11 @@ class Target(object):
         self.harps_bank_table = None
         self.harps_bank_rv = None
         self.harps_bank_target_name = None
+        self.variable_star = False
         if self.verbose:
             print(f"Target: {name}")
+        if check_if_variable:
+            self.query_variable_star_catalogs()
 
     def __repr__(self):
         """Override to print a readable string representation of class
@@ -237,24 +241,25 @@ class Target(object):
 
     def query_variable_star_catalogs(self):
         """
-        See section 12.4 in Montalto+2020:
-        https://ui.adsabs.harvard.edu/abs/2020arXiv200809832M/abstract
-
-        1. International Variable Star Index catalog
-        AAVSO International Variable Star Index VSX (Watson+, 2006-2014)
-        https://ui.adsabs.harvard.edu/abs/2006SASS...25...47W/abstract
-
-        2. KELT Follow-Up Network and Transit False Positive Catalog (KELT-FUN, Collins et al. 2018)
-        3. SuperWASP dispositions and false positive catalogue (Schanche et al. 2019b)
+        Check for variable star flag in vizier and var in catalog title
         """
-        # vizier_query = self.query_vizier_param("VSX")
-        # variable_from_literature = np.unique(list(vizier_query.values()))
-        # if len(variable_from_literature) > 0:
-        #     print("VSX from literature:\n", assoc_from_literature)
-
-        # from astroquery.simbad import Simbad
-        # result_table = Simbad.query_objectids("Polaris")
-        return NotImplementedError("method to be added soon")
+        # tabs = self.query_vizier_param('var')
+        # if len(tabs)>1:
+        #     print(tabs)
+        #     print("***Target has a variable star flag!***")
+        #     self.variable_star = True
+        all_tabs = self.query_vizier(verbose=False)
+        # check for `var` in catalog title
+        idx = [
+            n if "var" in t._meta["description"] else False
+            for n, t in enumerate(all_tabs)
+        ]
+        for i in idx:
+            if i:
+                tab = all_tabs[i]
+                s = tab.to_pandas().squeeze().str.decode("ascii")
+                print(f"\nSee also: {tab._meta['name']}\n{s}")
+                self.variable_star = True
 
     def query_M_dwarf_catalog(self):
         """
@@ -264,6 +269,7 @@ class Target(object):
 
     def query_hypatia_catalog(self):
         """
+        stellar abundance data
         https://www.hypatiacatalog.com/
         """
         return NotImplementedError("method to be added soon")
@@ -1051,7 +1057,7 @@ class Target(object):
         """
         verbose = self.verbose if verbose is None else verbose
         radius = self.search_radius if radius is None else radius * u.arcsec
-        if self.verbose:
+        if verbose:
             print(
                 f"Searching Vizier: ({self.target_coord.to_string()}) with radius={radius}."
             )
@@ -1088,7 +1094,7 @@ class Target(object):
                 for i in np.argwhere(idx).flatten()
             }
             if self.verbose:
-                print(f"Found {sum(idx)} references with {param}.")
+                print(f"Found {sum(idx)} references in Vizier with [{param}].")
             return vals
         else:
             cols = [i.to_pandas().columns.tolist() for i in tabs]

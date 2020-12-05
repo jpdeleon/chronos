@@ -69,6 +69,7 @@ class Tess(Target):
         dec_deg=None,
         mission="tess",
         search_radius=3,
+        # check_if_variable=False
     ):
         super().__init__(
             name=name,
@@ -80,6 +81,7 @@ class Tess(Target):
             dec_deg=dec_deg,
             search_radius=search_radius,
             mission=mission,
+            # check_if_variable=check_if_variable
         )
 
     # @staticmethod
@@ -180,6 +182,7 @@ class LongCadence(FFI_cutout):
         calc_fpp=False,
         clobber=True,
         verbose=True,
+        check_if_variable=False,
     ):
         """
         Attributes
@@ -219,6 +222,7 @@ class LongCadence(FFI_cutout):
             calc_fpp=calc_fpp,
             verbose=verbose,
             clobber=clobber,
+            check_if_variable=check_if_variable,
         )
         self.corrector = None
         self.lc_custom = None
@@ -629,6 +633,7 @@ class ShortCadence(Tpf):
         calc_fpp=False,
         clobber=True,
         verbose=True,
+        check_if_variable=False,
     ):
         """
         sap_mask : str
@@ -664,6 +669,7 @@ class ShortCadence(Tpf):
             calc_fpp=calc_fpp,
             verbose=verbose,
             clobber=clobber,
+            check_if_variable=check_if_variable,
         )
         self.apphot_method = apphot_method
         self.lc_custom = None

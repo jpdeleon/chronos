@@ -144,12 +144,31 @@ def query_asas_sn_catalog():
     raise NotImplementedError("To be added soon.")
 
 
-def query_KEBC():
+def query_EB_catalogs():
     """
+    Kepler EBs: J/AJ/151/68/catalog;
     http://keplerebs.villanova.edu/
     """
-    # url = "http://keplerebs.villanova.edu/"
-    raise NotImplementedError("See vizier: J/AJ/151/68/catalog instead")
+    raise NotImplementedError("To be added soon.")
+
+
+def query_variable_star_catalogs():
+    """
+    Search catalog in vizier here:
+    https://vizier.u-strasbg.fr/vizier/welcome/vizierbrowse.gml?acro
+
+    See Sec 4.1 in Nardiello+2019:
+    1. Clement+2001-2017: variable stars in globular cluster [V/150]
+    2. Pawlak+2016: EB in OGLE [J/AcA/66/421/ecl]
+    3. Samus+2007-2017: Gen. Catalog of Variable Stars [B/gcvs]
+
+    See Sec 12.4 in Montalto+2020:
+    https://ui.adsabs.harvard.edu/abs/2020arXiv200809832M/abstract
+    1. Watson+2006-2014: AAVSO International Variable Star Index VSX [B/vsx]
+    2. Collins+2018: KELT Follow-Up Network and Transit False Positive Catalog (KELT-FUN) [J/AJ/156/234]
+    3. Schanche+2019b: SuperWASP dispositions and false positive catalogue [J/MNRAS/488/4905]
+    """
+    raise NotImplementedError("To be added soon.")
 
 
 def query_WDSC():

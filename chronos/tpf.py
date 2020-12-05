@@ -61,6 +61,7 @@ class Tpf(Target):
         clobber=True,
         verbose=True,
         calc_fpp=False,
+        check_if_variable=False,
     ):
         """
         Attributes
@@ -79,6 +80,7 @@ class Tpf(Target):
             search_radius=search_radius,
             verbose=verbose,
             clobber=clobber,
+            check_if_variable=check_if_variable,
         )
         # self.mission = mission
         self.sector = sector
@@ -457,6 +459,7 @@ class FFI_cutout(Target):
         calc_fpp=False,
         clobber=True,
         verbose=True,
+        check_if_variable=False,
     ):
         """
         Attributes
@@ -475,6 +478,7 @@ class FFI_cutout(Target):
             search_radius=search_radius,
             verbose=verbose,
             clobber=clobber,
+            check_if_variable=check_if_variable,
         )
         # self.mission = mission
         self.sector = sector
