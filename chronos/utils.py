@@ -133,6 +133,116 @@ extinction_ratios = {
 }
 
 
+def distance_modulus(d):
+    """
+    dmag = M-m
+    #see also isochrone/vespa utils
+    """
+    dmag = 5 * log(d) - 5
+    return dmag
+
+
+def dmag_to_distance(dmag):
+    return 10 ** ((dmag + 5) / 5)
+
+
+def get_k2_campaign_footprint(campaign):
+    k2_footprint_link = "https://github.com/KeplerGO/K2FootprintFiles/raw/master/json/k2-footprint.json"
+    footprint_dict = pd.read_json(k2_footprint_link).to_dict()
+    return footprint_dict["c" + str(campaign)]["channels"]
+
+
+def plot_k2_campaign_footprint(footprint, channels, ax=None, **kwargs):
+    assert isinstance(footprint, dict)
+    if ax is None:
+        fig, ax = pl.subplots(1, 1)
+    else:
+        ax = pl
+
+    for j in channels.keys():
+        channel = channels[j]
+        ax.plot(
+            channel["corners_ra"] + channel["corners_ra"][:1],
+            channel["corners_dec"] + channel["corners_dec"][:1],
+            **kwargs,
+        )
+    return ax
+
+
+# def get_K2_targetlist(campaign, verbose=True):
+#     """
+#     campaign: K2 campaign number [0-18]
+#     """
+#     if verbose:
+#         print("Retrieving K2 campaign {} target list...\n".format(campaign))
+#
+#     outdir = "../data/K2targetlist/"
+#
+#     file_list = sorted(glob(os.path.join(outdir, "*csv")))
+#
+#     if len(file_list) == 0:
+#         link = (
+#             "https://keplerscience.arc.nasa.gov/data/campaigns/c"
+#             + str(campaign)
+#             + "/K2Campaign"
+#             + str(campaign)
+#             + "targets.csv"
+#         )
+#         d = pd.read_csv(link)
+#         d = clean_df(d)
+#         if not os.path.exists(outdir):
+#             os.makedirs(outdir)
+#         name = link.split("/"[-1])
+#         outpath = os.path.join(outdir, name)
+#         targets.to_csv(outpath)
+#     else:
+#         fp = os.path.join(outdir, "K2Campaign" + str(campaign) + "targets.csv")
+#
+#         dtypes = {
+#             "EPIC": int,
+#             "RA": float,
+#             "Dec": float,
+#             "Kp": float,
+#             "InvestigationIDs": str,
+#         }
+#         d = pd.read_csv(fp, delimiter=",", skipinitialspace=True, dtype=dtypes)
+#         targets = clean_df(d)
+#
+#     # targets = targets.replace(r'^\s+$', np.nan, regex=True)
+#     return targets
+
+
+def get_k2_targets(campaign):
+    link = (
+        "https://keplerscience.arc.nasa.gov/data/campaigns/c"
+        + str(campaign)
+        + "/K2Campaign"
+        + str(campaign)
+        + "targets.csv"
+    )
+    d = pd.read_csv(link)
+    # strip spaces in columns
+    d.columns = ["".join(col.split()) for col in d.columns]
+
+    # remove rows with "TILE" in InvestigationIDs column
+    invID = d["InvestigationIDs"].values
+
+    flag = []
+    for x in invID:
+        if x.split("_")[-1] != "TILE":
+            flag.append(True)
+        else:
+            flag.append(False)
+    return d.loc[flag]
+
+
+def query_chronospheric_activity_data():
+    """
+    https://nso.edu/data/historical-data/mount-wilson-observatory-hk-project/
+    """
+    raise NotImplementedError("To be added soon.")
+
+
 def query_asas_sn_catalog():
     """
     NASA/IRSA (has SED viewer also):
@@ -167,6 +277,8 @@ def query_variable_star_catalogs():
     1. Watson+2006-2014: AAVSO International Variable Star Index VSX [B/vsx]
     2. Collins+2018: KELT Follow-Up Network and Transit False Positive Catalog (KELT-FUN) [J/AJ/156/234]
     3. Schanche+2019b: SuperWASP dispositions and false positive catalogue [J/MNRAS/488/4905]
+
+    * Oelkers+2018: TIC sources with KELT [J/AJ/155/39]
     """
     raise NotImplementedError("To be added soon.")
 
@@ -213,6 +325,8 @@ def get_filter_transmission_from_SVO(
     verbose=True,
 ):
     """
+    See https://astroquery.readthedocs.io/en/latest/svo_fps/svo_fps.html
+
     get filter response functions from http://svo2.cab.inta-csic.es/theory/fps/
 
     Parameters
@@ -247,7 +361,7 @@ def get_filter_transmission_from_SVO(
     for html_url in html_urls:
         url = html_url.get("href")
         if "index.php?mode=browse&gname=" in url:
-            filter_name = url.split("&gname=")[-1]
+            filter_name = url.split("&gname=")[-1].split("&asttype=")[0]
             urls.append(url)
             telescopes[filter_name] = url
     if telescope not in telescopes.keys():
@@ -579,7 +693,7 @@ def get_sector_cam_ccd(target_coord, sector=None):
     """get TESS sector, camera, and ccd numbers using Tesscut
     """
     df = get_tess_ccd_info(target_coord)
-    all_sectors = [int(i) for i in df["sector"].values]
+    all_sectors = np.unique([int(i) for i in df["sector"].values])
     if sector is not None:
         sector_idx = df["sector"][df["sector"].isin([sector])].index.tolist()
         if len(sector_idx) == 0:

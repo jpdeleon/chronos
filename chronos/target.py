@@ -70,7 +70,7 @@ class Target(object):
         ra_deg=None,
         dec_deg=None,
         mission="tess",
-        search_radius=3,
+        search_radius=30,
         verbose=True,
         clobber=False,
         check_if_variable=False,
@@ -249,6 +249,23 @@ class Target(object):
         #     print("***Target has a variable star flag!***")
         #     self.variable_star = True
         all_tabs = self.query_vizier(verbose=False)
+
+        keys = [
+            "V/150/variabls",
+            "J/AcA/66/421/ecl",
+            "B/gcvs/gcvs_cat",
+            "B/vsx/vsx",
+            "J/AJ/156/234/table4",
+            "J/MNRAS/488/4905/table2",
+            "J/AJ/155/39/Variables",
+        ]
+        for n, tab in enumerate(all_tabs.keys()):
+            for key in keys:
+                if tab in key:
+                    d = all_tabs[n].to_pandas().squeeze()
+                    print(f"{key}:\n{d}")
+                    self.variable_star = True
+
         # check for `var` in catalog title
         idx = [
             n if "var" in t._meta["description"] else False
@@ -493,6 +510,10 @@ class Target(object):
                 msg = "visibility_periods_used<6 so no astrometric solution\n"
                 msg += "See https://arxiv.org/pdf/1804.09378.pdf\n"
                 print(msg)
+            ruwe = list(self.query_vizier_param("ruwe").values())
+            if len(ruwe) > 0 and ruwe[0] > 1.4:
+                msg = "RUWE>1.4 means target is non-single or otherwise problematic for the astrometric solution."
+                print(msg)
             return target  # return series of len 1
         else:
             # if self.verbose:
@@ -712,7 +733,7 @@ class Target(object):
             )
         return Tmax
 
-    def get_possible_NEBs(self, depth, gaiaid=None, kmax=1.0):
+    def get_possible_NEBs(self, depth, radius=30, gaiaid=None, kmax=1.0):
         """
         depth is useful to rule out deep eclipses when depth*gamma > kmax
 
@@ -721,11 +742,13 @@ class Target(object):
         """
         assert (kmax >= 0.0) & (kmax <= 1.0), "eclipse depth is between 0 & 1"
 
-        d = self.get_nearby_gaia_sources()
+        d = self.get_nearby_gaia_sources(radius=radius)
 
         good, bad = [], []
         for _, row in d.iterrows():
-            gaiaid, dmag, gamma = row[["source_id", "delta_Gmag", "gamma"]]
+            gaiaid = row["source_id"]
+            # dmag = row["delta_Gmag"]
+            gamma = row["gamma_sec"]
             if int(gaiaid) != gaiaid:
                 if depth * gamma > kmax:
                     # observed depth is too deep to have originated from the secondary star
@@ -1067,17 +1090,23 @@ class Target(object):
             # column_filters={"Vmag":">10"},
             # keywords=['stars:white_dwarf']
         )
-        tables = v.query_region(self.target_coord, radius=radius)
-        if tables is None:
-            print("No result from Vizier.")
+        if self.vizier_tables is None:
+            tables = v.query_region(self.target_coord, radius=radius)
+            if tables is None:
+                print("No result from Vizier.")
+            else:
+                if verbose:
+                    print(f"{len(tables)} tables found.")
+                    pprint(
+                        {
+                            k: tables[k]._meta["description"]
+                            for k in tables.keys()
+                        }
+                    )
+                self.vizier_tables = tables
         else:
-            if verbose:
-                print(f"{len(tables)} tables found.")
-                pprint(
-                    {k: tables[k]._meta["description"] for k in tables.keys()}
-                )
-            self.vizier_tables = tables
-            return tables
+            tables = self.vizier_tables
+        return tables
 
     def query_vizier_param(self, param=None, radius=3):
         """looks for value of param in each vizier table
@@ -1094,7 +1123,7 @@ class Target(object):
                 for i in np.argwhere(idx).flatten()
             }
             if self.verbose:
-                print(f"Found {sum(idx)} references in Vizier with [{param}].")
+                print(f"Found {sum(idx)} references in Vizier with `{param}`.")
             return vals
         else:
             cols = [i.to_pandas().columns.tolist() for i in tabs]

@@ -746,5 +746,152 @@ def argper(ecc, psi):
     )
 
 
+# def lnlike(theta, t, f):
+#     """
+#     """
+#     k, t0, p, a, b, q1, q2, sig, c0, c1, c2, c3 = theta
+#     m = K2_transit_model(theta, t) + baseline(theta, t)
+#     resid = f - m
+#     inv_sigma2 = 1.0 / (sig ** 2)
+#
+#     return -0.5 * (np.sum((resid) ** 2 * inv_sigma2 - np.log(inv_sigma2)))
+#
+#
+# def lnprob(theta, t, f):
+#     """
+#     """
+#     k, t0, p, a, b, q1, q2, sig, c1, c2, c3, c4 = theta
+#     inc = np.arccos(b / a)
+#     if np.any(np.array(theta[:-4]) < 0):
+#         return -np.inf
+#     if inc > np.pi / 2.0:
+#         return -np.inf
+#
+#     ll = lnlike(theta, t, f)
+#     return ll if np.isfinite(ll) else -np.inf
+#
+#
+# def solve_w(obs, y):
+#     """
+#     solve for constant coefficients;
+#     sys_model is evaluate simply by np.dot(X,w)
+#     """
+#     X = np.c_[np.atleast_2d(obs).T]
+#     try:
+#         w = np.linalg.solve(np.dot(X.T, X), np.dot(X.T, y))
+#     except:
+#         w = np.linalg.lstsq(X, y)
+#     return w, X
+#
+#
+# def systematics_model(w, aux_vec, time):
+#     """
+#     systematics model consists of linear combination
+#     of constant coefficients (computed here)
+#     and auxiliary vectors:
+#
+#     top n observables, vert_offset, time
+#
+#     The functional form of the model is
+#     s = w0+w1X1+w2X2+...+wnXn
+#     """
+#
+#     vert_offset = np.ones_like(time)
+#     # construct X with time
+#     X = np.c_[np.concatenate((vert_offset[None, :], time[None, :], aux_vec)).T]
+#
+#     # compute systematics model
+#     sys_model = np.dot(X, w)
+#
+#     # make sure no nan
+#     # assert np.any(~np.isnan(sys_model))
+#
+#     return sys_model
+
+
+# def RM_K(vsini_kms, rp_Rearth, Rs_Rsun):
+#     '''Compute the approximate semi-amplitude for the Rossiter-McLaughlin
+#     effect in m/s.'''
+#     D = (Rearth2m(rp_Rearth) / Rsun2m(Rs_Rsun))**2
+#     return (vsini_kms*D / (1-D)) * 1e3
+#
+# def logg_model(mp_Mearth, rp_Rearth):
+#     '''Compute the surface gravity from the planet mass and radius.'''
+#     mp, rp = Mearth2kg(mp_Mearth), Rearth2m(rp_Rearth)
+#     return np.log10(G*mp/(rp*rp) * 1e2)
+#
+#
+# def logg_southworth(P_days, K_ms, aRp, ecc=0., inc_deg=90.):
+#     '''Compute the surface gravity in m/s^2 from the equation in Southworth
+#     et al 2007.'''
+#     P, inc = days2sec(P_days), unumpy.radians(inc_deg)
+#     return 2*np.pi*K_ms*aRp*aRp * unumpy.sqrt(1-ecc*ecc) / (P*unumpy.sin(inc))
+#
+#
+# def tcirc(P_days, Ms_Msun, mp_Mearth, rp_Rearth):
+#     '''Compute the circularization timescale for a rocky planet
+#     in years. From Goldreich & Soter 1966.'''
+#     Q = 1e2   # for a rocky exoplanet
+#     P, Ms, mp, rp, sma = days2yrs(P_days), Msun2kg(Ms_Msun), \
+#                          Mearth2kg(mp_Mearth), Rearth2m(rp_Rearth), \
+#                          semimajoraxis(P_days, Ms_Msun, mp_Mearth)
+#     return 2.*P*Q/(63*np.pi) * mp/Ms * (AU2m(sma) / rp)**5
+#
+#
+# def transmission_spectroscopy_depth(Rs_Rsun, mp_Mearth, rp_Rearth, Teq, mu,
+#                                     Nscaleheights=5):
+#     '''Compute the expected signal in transit spectroscopy in ppm assuming
+#     the signal is seen at 5 scale heights.'''
+#     g = 10**logg_model(mp_Mearth, rp_Rearth) * 1e-2
+#     rp = Rearth2m(rp_Rearth)
+#     D = (rp / Rsun2m(Rs_Rsun))**2
+#     H = kb*Teq / (mu*mproton*g)
+#     return Nscaleheights * 2e6 * D * H / rp
+#
+#
+# def stellar_density(P_days, T_days, Rs_Rsun, rp_Rearth, b):
+#     '''Compute the stellar density in units of the solar density (1.41 g/cm3)
+#     from the transit parameters.'''
+#     rp, Rs, T, P = Rearth2m(rp_Rearth), Rsun2m(Rs_Rsun), days2sec(T_days), \
+#                    days2sec(P_days)
+#     D = (rp / Rs)**2
+#     rho = 4*np.pi**2 / (P*P*G) * (((1+np.sqrt(D))**2 - \
+#                                    b*b*(1-np.sin(np.pi*T/P)**2)) / \
+#                                   (np.sin(np.pi*T/P)**2))**(1.5)  # kg/m3
+#     rhoSun = 3*Msun2kg(1) / (4*np.pi*Rsun2m(1)**3)
+#     return rho  / rhoSun
+#
+#
+# def astrometric_K(P_days, Ms_Msun, mp_Mearth, dist_pc):
+#     '''Compute the astrometric semi-amplitude in micro-arcsec.'''
+#     P, Ms, mp, dist = days2sec(P_days), Msun2kg(Ms_Msun), \
+#                       Mearth2kg(mp_Mearth), pc2m(dist_pc)
+#     Krad = (G*P*P / (4*np.pi*np.pi*Ms*Ms))**(1./3) * mp /dist
+#     return np.rad2deg(Krad) * 3.6e3 * 1e6
+#
+#
+# def is_Lagrangestable(Ps, Ms, mps, eccs):
+#     '''Compute if a system is Lagrange stable (conclusion of barnes+
+#     greenberg 06).
+#     mp_i = Mearth'''
+#     Ps, mps, eccs = np.array(Ps), np.array(mps), np.array(eccs)
+#     smas = AU2m(semimajoraxis(Ps, Ms, mps))
+#     stable = np.zeros(mps.size-1)
+#     for i in range(1, mps.size):
+#         mu1 = Mearth2kg(mps[i-1]) / Msun2kg(Ms)
+#         mu2 = Mearth2kg(mps[i]) / Msun2kg(Ms)
+#         alpha = mu1+mu2
+#         gamma1 = np.sqrt(1-float(eccs[i-1])**2)
+#         gamma2 = np.sqrt(1-float(eccs[i])**2)
+#         delta = np.sqrt(smas[i]/smas[i-1])
+#         deltas = np.linspace(1.000001, delta, 1e3)
+#         LHS = alpha**(-3.) * (mu1 + mu2/(deltas**2)) * \
+#               (mu1*gamma1 + mu2*gamma2*deltas)**2
+#         RHS = 1. + 3**(4./3) * mu1*mu2/(alpha**(4./3))
+#         fint = interp1d(LHS, deltas, bounds_error=False, fill_value=1e8)
+#         deltacrit = fint(RHS)
+#         stable[i-1] = True if delta >= 1.1*deltacrit else False
+#     return stable
+
 # dphi = ph_secondary - ph_primary
 # geom_ecc, geom_per0 = from_geometry(dphi)

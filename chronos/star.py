@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as pl
 import lightkurve as lk
 import pandas as pd
+from astroquery.sdss import SDSS
 from scipy.ndimage import gaussian_filter
 from scipy.interpolate import NearestNDInterpolator
 from scipy.stats import skewnorm
@@ -31,6 +32,46 @@ from chronos.utils import (
 
 
 __all__ = ["Star"]
+
+VIZIER_KEYS_PROT_CATALOG = {
+    # See table1: https://arxiv.org/pdf/1905.10588.pdf
+    "Feinstein2020_NYMG": "See data/Feinstein2020_NYMG.txt",
+    "McQuillan2014_Kepler": "J/ApJS/211/24",
+    "Nielsen2013_KeplerMS": "J/A+A/557/L10",
+    "Barnes2015_NGC2548": "J/A+A/583/A73",  # , M48/NGC2548
+    "Meibom2011_NGC6811": "J/ApJ/733/L9",
+    "Curtis2019_NGC6811": "J/AJ/158/77",  # 1Gyr
+    "Douglas2017_Praesepe": "J/ApJ/842/83",  # 680 Myr
+    "Rebull2016_Pleiades": "J/AJ/152/114",  # 100 Myr
+    "Rebull2018_USco_rhoOph": "J/AJ/155/196",  # 10 Myr
+    "Rebull2020_Taurus": "J/AJ/159/273",
+    "Reinhold2020_K2C0C18": "J/A+A/635/A43",
+    # "Feinstein+2020"
+    # http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=
+    "Douglas2019_Praesepe": "2019ApJ...879..100D",
+    "Fang2020_PleiadesPraesepeHyades": "2020MNRAS.495.2949F",
+    "Gillen2020_BlancoI": "2020MNRAS.492.1008G",
+}
+
+VIZIER_KEYS_AGE_CATALOG = {
+    "Berger2018_Kepler_iso": "",
+    "Berger2020_Kepler_iso": "",
+    "Pinsonneault2018_Kepler_astero": "",
+}
+
+# tables = Vizier.get_catalogs(PROT_CATALOG_DICT["Barnes2015"])
+# df = tables[0].to_pandas()
+# ax = df.plot.scatter(x='B-V',y='Per')
+# ax.set_ylabel("Rotation period [d]")
+# ax.set_xlabel("B-V [mag]")
+# ax.set_title("M48 (NGC2548); age=450±50 Myr")
+
+# star = cr.Star(toiid=toiid, clobber=False)
+# ref = "II/336/apass9"
+# Bmag = star.query_vizier_param("Bmag")[ref]
+# Vmag = star.query_vizier_param("Vmag")[ref]
+# ax.plot(Bmag-Vmag, Prot, 'r*', ms=20, label=star.target_name)
+# ax.legend()
 
 # latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, LAMOST, ALL-WISE, 2MASS
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
@@ -57,10 +98,6 @@ CATALOGS_STAR_PARMS = {
     "Wittenmyer2020": "https://arxiv.org/abs/2005.10959",  # K2C1-13+GALAH/HERMES
     "HardegreeUllman2019": "https://arxiv.org/abs/1905.05900",  # keplerMdwarfs
 }
-
-#
-# https://docs.google.com/document/d/1s6OgiJlBVwonAYvQ3VONB4ioWOn0SHtJesrnaXJETBA/edit
-CATALOG_EB = {"": ""}  # parameters of EB in APOGEE16 stars
 
 
 class Star(Target):
@@ -187,6 +224,25 @@ class Star(Target):
         ebv = dust_map(self.target_coord)
         Av = constant * ebv
         return Av
+
+    def get_SDSS_spectra(self):
+        """
+        See https://astroquery.readthedocs.io/en/latest/sdss/sdss.html
+        """
+        xid = SDSS.query_region(self.target_coord, spectro=True)
+        if len(xid) > 0:
+            print(f"Found {len(xid)} SDSS spectra!")
+            sp = SDSS.get_spectra(matches=xid)
+            # im = SDSS.get_images(matches=xid, band='g')
+            return sp
+        else:
+            print("No SDSS spectra found.")
+
+    def get_spectra_template(self):
+        """
+        http://irtfweb.ifa.hawaii.edu/~spex/IRTF_Spectral_Library/References_files/G.html
+        """
+        raise NotImplementedError("To be added later.")
 
     def get_spectral_type(
         self,

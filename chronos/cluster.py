@@ -50,37 +50,8 @@ __all__ = [
     "plot_xyz_3d",
 ]
 
-PROT_CATALOG_DICT = {
-    # See table1: https://arxiv.org/pdf/1905.10588.pdf
-    "Barnes2015": "J/A+A/583/A73",  # , M48/NGC2548
-    "Meibom2011_NGC6811": "J/ApJ/733/L9",
-    "Curtis2019_NGC6811": "J/AJ/158/77",  # 1Gyr
-    "Douglas2017_Praesepe": "J/ApJ/842/83",  # 680 Myr
-    "Rebull2016_Pleiades": "J/AJ/152/114",  # 100 Myr
-    "Rebull2018_USco_rhoOph": "J/AJ/155/196",  # 10 Myr
-    "Rebull2020_Taurus": "J/AJ/159/273",
-    "Reinhold2020_K2C0C18": "J/A+A/635/A43",
-    # http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=
-    "Douglas2019_Praesepe": "2019ApJ...879..100D",
-    "Fang2020_PleiadesPraesepeHyades": "2020MNRAS.495.2949F",
-    "Gillen2020_BlancoI": "2020MNRAS.492.1008G",
-}
 
-# tables = Vizier.get_catalogs(PROT_CATALOG_DICT["Barnes2015"])
-# df = tables[0].to_pandas()
-# ax = df.plot.scatter(x='B-V',y='Per')
-# ax.set_ylabel("Rotation period [d]")
-# ax.set_xlabel("B-V [mag]")
-# ax.set_title("M48 (NGC2548); age=450±50 Myr")
-
-# star = cr.Star(toiid=toiid, clobber=False)
-# ref = "II/336/apass9"
-# Bmag = star.query_vizier_param("Bmag")[ref]
-# Vmag = star.query_vizier_param("Vmag")[ref]
-# ax.plot(Bmag-Vmag, Prot, 'r*', ms=20, label=star.target_name)
-# ax.legend()
-
-CATALOG_DICT = {
+VIZIER_KEYS_CLUSTER_CATALOG = {
     # 570 new open clusters in the Galactic disc
     "CastroGinard2020": "J/A+A/635/A45",
     # 1481 clusters and their members
@@ -95,7 +66,7 @@ CATALOG_DICT = {
     "Bouma2019": "J/ApJS/245/13",
     # 28 GC in APOGEE14 and 11 GC in APOGEE16; no parallax
     "Nataf2019": "J/AJ/158/14",
-    # Banyan sigma
+    # Banyan sigma #https://jgagneastro.com/banyanii/
     "Gagne2018a": "J/ApJ/860/43",  # TGAS
     "Gagne2018b": "J/ApJ/862/138",  # DR2
     # ages of 269 OC
@@ -153,9 +124,34 @@ CATALOG_DICT = {
     # 'BailerJones2018': 'I/347', #distances
     # 'Luo2019': 'V/149', #Lamost
     # "Cody2018": "",
+    # Local structure & star formation history of the MW
+    # http://mkounkel.com/mw3d/hr.html
+    "Kounkel2019": "J/AJ/158/122",  # Local structure & star formation history of the MW
 }
 
-CATALOG_LIST = [key for key in CATALOG_DICT.keys()]
+CLUSTER_ALTERNATE_NAMES = {
+    "Pleiades": "M45",
+    "Praesepe": "Beehive/M44/NGC2632/Cr189",
+    "Hyades": "Melotte25/Caldwell41/Collinder50",
+    "Sco-Cen": "Sco OB2",
+    # star forming regions in Sco–Cen's immediate vicinity
+    "Rho Oph": "",
+    "Pipe Nebula": "",
+    "Barnard 68": "",
+    "Chamaeleon": "",
+    "Lupus": "",
+    "Corona Australis": "",
+    "Coalsack": "",
+    "epsilon Cha group": "",
+    "eta Chamaeleontis": "Mamajek 1",
+    "TW Hydrae": "",
+    "Beta Pictoris": "",
+}
+
+# https://docs.google.com/document/d/1s6OgiJlBVwonAYvQ3VONB4ioWOn0SHtJesrnaXJETBA/edit
+VIZIER_KEYS_EB_CATALOG = {"Oelkers2016": "J/AJ/152/75"}  # PMS binaries in YMG
+
+CATALOG_LIST = [key for key in VIZIER_KEYS_CLUSTER_CATALOG.keys()]
 
 
 class CatalogDownloader:
@@ -171,7 +167,7 @@ class CatalogDownloader:
         self, catalog_name, data_loc=DATA_PATH, verbose=True, clobber=False
     ):
         self.catalog_name = catalog_name
-        self.catalog_dict = CATALOG_DICT
+        self.catalog_dict = VIZIER_KEYS_CLUSTER_CATALOG
         self.verbose = verbose
         self.clobber = clobber
         if not Path(data_loc).exists():
@@ -2347,9 +2343,9 @@ def plot_xyz_3d(
         distance=df.distance.values * u.pc,
     )
     xyz = coords.galactocentric
-    df["x"] = xyz.x
-    df["y"] = xyz.y
-    df["z"] = xyz.z
+    df["x"] = xyz.x.copy()
+    df["y"] = xyz.y.copy()
+    df["z"] = xyz.z.copy()
 
     idx1 = np.zeros_like(df.x, dtype=bool)
     if xlim:
