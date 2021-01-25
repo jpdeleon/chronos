@@ -127,6 +127,8 @@ VIZIER_KEYS_CLUSTER_CATALOG = {
     # Local structure & star formation history of the MW
     # http://mkounkel.com/mw3d/hr.html
     "Kounkel2019": "J/AJ/158/122",  # Local structure & star formation history of the MW
+    # "Feinstein2020": "", #NYMG
+    "Bianchi2017_GALEX": "II/335",  # see also https://ui.adsabs.harvard.edu/abs/2020ApJS..250...36B/abstract
 }
 
 CLUSTER_ALTERNATE_NAMES = {

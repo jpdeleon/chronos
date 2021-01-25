@@ -23,7 +23,7 @@ $ pytest tests/
 * `lightcurve.py`: light curve analysis either using SPOC, QLP, or custom pipeline for short and long cadence (inherits `tpf`)
 * `k2.py`: tpf and light curve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
 * `cluster.py`: cluster catalog, cluster analysis + plotting
-* `qlp`, `cdips.py` & `pathos.py`: api for [QLP](http://archive.stsci.edu/hlsp/qlp), [CDIPS](http://archive.stsci.edu/hlsp/qlp), and [PATHOS](http://archive.stsci.edu/hlsp/qlp) pipelines
+* `qlp.py`, `cdips.py`, `pathos.py`, & `diamante.py`: api for [QLP](http://archive.stsci.edu/hlsp/qlp), [CDIPS](http://archive.stsci.edu/hlsp/qlp), [PATHOS](http://archive.stsci.edu/hlsp/qlp), and [DIAmante](https://archive.stsci.edu/hlsp/diamante) pipelines
 * `plot.py`: custom plotting functionalities
 * `utils.py`: useful utilities
 

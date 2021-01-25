@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
 import astropy.units as u
-from lightkurve import TessLightCurve
 from astroquery.mast import Observations
 from astropy.io import fits
 from wotan import flatten
@@ -28,6 +27,7 @@ from chronos.utils import (
     get_sector_cam_ccd,
     parse_aperture_mask,
     get_transit_mask,
+    TessLightCurve,
 )
 from chronos.constants import TESS_TIME_OFFSET
 
@@ -43,22 +43,6 @@ CDIPS_MAST_README = "https://archive.stsci.edu/hlsps/cdips/hlsp_cdips_tess_ffi_a
 CDIPS_PIPELINE_CODE = "https://github.com/waqasbhatti/cdips-pipeline"
 CDIPS_CODE = "https://github.com/lgbouma/cdips"
 CDIPS_CANDIDATES = "https://github.com/lgbouma/cdips_followup/blob/master/data/candidate_database/candidates.csv"
-
-
-class _TessLightCurve(TessLightCurve):
-    """augments parent class by adding convenience methods"""
-
-    def detrend(self, polyorder=1, break_tolerance=None):
-        lc = self.copy()
-        half = lc.time.shape[0] // 2
-        if half % 2 == 0:
-            # add 1 if even
-            half += 1
-        return lc.flatten(
-            window_length=half,
-            polyorder=polyorder,
-            break_tolerance=break_tolerance,
-        )
 
 
 class CDIPS(Target):
@@ -313,7 +297,7 @@ class CDIPS(Target):
         else:
             idx = np.ones_like(time, bool)
         # hack tess lightkurve
-        return _TessLightCurve(
+        return TessLightCurve(
             time=time[idx],
             flux=flux[idx],
             flux_err=err[idx],

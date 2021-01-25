@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for working with lightcurves from the QLP pipeline
+Multi-Sector Light Curves From TESS Full Frame Images (DIAMANTE)
 """
 
 # Import standard library
@@ -13,28 +13,27 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
 import astropy.units as u
-import lightkurve as lk
 from astropy.io import fits
 
 # Import from package
 from chronos.config import DATA_PATH
 from chronos.target import Target
 from chronos.tpf import FFI_cutout
-
-# from chronos.plot import plot_tls, plot_odd_even
-from chronos.utils import get_transit_mask, parse_aperture_mask, TessLightCurve
-
+from chronos.utils import (
+    get_tois,
+    get_transit_mask,
+    parse_aperture_mask,
+    TessLightCurve,
+)
 
 log = logging.getLogger(__name__)
 
-__all__ = ["QLP"]
-
-QLP_SECTORS = np.arange(11, 27, 1)
+__all__ = ["Diamante"]
 
 
-class QLP(Target):
+class Diamante(Target):
     """
-    http://archive.stsci.edu/hlsp/qlp
+    https://archive.stsci.edu/hlsp/diamante
     """
 
     def __init__(
@@ -49,9 +48,9 @@ class QLP(Target):
         dec_deg=None,
         quality_bitmask=None,
         search_radius=3,
-        aper="best",
-        lctype="KSPSAP",
         mission="tess",
+        aper=1,
+        lc_num=1,
         verbose=True,
         clobber=True,
     ):
@@ -66,7 +65,7 @@ class QLP(Target):
             search_radius=search_radius,
             verbose=verbose,
         )
-        """Initialize QLP
+        """Initialize Diamante
 
         Attributes
         ----------
@@ -75,87 +74,84 @@ class QLP(Target):
         aper : str
             best, small, large
         """
-        self.sector = sector
-        if self.sector is None:
-            print(f"Available sectors: {self.all_sectors}")
-            if len(self.all_sectors) != 1:
-                idx = [
-                    True if s in QLP_SECTORS else False
-                    for s in self.all_sectors
-                ]
-                if sum(idx) == 0:
-                    msg = f"QLP lc is currently available for sectors={QLP_SECTORS}\n"
-                    raise ValueError(msg)
-                if sum(idx) == 1:
-                    self.sector = self.all_sectors[idx][
-                        0
-                    ]  # get first available
-                else:
-                    self.sector = self.all_sectors[idx][
-                        0
-                    ]  # get first available
-                    # get first available
-                    print(
-                        f"QLP lc may be available for sectors {self.all_sectors[idx]}"
-                    )
-            print(f"Using sector={self.sector}.")
+        self.base_url = "https://archive.stsci.edu/hlsps/diamante"
+        self.diamante_catalog = self.get_diamante_catalog()
+        self.new_diamante_candidates = self.get_new_diamante_candidates()
+        self.sectors = self.all_sectors
 
         if self.gaiaid is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
 
+        self.lc_num = lc_num
+        self.lc_nums = [1, 2]
+        if self.lc_num not in self.lc_nums:
+            raise ValueError(f"Type not among {self.lc_nums}")
         self.aper = aper
-        self.apers = ["best", "small", "large"]
+        self.apers = [1, 2]
         if self.aper not in self.apers:
             raise ValueError(f"Type not among {self.apers}")
         self.quality_bitmask = quality_bitmask
         self.fits_url = None
         self.hdulist = None
         self.header0 = None
-        self.lctype = lctype.upper()
-        self.lctypes = ["SAP", "KSPSAP"]
-        if self.lctype not in self.lctypes:
-            raise ValueError(f"Type not among {self.lctypes}")
-        self.data, self.header = self.get_qlp_fits()
-        self.lc = self.get_qlp_lc()
+        self.data, self.header = self.get_diamante_fits()
+        self.lc = self.get_diamante_lc()
         self.lc.targetid = self.ticid
-        self.cadence = self.header["TIMEDEL"] * u.d
         self.time = self.lc.time
         self.flux = self.lc.flux
         self.err = self.lc.flux_err
-        self.sap_mask = "round"
-        self.threshold_sigma = 5  # dummy
-        self.percentile = 95  # dummy
-        self.cutout_size = (15, 15)  # dummy
-        self.aper_radius = None
-        self.tpf_tesscut = None
-        self.ffi_cutout = None
-        self.aper_mask = None
-        self.contratio = None
+        # self.sap_mask = "round"
+        # self.threshold_sigma = 5  # dummy
+        # self.percentile = 95  # dummy
+        # self.cutout_size = (15, 15)  # dummy
+        # self.aper_radius = None
+        # self.tpf_tesscut = None
+        # self.ffi_cutout = None
+        # self.aper_mask = None
+        # self.contratio = None
 
-    def get_qlp_url(self):
+    def get_diamante_catalog(self):
         """
-        hlsp_qlp_tess_ffi_<sector>-<tid>_tess_v01_llc.<exten>
+        """
+        diamante_catalog_fp = Path(DATA_PATH, "diamante_catalog.csv")
+        if diamante_catalog_fp.exists():
+            df = pd.read_csv(diamante_catalog_fp)
+        else:
+            url = f"{self.base_url}/hlsp_diamante_tess_lightcurve_catalog_tess_v1_cat.csv"
+            df = pd.read_csv(url)
+            df.to_csv(diamante_catalog_fp, index=False)
+        return df
+
+    def get_new_diamante_candidates(self):
+        """
+        """
+        tois = get_tois()
+        df = self.diamante_catalog.copy()
+        idx = df["#ticID"].isin(tois["TIC ID"])
+        return df[~idx]
+
+    def get_diamante_url(self, ext="fits"):
+        """
+        hlsp_diamante_tess_lightcurve_tic-<id>_tess_v1_<ext>
         where:
 
-        <sector> = The Sector represented as a 4-digit, zero-padded string,
-                    preceded by an 's', e.g., 's0026' for Sector 26.
-        <tid> = The full, 16-digit, zeo-padded TIC ID.
-        <exten> = The light curve data type, either "fits" or "txt".
+        <id> = the full, zero-padded, 16-digit TIC ID
+        <ext> = type of file product, one of "llc.fits", "llc.txt", or "dv.pdf"
+
+        https://archive.stsci.edu/hlsps/diamante/0000/0009/0167/4675/
+        hlsp_diamante_tess_lightcurve_tic-0000000901674675_tess_v1_llc.fits
         """
-        base = "https://archive.stsci.edu/hlsps/qlp/"
-        assert self.sector is not None
-        sec = str(self.sector).zfill(4)
-        tic = str(self.ticid).zfill(16)
-        fp = (
-            base
-            + f"s{sec}/{tic[:4]}/{tic[4:8]}/{tic[8:12]}/{tic[12:16]}/hlsp_qlp_tess_ffi_s{sec}-{tic}_tess_v01_llc.fits"
-        )
+        if not np.any(self.diamante_catalog["#ticID"].isin([self.ticid])):
+            raise ValueError(f"TIC {self.ticid} not in DIAmante catalog.")
+        tid = f"{self.ticid}".zfill(16)
+        dir = f"{tid[0:4]}/{tid[4:8]}/{tid[8:12]}/{tid[12:16]}"
+        fp = f"{self.base_url}/{dir}/hlsp_diamante_tess_lightcurve_tic-{tid}_tess_v1_llc.{ext}"
         return fp
 
-    def get_qlp_fits(self):
-        """get qlp target and light curve header and data
+    def get_diamante_fits(self):
+        """get target and light curve header and data
         """
-        fp = self.get_qlp_url()
+        fp = self.get_diamante_url()
         try:
             hdulist = fits.open(fp)
             if self.verbose:
@@ -173,36 +169,25 @@ class QLP(Target):
             msg = f"File not found:\n{fp}\n"
             raise ValueError(msg)
 
-    def get_qlp_lc(self, lc_type=None, aper=None, sort=True):
+    def get_diamante_lc(self, lc_num=None, aper=None, sort=True):
         """
         Parameters
         ----------
-        lc_type : str
-            {SAP, KSPSAP}
+        lc_type : int
+
         """
-        lc_type = lc_type.upper() if lc_type is not None else self.lctype
-        aper = aper.upper() if aper is not None else self.aper
-        assert lc_type in self.lctypes
+        aper = self.aper if aper is None else aper
+        lc_num = self.lc_num if lc_num is None else lc_num
+        assert lc_num in self.lc_nums
         assert aper in self.apers
 
         if self.verbose:
-            print(f"Using QLP {lc_type} (rad={self.aper}) lightcurve.")
+            print(f"Using DIAmante LC{lc_num} (rad={aper}) lightcurve.")
 
-        time = self.data["TIME"] + 2457000  # BJD, days
-        if aper == "small":
-            flux = self.data["KSPSAP_FLUX_SML"]
-        elif aper == "large":
-            flux = self.data["KSPSAP_FLUX_LAG"]
-        else:
-            flux = self.data[f"{lc_type}_FLUX"]
-        if lc_type == "KSPSAP":
-            err = self.data[f"{lc_type}_FLUX_ERR"]
-        else:
-            err = np.ones_like(flux) * np.std(flux)
-        x = self.data["SAP_X"]
-        y = self.data["SAP_Y"]
-        quality = self.data["QUALITY"]
-        cadence = self.data["CADENCENO"]
+        time = self.data["BTJD"] + 2457000  # BJD, days
+        flux = self.data[f"LC{lc_num}_AP{aper}"]
+        err = self.data[f"ELC{lc_num}_AP{aper}"]
+        quality = self.data[f"FLAG_AP{lc_num}"]
         if sort:
             idx = np.argsort(time)
         else:
@@ -215,12 +200,12 @@ class QLP(Target):
             # FIXME: only day works when using lc.to_periodogram()
             time_format="jd",  # TIMEUNIT is d in fits header
             time_scale="tdb",  # TIMESYS in fits header
-            centroid_col=x,
-            centroid_row=y,
+            # centroid_col=None,
+            # centroid_row=None,
             quality=quality,
             quality_bitmask=self.quality_bitmask,
-            cadenceno=cadence,
-            sector=self.sector,
+            # cadenceno=cadence,
+            sector=self.sectors,
             targetid=self.toi_params["TIC ID"]
             if self.toi_params is not None
             else self.ticid,
@@ -236,13 +221,12 @@ class QLP(Target):
         """
         raise NotImplementedError()
 
-    def get_aper_mask_qlp(self, sap_mask="round"):
+    def get_aper_mask_diamante(self, sap_mask="round"):
         """
         This is an estimate of QLP aperture based on
         self.hdulist[1].header['BESTAP']
 
         See:
-        https://archive.stsci.edu/hlsps/qlp/hlsp_qlp_tess_ffi_all_tess_v1_data-prod-desc.pdf
         """
         rad = float(self.header["BESTAP"].split(":")[0])
         self.aper_radius = round(rad)

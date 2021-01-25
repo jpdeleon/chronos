@@ -12,6 +12,7 @@ from .lightcurve import *
 from .qlp import *
 from .cdips import *
 from .pathos import *
+from .diamante import *
 from .k2 import *
 from .plot import *
 from .transit import *

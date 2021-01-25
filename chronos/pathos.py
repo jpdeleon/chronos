@@ -12,7 +12,6 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as pl
-from lightkurve import TessLightCurve
 from astroquery.mast import Observations
 from astropy.io import fits
 from wotan import flatten
@@ -24,7 +23,7 @@ from chronos.target import Target
 
 from chronos.tpf import FFI_cutout
 from chronos.plot import plot_tls, plot_odd_even
-from chronos.utils import get_transit_mask, parse_aperture_mask
+from chronos.utils import get_transit_mask, parse_aperture_mask, TessLightCurve
 from chronos.constants import TESS_TIME_OFFSET
 
 PATHOS_SECTORS = np.arange(1, 14, 1)
@@ -34,22 +33,6 @@ PATHOS_README = "https://archive.stsci.edu/hlsps/pathos/hlsp_pathos_tess_lightcu
 log = logging.getLogger(__name__)
 
 __all__ = ["PATHOS"]
-
-
-class _TessLightCurve(TessLightCurve):
-    """augments parent class by adding convenience methods"""
-
-    def detrend(self, polyorder=1, break_tolerance=None):
-        lc = self.copy()
-        half = lc.time.shape[0] // 2
-        if half % 2 == 0:
-            # add 1 if even
-            half += 1
-        return lc.flatten(
-            window_length=half,
-            polyorder=polyorder,
-            break_tolerance=break_tolerance,
-        )
 
 
 class PATHOS(Target):
@@ -247,7 +230,7 @@ class PATHOS(Target):
         else:
             idx = np.ones_like(time, bool)
         # hack tess lightkurve
-        return _TessLightCurve(
+        return TessLightCurve(
             time=time[idx],
             flux=flux[idx],
             # flux_err=err[idx],

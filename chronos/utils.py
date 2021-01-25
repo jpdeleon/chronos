@@ -115,6 +115,7 @@ __all__ = [
     "get_limbdark",
     "get_secondary_eclipse_threshold",
     "query_WDSC",
+    "TessLightCurve",
 ]
 
 # Ax/Av
@@ -131,6 +132,22 @@ extinction_ratios = {
     "Bp": 1.06794,
     "Rp": 0.65199,
 }
+
+
+class TessLightCurve(lk.TessLightCurve):
+    """augments parent class by adding convenience methods"""
+
+    def detrend(self, polyorder=1, break_tolerance=None):
+        lc = self.copy()
+        half = lc.time.shape[0] // 2
+        if half % 2 == 0:
+            # add 1 if even
+            half += 1
+        return lc.flatten(
+            window_length=half,
+            polyorder=polyorder,
+            break_tolerance=break_tolerance,
+        )
 
 
 def distance_modulus(d):
@@ -2282,6 +2299,39 @@ def get_pix_area_threshold(Tmag):
 #         aperture = np.zeros_like(img).astype(np.uint8)
 #         cv2.fillConvexPoly(aperture, points=aperture_contour, color=1)
 #     return aperture
+
+# global G, Msun, Mearth, Rsun, Rearth, AU, pc, kb, mproton
+# G, Msun, Mearth = 6.67e-11, 1.98849925145e30, 6.04589804468e24
+# Rsun, Rearth, AU, pc = 695500e3, 6371e3, 1.495978707e11, 3.08567758149137e16
+# kb, mproton = 1.38e-23, 1.67e-27
+#
+# def Rsun2m(r):
+#     return r*Rsun
+#
+# def Rearth2m(r):
+#     return r*Rearth
+#
+# def RM_K(vsini_kms, rp_Rearth, Rs_Rsun):
+#     '''Compute the approximate semi-amplitude for the Rossiter-McLaughlin
+#     effect in m/s.'''
+#     D = (Rearth2m(rp_Rearth) / Rsun2m(Rs_Rsun))**2
+#     return (vsini_kms*D / (1-D)) * 1e3
+#
+# RM_K(vsini_kms=10, rp_Rearth=4, Rs_Rsun=0.85)
+# N = 100000
+# vsini = (8,1)
+# rp_Earth = (3.94,0.25)
+# Rs_Rsun = (0.841, 0.047)
+#
+# vsini_s = vsini[0]+np.random.random(N)*vsini[1]
+# rp_Rearth_s = rp_Earth[0]+np.random.random(N)*rp_Earth[1]
+# Rs_Rsun_s = Rs_Rsun[0]+np.random.random(N)*Rs_Rsun[1]
+#
+# RM_K_s = RM_K(vsini_s, rp_Rearth_s, Rs_Rsun_s)
+# np.percentile(RM_K_s, [16,50,84])
+# np.median(RM_K_s), np.std(RM_K_s)
+
+
 def get_RV_K(
     P_days,
     mp_Mearth,
