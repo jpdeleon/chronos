@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for working with lightcurves from the PATHOS pipeline
+classes for working with lightcurves from the PATHOS pipeline:
+http://archive.stsci.edu/hlsp/pathos
 """
 
 # Import standard library
@@ -72,7 +73,8 @@ class PATHOS(Target):
             search_radius=search_radius,
             verbose=verbose,
         )
-        """Initialize PATHOS
+        """Initialize PATHOS.
+        See http://archive.stsci.edu/hlsp/pathos
 
         Attributes
         ----------
@@ -315,7 +317,7 @@ class PATHOS(Target):
         """
         """
         if duration < 1:
-            print("Duration should be in hours.")
+            raise ValueError("Duration should be in hours.")
         if window_length is None:
             window_length = 0.5 if duration is None else duration / 24 * 3
         if self.verbose:
@@ -360,7 +362,7 @@ class PATHOS(Target):
         plot trend and falt lightcurves (uses TOI ephemeris by default)
         """
         if duration < 1:
-            print("Duration should be in hours.")
+            raise ValueError("Duration should be in hours.")
         assert (
             (period is not None) & (epoch is not None) & (duration is not None)
         )

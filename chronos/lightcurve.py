@@ -30,6 +30,7 @@ from chronos.target import Target
 from chronos.tpf import Tpf, FFI_cutout
 from chronos.cdips import CDIPS
 from chronos.pathos import PATHOS
+from chronos.diamante import Diamante
 from chronos.qlp import QLP
 from chronos.plot import plot_tls, plot_odd_even, plot_aperture_outline
 from chronos.utils import (
@@ -426,6 +427,24 @@ class LongCadence(FFI_cutout):
         self.lc_pathos = pathos.lc
         self.lc_pathos.targetid = self.ticid
         return pathos.lc
+
+    def get_diamante_lc(self, lc_num=1, aper_radius=2, verbose=False):
+        verbose = verbose if verbose is not None else self.verbose
+        if self.gaiaid is None:
+            d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
+            self.gaiaid = int(d.source_id)
+        diamante = Diamante(
+            toiid=self.toiid,
+            ticid=self.ticid,
+            gaiaDR2id=self.gaiaid,
+            lc_num=lc_num,
+            aper_radius=aper_radius,
+            verbose=verbose,
+        )
+        self.diamante = diamante
+        self.lc_diamante = diamante.lc
+        self.lc_diamante.targetid = self.ticid
+        return diamante.lc
 
     def plot_lc_per_aperture(
         self,

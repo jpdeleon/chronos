@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 r"""
-classes for working with lightcurves from the QLP pipeline
+classes for working with lightcurves from the QLP pipeline:
+http://archive.stsci.edu/hlsp/qlp
 """
 
 # Import standard library
@@ -66,7 +67,8 @@ class QLP(Target):
             search_radius=search_radius,
             verbose=verbose,
         )
-        """Initialize QLP
+        """Initialize QLP.
+        See http://archive.stsci.edu/hlsp/qlp
 
         Attributes
         ----------

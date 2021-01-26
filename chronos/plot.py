@@ -1110,7 +1110,7 @@ def plot_odd_even(
     if yline is not None:
         ax.axhline(yline, 0, 1, lw=2, ls="--", c="k")
     if duration is not None:
-        xlim = 3 * duration / 24 / period
+        xlim = 3 * duration / period
         axs[0].set_xlim(-xlim, xlim)
         axs[1].set_xlim(-xlim, xlim)
     ax.set_ylabel("")
