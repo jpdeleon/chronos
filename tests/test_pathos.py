@@ -22,10 +22,10 @@ p = PATHOS(
 )
 
 
-def test_cdips_init():
+def test_pathos_init():
     assert isinstance(p.lc, lk.LightCurve)
 
 
-def test_cdips_plot():
+def test_pathos_plot():
     ax = p.lc.plot()
     assert isinstance(ax, Axes)

@@ -51,6 +51,8 @@ VIZIER_KEYS_PROT_CATALOG = {
     "Douglas2019_Praesepe": "2019ApJ...879..100D",
     "Fang2020_PleiadesPraesepeHyades": "2020MNRAS.495.2949F",
     "Gillen2020_BlancoI": "2020MNRAS.492.1008G",
+    "Canto2020_TOIs": "J/ApJS/250/20",
+    # https://filtergraph.com/tess_rotation_tois
 }
 
 VIZIER_KEYS_AGE_CATALOG = {
@@ -87,6 +89,8 @@ CATALOGS_STAR_PARMS = {
     # Sloan Digital Sky Survey Apache Point Observatory Galaxy Evolution Experiment (APOGEE)
     "Ahumada2020": "https://arxiv.org/abs/1912.02905",  # SDSS16: using APOGEE2 -southern+eBOSS spectra
     "Buder2018": "https://arxiv.org/abs/1804.06041",  # GALAH2
+    "Buder2020": "https://arxiv.org/abs/2011.02505",  # GALAH3: Gaia2+SME
+    "Hansen2020": "https://arxiv.org/pdf/2009.08154.pdf",  # Kepler: APOGEE+Gaia+2MASS+Stromgen
     "Lin2020": "https://arxiv.org/abs/1911.05221",  # GALAH2=isochrone ages and init bulk met
     # distance- and extinction-corrected CMD, extinction maps as a function of distance, and density maps
     "Guiglion2020": "https://arxiv.org/abs/2004.12666",  # rave w/ CNN

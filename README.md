@@ -38,6 +38,10 @@ $ pytest tests/
 * [`triceratops`](https://github.com/stevengiacalone/triceratops) for FPP calculation based on lightcurve shape and contrast curve constraints
 
 ## For next update
+* [GALAH DR3](github.com/svenbuder/GALAH_DR3)
+* [TASOC](http://archive.stsci.edu/hlsp/tasoc)
+* [KEP-SEISMIC](http://archive.stsci.edu/hlsp/kepseismic)
+* [Kepler-smear](http://archive.stsci.edu/hlsp/kepler-smear)
 * [`platon`](https://github.com/ideasrule/platon) for calculating transmission spectrum
 * [`theJoker`](https://github.com/adrn/thejoker) for two-body MCMC sampling
 * [`spock`](https://github.com/dtamayo/spock), [`dynamite`](https://github.com/JeremyDietrich/dynamite), & [`resonance widths`](https://github.com/katvolk/analytical-resonance-widths) for orbit stability analysis

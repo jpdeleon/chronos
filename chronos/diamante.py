@@ -47,7 +47,7 @@ class Diamante(Target):
         gaiaDR2id=None,
         ra_deg=None,
         dec_deg=None,
-        quality_bitmask=None,
+        quality_bitmask="hardest",
         search_radius=3,
         # mission="tess",
         aper_radius=2,
@@ -196,6 +196,11 @@ class Diamante(Target):
             idx = np.argsort(time)
         else:
             idx = np.ones_like(time, bool)
+        if self.quality_bitmask == "hardest":
+            idx2 = quality == 0
+        else:
+            idx2 = np.ones_like(quality, bool)
+
         # hack tess lightkurve
         return TessLightCurve(
             time=time[idx],
@@ -215,7 +220,7 @@ class Diamante(Target):
             dec=self.target_coord.dec.deg,
             label=None,
             meta=None,
-        ).normalize()
+        ).normalize()[idx2]
 
     def plot_all_lcs(self, sigma=10):
         """
