@@ -4,8 +4,9 @@ https://stackoverflow.com/a/58932741/1910174
 """
 from setuptools import setup, find_packages
 import sys
-if (sys.version_info.major==3) & (sys.version_info.minor==6):
-    sys.exit('Sorry, this package only works using Python 3.6')
+
+if not (sys.version_info.major == 3) & (sys.version_info.minor == 6):
+    sys.exit("Sorry, this package only works using Python 3.6")
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -16,7 +17,7 @@ with open("requirements.txt", "r") as fh:
 setup(
     name="chronos",
     version="0.1.0",
-    python_requires='==3.6',
+    # python_requires='>3.6.1,<3.6.13',
     description="toolkit for discovery and characterization of exoplanets",
     long_description=long_description,
     long_description_content_type="text/markdown",
