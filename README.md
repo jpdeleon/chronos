@@ -38,6 +38,7 @@ $ pytest tests/
 * [`triceratops`](https://github.com/stevengiacalone/triceratops) for FPP calculation based on lightcurve shape and contrast curve constraints
 
 ## For next update
+* [psfmachine](https://github.com/SSDataLab/psfmachine)
 * [GALAH DR3](github.com/svenbuder/GALAH_DR3)
 * [TASOC](http://archive.stsci.edu/hlsp/tasoc)
 * [KEP-SEISMIC](http://archive.stsci.edu/hlsp/kepseismic)

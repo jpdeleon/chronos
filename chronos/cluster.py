@@ -129,6 +129,11 @@ VIZIER_KEYS_CLUSTER_CATALOG = {
     "Kounkel2019": "J/AJ/158/122",  # Local structure & star formation history of the MW
     # "Feinstein2020": "", #NYMG
     "Bianchi2017_GALEX": "II/335",  # see also https://ui.adsabs.harvard.edu/abs/2020ApJS..250...36B/abstract
+    # YSO from SED using CNN
+    "Chiu2021": "http://scao.astr.nthu.edu.tw/media/scao/files/documents/20191227_SEIP_total_MRT.txt",
+    # age of Kepler stars estimated using astraea
+    "Lu2021": "https://cfn-live-content-bucket-iop-org.s3.amazonaws.com/journals/1538-3881/161/4/189/1/"
+    + "ajabe4d6t1_mrt.txt?AWSAccessKeyId=AKIAYDKQL6LTV7YY2HIK&Expires=1622511816&Signature=CVdNivtn2MJv1%2FY%2F4ztoZKBPzaw%3D",
 }
 
 CLUSTER_ALTERNATE_NAMES = {

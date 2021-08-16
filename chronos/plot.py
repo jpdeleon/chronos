@@ -44,6 +44,9 @@ from chronos.utils import (
     get_rotation_period,
 )
 
+pl.style.use("default")
+
+
 __all__ = [
     "plot_tls",
     "plot_odd_even",
@@ -102,7 +105,16 @@ class MidPointLogNorm(mcolors.LogNorm):
         return np.ma.masked_array(np.interp(np.log(value), x, y))
 
 
-def plot_likelihood_grid(mass_grid, m2s, m3s, cmap="default", aspect_ratio=1):
+def plot_likelihood_grid(
+    mass_grid,
+    m2s,
+    m3s,
+    cmap="default",
+    use_norm_cbar=False,
+    label="",
+    reference=0,
+    aspect_ratio=1,
+):
     """
     Parameters
     ----------
@@ -113,9 +125,12 @@ def plot_likelihood_grid(mass_grid, m2s, m3s, cmap="default", aspect_ratio=1):
     xmin, xmax = m2s[0], m2s[-1]
     ymin, ymax = m3s[0], m3s[-1]
 
-    # norm = MidPointLogNorm(
-    #    vmin=mass_grid.min(), vmax=mass_grid.max(), midpoint=0
-    # )
+    if use_norm_cbar:
+        norm = MidPointLogNorm(
+            vmin=mass_grid.min(), vmax=mass_grid.max(), midpoint=reference
+        )
+    else:
+        norm = None
     # plot matrix
     cbar = ax.imshow(
         mass_grid,
@@ -123,10 +138,10 @@ def plot_likelihood_grid(mass_grid, m2s, m3s, cmap="default", aspect_ratio=1):
         interpolation="none",
         extent=[xmin, xmax, ymin, ymax],
         cmap=cmap,
-        # norm=norm
+        norm=norm,
     )
     pl.colorbar(
-        cbar, ax=ax, label="Likelihood", orientation="vertical"  # shrink=0.9,
+        cbar, ax=ax, label=label, orientation="vertical"  # shrink=0.9,
     )
 
     # add labels
@@ -270,7 +285,7 @@ def plot_gaia_sources_on_tpf(
     if fov_rad is None:
         nx, ny = tpf.shape[1:]
         diag = np.sqrt(nx ** 2 + ny ** 2)
-        fov_rad = (0.4 * diag * pix_scale).to(u.arcmin)
+        fov_rad = (0.4 * diag * pix_scale).to(u.arcmin).round(0)
 
     if gaia_sources is None:
         print(
@@ -287,6 +302,7 @@ def plot_gaia_sources_on_tpf(
     # target is assumed to be the first row
     idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
+    # sources_inside_aperture = []
     if depth is not None:
         # compute delta mag limit given transit depth
         dmag_limit = (
@@ -300,6 +316,7 @@ def plot_gaia_sources_on_tpf(
         isinside = [
             is_point_inside_mask(contour_points, pix) for pix in pix_coords
         ]
+        # sources_inside_aperture.append(isinside)
         min_gmag = gaia_sources.loc[isinside, "phot_g_mean_mag"].min()
         if (target_gmag - min_gmag) != 0:
             print(
@@ -422,7 +439,7 @@ def plot_gaia_sources_on_survey(
     sap_mask="pipeline",
     survey="DSS2 Red",
     ax=None,
-    outline_color="C0",  # pink
+    color_aper="C0",  # pink
     figsize=None,
     invert_xaxis=False,
     invert_yaxis=False,
@@ -447,7 +464,7 @@ def plot_gaia_sources_on_survey(
         print texts
     ax : axis
         subplot axis
-    outline_color : str
+    color_aper : str
         aperture outline color (default=C6)
     kwargs : dict
         keyword arguments for aper_radius, percentile
@@ -465,7 +482,7 @@ def plot_gaia_sources_on_survey(
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:
         diag = np.sqrt(nx ** 2 + ny ** 2)
-        fov_rad = (0.4 * diag * pix_scale).to(u.arcmin)
+        fov_rad = (0.4 * diag * pix_scale).to(u.arcmin).round(0)
     target_coord = SkyCoord(ra=tpf.ra * u.deg, dec=tpf.dec * u.deg)
     if gaia_sources is None:
         print(
@@ -521,7 +538,7 @@ def plot_gaia_sources_on_survey(
         extent=extent,
         origin="lower",
         linewidths=[3],
-        colors=outline_color,
+        colors=color_aper,
         transform=ax.get_transform(WCS(maskhdr)),
     )
     idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
@@ -621,7 +638,9 @@ def get_dss_data(
             raise Exception(f"Error: {e}")
 
 
-def plot_dss_image(hdu, cmap="gray", contrast=0.5, ax=None):
+def plot_dss_image(
+    hdu, cmap="gray", contrast=0.5, coord_format="dd:mm:ss", ax=None
+):
     """
     Plot output of get_dss_data:
     hdu = get_dss_data(ra, dec)
@@ -635,14 +654,14 @@ def plot_dss_image(hdu, cmap="gray", contrast=0.5, ax=None):
         ax = fig.add_subplot(projection=WCS(header))
     ax.imshow(data, vmin=zmin, vmax=zmax, cmap=cmap)
     ax.set_xlabel("RA")
-    ax.set_ylabel("DEC")
+    ax.set_ylabel("DEC", y=0.9)
     title = f"{header['SURVEY']} ({header['FILTER']})\n"
     title += f"{header['DATE-OBS'][:10]}"
     ax.set_title(title)
     # set RA from hourangle to degree
     if hasattr(ax, "coords"):
-        ax.coords[0].set_major_formatter("dd:mm:ss")
-        ax.coords[1].set_major_formatter("dd:mm:ss")
+        ax.coords[1].set_major_formatter(coord_format)
+        ax.coords[0].set_major_formatter(coord_format)
     return ax
 
 
@@ -658,8 +677,11 @@ def plot_archival_images(
     width=1,
     cmap="gray",
     reticle=True,
+    grid=True,
     color="red",
     contrast=0.5,
+    fontsize=14,
+    coord_format="dd:mm:ss",
     return_baseline=False,
 ):
     """
@@ -701,6 +723,9 @@ def plot_archival_images(
     offset = pm*baseline_year/1e3
     ```
     """
+    pl.rcParams["font.size"] = fontsize
+    pl.rcParams["xtick.labelsize"] = fontsize
+
     if (survey1 == "ps1") or (survey2 == "ps1"):
         try:
             import panstarrs3 as p3
@@ -752,15 +777,17 @@ def plot_archival_images(
         cmd = "pip install reproject"
         raise ModuleNotFoundError(cmd)
 
-    array, footprint = reproject_interp(hdu2, hdu1.header)
+    projected_img, footprint = reproject_interp(hdu2, hdu1.header)
 
-    fig = pl.figure(figsize=(10, 5), constrained_layout=True)
+    fig = pl.figure(figsize=(10, 5), constrained_layout=False)
     interval = ZScaleInterval(contrast=contrast)
 
     # data1 = hdu1.data
     header1 = hdu1.header
     ax1 = fig.add_subplot("121", projection=WCS(header1))
-    _ = plot_dss_image(hdu1, cmap=cmap, contrast=contrast, ax=ax1)
+    _ = plot_dss_image(
+        hdu1, cmap=cmap, contrast=contrast, coord_format=coord_format, ax=ax1
+    )
     if reticle:
         c = Circle(
             (ra, dec),
@@ -777,21 +804,21 @@ def plot_archival_images(
         else survey1.split("_")[1]
     )
     # zmin, zmax = interval.get_limits(data1)
-    # ax1.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
+    # ax1.imshow(projected_img, origin="lower", vmin=zmin, vmax=zmax, cmap="gray")
     title = f"{header1['SURVEY']} ({filt1})\n"
     title += f"{header1['DATE-OBS'][:10]}"
     ax1.set_title(title)
     # set RA from hourangle to degree
     if hasattr(ax1, "coords"):
-        ax1.coords[0].set_major_formatter("dd:mm:ss")
-        ax1.coords[1].set_major_formatter("dd:mm:ss")
+        ax1.coords[0].set_major_formatter(coord_format)
+        ax1.coords[1].set_major_formatter(coord_format)
 
     # recent
     data2, header2 = hdu2.data, hdu2.header
     ax2 = fig.add_subplot("122", projection=WCS(header1))
     # _ = plot_dss_image(hdu2, ax=ax2)
     zmin, zmax = interval.get_limits(data2)
-    ax2.imshow(array, origin="lower", vmin=zmin, vmax=zmax, cmap=cmap)
+    ax2.imshow(projected_img, origin="lower", vmin=zmin, vmax=zmax, cmap=cmap)
     if reticle:
         c = Circle(
             (ra, dec),
@@ -817,8 +844,14 @@ def plot_archival_images(
     ax2.set_title(title)
     # set RA from hourangle to degree
     if hasattr(ax2, "coords"):
-        ax2.coords[0].set_major_formatter("dd:mm:ss")
-        ax2.coords[1].set_major_formatter("dd:mm:ss")
+        ax2.coords[0].set_major_formatter(coord_format)
+        ax2.coords[1].set_major_formatter(coord_format)
+
+    if grid:
+        [ax.grid(True) for ax in fig.axes]
+    fig.tight_layout(rect=[0, 0.03, 0.5, 0.9])
+    fig.suptitle(".", y=0.995)
+    fig.tight_layout()
     if return_baseline:
         baseline = int(header2["DATE-OBS"][:4]) - int(header1["DATE-OBS"][:4])
         return fig, baseline
@@ -832,7 +865,7 @@ def plot_aperture_outline(
     ax=None,
     imgwcs=None,
     cmap="viridis",
-    outline_color="C6",
+    color_aper="C6",
     figsize=None,
 ):
     """
@@ -858,7 +891,7 @@ def plot_aperture_outline(
         linewidths=[3],
         extent=extent,
         origin="lower",
-        colors=outline_color,
+        colors=color_aper,
     )
     zmin, zmax = interval.get_limits(img)
     ax.matshow(
@@ -874,7 +907,7 @@ def plot_aperture_outline2(
     ax=None,
     imgwcs=None,
     cmap="viridis",
-    outline_color="C6",
+    color_aper="C6",
     figsize=None,
 ):
     """
@@ -899,7 +932,7 @@ def plot_aperture_outline2(
     _ = ax.contour(
         Z[::-1],
         levels=[0.5],
-        colors=outline_color,
+        colors=color_aper,
         linewidths=[3],
         extent=extent,
         origin="lower",

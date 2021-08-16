@@ -1117,6 +1117,7 @@ def _get_flat_lc(
     # dummy holder
     flat, trend = lc.flatten(return_trend=True)
     # flatten using wotan
+    # import pdb; pdb.set_trace()
     wflat, wtrend = flatten(
         lc.time,
         lc.flux,

@@ -156,8 +156,10 @@ class Target(object):
         elif (self.mission == "k2") | (self.mission == "kepler"):
             try:
                 self.all_campaigns = get_all_campaigns(self.epicid)
-            except Exception:
+            except Exception as e:
                 # error when GaiaDR2id is only given
+                print(e)
+            if self.epicid is None:
                 print("mission=Kepler/K2 but no epicid given.")
             # this does not throw an error
             # self.tess_ccd_info = tesscut.Tesscut.get_sectors(self.target_coord).to_pandas()
@@ -399,7 +401,7 @@ class Target(object):
         if verbose:
             # silenced when verbose=False instead of None
             print(
-                f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius}."""
+                f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius:.2f}."""
             )
         # load gaia params for all TOIs
         tab = Catalogs.query_region(
@@ -492,11 +494,11 @@ class Target(object):
             self.gmag = target["phot_g_mean_mag"]
             ens = target["astrometric_excess_noise_sig"]
             if ens >= 5:
-                msg = f"astrometric_excess_noise_sig>{ens:.2f} (>5 hints binarity).\n"
+                msg = f"astrometric_excess_noise_sig={ens:.2f} (>5 hints binarity).\n"
                 print(msg)
             gof = target["astrometric_gof_al"]
             if gof >= 20:
-                msg = f"astrometric_gof_al>{gof:.2f} (>20 hints binarity)."
+                msg = f"astrometric_gof_al={gof:.2f} (>20 hints binarity)."
                 print(msg)
             if (ens >= 5) or (gof >= 20):
                 print("See https://arxiv.org/pdf/1804.11082.pdf\n")
@@ -512,7 +514,7 @@ class Target(object):
                 print(msg)
             ruwe = list(self.query_vizier_param("ruwe").values())
             if len(ruwe) > 0 and ruwe[0] > 1.4:
-                msg = "RUWE>1.4 means target is non-single or otherwise problematic for the astrometric solution."
+                msg = f"RUWE={ruwe[0]:.1f}>1.4 means target is non-single or otherwise problematic for the astrometric solution."
                 print(msg)
             return target  # return series of len 1
         else:

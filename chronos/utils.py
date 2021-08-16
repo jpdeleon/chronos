@@ -31,7 +31,7 @@ import lightkurve as lk
 from astropy.visualization import hist
 from astropy import units as u
 from astropy import constants as c
-from astropy.timeseries import LombScargle
+from astropy.timeseries import LombScargle, BoxLeastSquares
 from astropy.modeling import models, fitting
 from astropy.io import ascii
 from astropy.table import Table
@@ -43,6 +43,7 @@ from astropy.coordinates import (
     match_coordinates_3d,
 )
 from skimage import measure
+from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs, Tesscut
 from astroquery.gaia import Gaia
@@ -184,49 +185,6 @@ def plot_k2_campaign_footprint(footprint, channels, ax=None, **kwargs):
             **kwargs,
         )
     return ax
-
-
-# def get_K2_targetlist(campaign, verbose=True):
-#     """
-#     campaign: K2 campaign number [0-18]
-#     """
-#     if verbose:
-#         print("Retrieving K2 campaign {} target list...\n".format(campaign))
-#
-#     outdir = "../data/K2targetlist/"
-#
-#     file_list = sorted(glob(os.path.join(outdir, "*csv")))
-#
-#     if len(file_list) == 0:
-#         link = (
-#             "https://keplerscience.arc.nasa.gov/data/campaigns/c"
-#             + str(campaign)
-#             + "/K2Campaign"
-#             + str(campaign)
-#             + "targets.csv"
-#         )
-#         d = pd.read_csv(link)
-#         d = clean_df(d)
-#         if not os.path.exists(outdir):
-#             os.makedirs(outdir)
-#         name = link.split("/"[-1])
-#         outpath = os.path.join(outdir, name)
-#         targets.to_csv(outpath)
-#     else:
-#         fp = os.path.join(outdir, "K2Campaign" + str(campaign) + "targets.csv")
-#
-#         dtypes = {
-#             "EPIC": int,
-#             "RA": float,
-#             "Dec": float,
-#             "Kp": float,
-#             "InvestigationIDs": str,
-#         }
-#         d = pd.read_csv(fp, delimiter=",", skipinitialspace=True, dtype=dtypes)
-#         targets = clean_df(d)
-#
-#     # targets = targets.replace(r'^\s+$', np.nan, regex=True)
-#     return targets
 
 
 def get_k2_targets(campaign):
@@ -1767,21 +1725,7 @@ def get_target_coord(
         )
     # name resolver
     elif epic is not None:
-        try:
-            import k2plr
-
-            client = k2plr.API()
-        except Exception:
-            raise ModuleNotFoundError(
-                "pip install git+https://github.com/rodluger/k2plr.git"
-            )
-        try:
-            target_coord = SkyCoord.from_name(f"EPIC {epic}")
-        except Exception:
-            star = client.k2_star(int(epic))
-            ra = float(star.k2_ra)
-            dec = float(star.k2_dec)
-            target_coord = SkyCoord(ra=ra, dec=dec, unit="deg")
+        target_coord = get_coord_from_epicid(epic)
     elif gaiaid is not None:
         target_coord = SkyCoord.from_name(f"Gaia DR2 {gaiaid}")
     elif name is not None:
@@ -1873,19 +1817,24 @@ def get_coord_from_ticid(ticid):
 
 
 def get_coord_from_epicid(epicid):
-    try:
-        import k2plr
-
-        client = k2plr.API()
-    except Exception:
-        raise ModuleNotFoundError(
-            "pip install git+https://github.com/rodluger/k2plr.git"
-        )
-    epicid = int(epicid)
-    star = client.k2_star(epicid)
-    ra = float(star.k2_ra)
-    dec = float(star.k2_dec)
-    coord = SkyCoord(ra=ra, dec=dec, unit="deg")
+    """Scrape exofop website for relevant info"""
+    r = Simbad.query_object(f"EPIC {epicid}")
+    if r is not None:
+        r = r.to_pandas()
+        ra, dec = r["RA"].values[0], r["DEC"].values[0]
+    else:
+        errmsg = f"Simbad query result is empty for EPIC {epicid}.\n"
+        url = f"https://exofop.ipac.caltech.edu/k2/edit_target.php?id={epicid}"
+        errmsg += f"Using target coordinates from:\n{url}"
+        print(errmsg)
+        # raise ValueError(errmsg)
+        res = pd.read_html(url)
+        if len(res) > 1:
+            r = res[4].loc[1]
+            ra, dec = r[1], r[2]
+        else:
+            raise ValueError(f"EPIC {epicid} does not exist.")
+    coord = SkyCoord(ra=ra, dec=dec, unit=("hourangle", "deg"))
     return coord
 
 
@@ -2023,7 +1972,7 @@ def query_gaia_params_of_all_tois(
         toi_gaia_params = dd.io.load(fp)
         downloaded_tois = np.sort(list(toi_gaia_params.keys()))
         for toi in tqdm(toiids):
-            if toi > downloaded_tois[-1]:
+            if toi not in downloaded_tois:
                 try:
                     t = target.Target(toiid=toi, verbose=verbose)
                     # query gaia dr2 catalog to get gaia id
@@ -2053,47 +2002,6 @@ def query_gaia_params_of_all_tois(
 
     df.index.name = "TOI"
     return df
-
-
-# def get_K2_targetlist(campaign, outdir=DATA_PATH, verbose=True):
-#     """
-#     campaign: K2 campaign number [0-18]
-#     """
-#     if verbose:
-#         print("Retrieving K2 campaign {} target list...\n".format(campaign))
-#
-#     file_list = sorted(glob(os.path.join(outdir, "*csv")))
-#
-#     if len(file_list) == 0:
-#         link = (
-#             "https://keplerscience.arc.nasa.gov/data/campaigns/c"
-#             + str(campaign)
-#             + "/K2Campaign"
-#             + str(campaign)
-#             + "targets.csv"
-#         )
-#         d = pd.read_csv(link)
-#         d = clean_df(d)
-#         if not os.path.exists(outdir):
-#             os.makedirs(outdir)
-#         name = link.split("/"[-1])
-#         outpath = os.path.join(outdir, name)
-#         targets.to_csv(outpath)
-#     else:
-#         fp = os.path.join(outdir, "K2Campaign" + str(campaign) + "targets.csv")
-#
-#         dtypes = {
-#             "EPIC": int,
-#             "RA": float,
-#             "Dec": float,
-#             "Kp": float,
-#             "InvestigationIDs": str,
-#         }
-#         d = pd.read_csv(fp, delimiter=",", skipinitialspace=True, dtype=dtypes)
-#         targets = clean_df(d)
-#
-#     # targets = targets.replace(r'^\s+$', np.nan, regex=True)
-#     return targets
 
 
 def get_cartersian_distance(x1, y1, x2, y2):
@@ -2378,6 +2286,69 @@ def get_RV_K(
         return (K, K_siglo, K_sighi, K_samples)
     else:
         return (K, K_siglo, K_sighi)
+
+
+def get_bls_period(time, flux, texp=30 / 60 / 24, plot=True, period_max=100):
+    """
+    See https://gallery.exoplanet.codes/en/latest/tutorials/tess/
+    """
+    ref_time = 0.5 * (np.min(time) + np.max(time))
+    x = np.ascontiguousarray(time - ref_time, dtype=np.float64)
+    y = np.ascontiguousarray(1e3 * (flux - 1.0), dtype=np.float64)
+
+    period_grid = np.exp(np.linspace(np.log(1), np.log(period_max), 50000))
+
+    bls = BoxLeastSquares(x, y)
+    bls_power = bls.power(period_grid, 0.1, oversample=20)
+
+    # Save the highest peak as the planet candidate
+    index = np.argmax(bls_power.power)
+    bls_period = bls_power.period[index]
+    bls_t0 = bls_power.transit_time[index]
+    # bls_depth = bls_power.depth[index]
+    # transit_mask = bls.transit_mask(x, bls_period, 0.2, bls_t0)
+
+    fig, axes = pl.subplots(2, 1, figsize=(10, 10))
+
+    if plot:
+        # Plot the periodogram
+        ax = axes[0]
+        ax.axvline(np.log10(bls_period), color="C1", lw=5, alpha=0.8)
+        ax.plot(np.log10(bls_power.period), bls_power.power, "k")
+        ax.annotate(
+            "period = {0:.4f} d".format(bls_period),
+            (0, 1),
+            xycoords="axes fraction",
+            xytext=(5, -5),
+            textcoords="offset points",
+            va="top",
+            ha="left",
+            fontsize=12,
+        )
+        ax.set_ylabel("bls power")
+        # ax.set_yticks([])
+        ax.set_xlim(np.log10(period_grid.min()), np.log10(period_grid.max()))
+        ax.set_xlabel("log10(period)")
+
+        # Plot the folded transit
+        ax = axes[1]
+        x_fold = (
+            x - bls_t0 + 0.5 * bls_period
+        ) % bls_period - 0.5 * bls_period
+        m = np.abs(x_fold) < 0.4
+        ax.plot(x_fold[m], y[m], ".k")
+
+        # Overplot the phase binned light curve
+        bins = np.linspace(-0.41, 0.41, 64)
+        denom, _ = np.histogram(x_fold, bins)
+        num, _ = np.histogram(x_fold, bins, weights=y)
+        denom[num == 0] = 1.0
+        ax.plot(0.5 * (bins[1:] + bins[:-1]), num / denom, color="C1")
+
+        ax.set_xlim(-0.3, 0.3)
+        ax.set_ylabel("de-trended flux [ppt]")
+        _ = ax.set_xlabel("time since transit")
+    return bls_period
 
 
 def get_RM_K(vsini_kms, rp_Rearth, Rs_Rsun):

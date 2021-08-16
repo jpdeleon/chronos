@@ -491,6 +491,41 @@ def rho_from_ap(a, p):
     return rho_mks.to(gpcc).value
 
 
+def rho_from_mr(m, r):
+    """
+    m: mass in Msun
+    r: radius in Rsun
+
+    returns
+    -------
+    density in g/cm3
+    """
+    vol = (4 / 3) * np.pi * r * u.Rsun.to(u.cm) ** 3
+    return m * u.Msun.to(u.g) / vol
+
+
+def rho_from_mr_cgs(m, r, unit="sun", cgs=True):
+    gcc = u.g / u.cm ** 3
+    kgmc = u.kg / u.m ** 3
+    if unit == "sun":
+        r = r * u.Rsun.to(u.m)
+        m = m * u.Msun.to(u.kg)
+    elif unit == "earth":
+        r = r * u.Rearth.to(u.m)
+        m = m * u.Mearth.to(u.kg)
+    elif unit == "jup":
+        r = r * u.Rjup.to(u.m)
+        m = m * u.Mjup.to(u.kg)
+    else:
+        raise ValueError("unit=[sun,earth,jup]")
+    volume = (4.0 / 3.0) * np.pi * r ** 3
+    rho = m / volume
+    if cgs:
+        return rho * kgmc.to(gcc)
+    else:
+        return rho
+
+
 def rho_from_prrt(p, rs, rp, t14, b=0, cgs=False):
     """Compute the stellar density in units of the solar density (1.41 g/cm3)
     from the transit parameters.
@@ -627,28 +662,6 @@ def rho_from_gr(logg, r, cgs=True):
 #     return np.array(ephem)
 #
 #
-def rho_from_mr(m, r, unit="sun", cgs=True):
-    gcc = u.g / u.cm ** 3
-    kgmc = u.kg / u.m ** 3
-    if unit == "sun":
-        r = r * u.Rsun.to(u.m)
-        m = m * u.Msun.to(u.kg)
-    elif unit == "earth":
-        r = r * u.Rearth.to(u.m)
-        m = m * u.Mearth.to(u.kg)
-    elif unit == "jup":
-        r = r * u.Rjup.to(u.m)
-        m = m * u.Mjup.to(u.kg)
-    else:
-        raise ValueError("unit=[sun,earth,jup]")
-    volume = (4.0 / 3.0) * np.pi * r ** 3
-    rho = m / volume
-    if cgs:
-        return rho * kgmc.to(gcc)
-    else:
-        return rho
-
-
 #
 #
 # def ll_normal_es(o, m, e):
@@ -746,6 +759,29 @@ def argper(ecc, psi):
     )
 
 
+def a_au(ms, p):
+    """
+    ms : stellar mass [Solar]
+    p : period [days]
+
+    returns : semi-major axis [AU]
+    """
+    return (ms * (p / 365.25) ** 2) ** (1.0 / 3.0)
+
+
+def teq_k(teff, rs, a, a_b=0.3):
+    """
+    teff : stellar effective temperature [Kelvin]
+    rs : stellar radius [Solar]
+    a : semi-major axis [AU]
+    a_b : bond albedo (unitless: highly irradiated gas giants = 0.3)
+
+    returns : equilibrium temperature [Kelvin]
+    """
+    return ((1.0 - a_b) ** 0.25) * np.sqrt(rs / (2 * a * 215.094)) * teff
+
+
+pct_to_err = lambda x: (x[1], x[2] - x[1], x[1] - x[0])
 # def lnlike(theta, t, f):
 #     """
 #     """

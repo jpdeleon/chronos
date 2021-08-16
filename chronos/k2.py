@@ -5,6 +5,8 @@ Module for K2 tpf from MAST and light curves produced by EVEREST and K2SFF pipel
 K2 is the base class inherited by Everest and K2sff classes
 """
 # Import standard library
+import os
+from glob import glob
 from pathlib import Path
 from os.path import join, exists
 from urllib.request import urlretrieve
@@ -93,7 +95,7 @@ class K2(Target):
             clobber=clobber,
             mission="k2",
         )
-        if self.epicid is not None:
+        if self.epicid is None:
             # epicid is initialized in Target if name has EPIC
             self.epicid = epicid
         self.quality_bitmask = quality_bitmask
@@ -105,8 +107,9 @@ class K2(Target):
         self.all_campaigns = get_all_campaigns(self.epicid)
         if self.campaign is None:
             self.campaign = self.all_campaigns[0]
-            print(f"Available campaigns: {self.all_campaigns}")
-            print(f"Using campaign={self.campaign}.")
+            if self.verbose:
+                print(f"Available campaigns: {self.all_campaigns}")
+                print(f"Using campaign={self.campaign}.")
         self.tls_results = None
         # if self.verbose:
         #     print(f"Target: {name}")
@@ -115,12 +118,15 @@ class K2(Target):
         self.contratio = None
         _ = self._get_lc()
 
-    def get_tpf(self):
+    def get_tpf(self, campaign=None):
         """
         FIXME: refactor to tpf.py?
         """
+        if campaign is None:
+            campaign = self.campaign
+        assert campaign in self.all_campaigns
         res = lk.search_targetpixelfile(
-            f"EPIC {self.epicid}", campaign=self.campaign, mission="K2"
+            f"EPIC {self.epicid}", campaign=campaign, mission="K2"
         )
         tpf = res.download()
         self.tpf = tpf
@@ -409,6 +415,7 @@ class K2(Target):
         survey="DSS2 Red",
         ax=None,
         figsize=None,
+        color_aper="C0",
     ):
         """Plot (superpose) Gaia sources on archival image
 
@@ -432,12 +439,12 @@ class K2(Target):
         """
         if aper_mask is None:
             if self.best_aper_mask is None:
-                errmsg = "Provide `aper_mask`.\n"
-                errmsg += "Try: `tpf = self.get_tpf(); aper_mask = tpf.pipeline_mask`"
+                errmsg = "Use either `Everest` or `K2sff` class\n."
+                # errmsg = "Else, provide `aper_mask`.\n"
+                # errmsg += "Try: `tpf = self.get_tpf(); aper_mask = tpf.pipeline_mask`"
                 raise ValueError(errmsg)
             else:
                 aper_mask = self.best_aper_mask
-
         if self.tpf is None:
             tpf = self.get_tpf()
         else:
@@ -446,25 +453,27 @@ class K2(Target):
 
         if fov_rad is None:
             diag = np.sqrt(nx ** 2 + ny ** 2)
-            fov_rad = (diag * Kepler_pix_scale).to(u.arcsec)
+            fov_rad = (diag * Kepler_pix_scale).to(u.arcsec).round(0)
         if gaia_sources is None:
             gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
+        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
         if self.gaiaid is None:
             # _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
             target_gaiaid = gaia_sources.loc[0, "source_id"]
         else:
             target_gaiaid = self.gaiaid
 
-        assert len(gaia_sources) > 1, "gaia_sources contains single entry"
         # make aperture mask
-        maskhdr = tpf.hdu[2].header  # self.k2sff_header
+        # maskhdr = tpf.hdu[2].header  # self.k2sff_header
         # make aperture mask outline
         contour = np.zeros((ny, nx))
         contour[np.where(aper_mask)] = 1
         contour = np.lib.pad(contour, 1, PadWithZeros)
         highres = zoom(contour, 100, order=0, mode="nearest")
-        extent = np.array([-1, nx, -1, ny])
-
+        # extent = np.array([-1, nx, -1, ny])
+        # if self.epicid == 212428509:
+        #     import pdb
+        #     pdb.set_trace()
         if self.verbose:
             print(
                 f"Querying {survey} ({fov_rad:.2f} x {fov_rad:.2f}) archival image"
@@ -502,15 +511,23 @@ class K2(Target):
         )
         imgwcs = WCS(hdu.header)
         mx, my = hdu.data.shape
+        # # make aperture mask outline
+        # contour = np.zeros((my, mx))
+        # contour[np.where(aper_mask)] = 1
+        # contour = np.lib.pad(contour, 1, PadWithZeros)
+        # highres = zoom(contour, 100, order=0, mode="nearest")
+        extent = np.array([-1, mx, -1, my])
+
         # plot mask
         _ = ax.contour(
             highres,
             levels=[0.5],
             extent=extent,
             origin="lower",
-            colors="C0",
-            transform=ax.get_transform(WCS(maskhdr)),
+            colors=color_aper,
+            transform=ax.get_transform(imgwcs),
         )
+
         idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
         target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
@@ -705,6 +722,9 @@ class K2(Target):
         nbin=1,
         sigma_upper=5,
         sigma_lower=10,
+        C1="C0",
+        C2="C1",
+        ax=None,
     ):
         """
         compare light curves from everest and k2sff pipelines
@@ -760,10 +780,13 @@ class K2(Target):
             print("K2SFF lc cdpp:")
             print(f"C{lc2.campaign}: {lc2.estimate_cdpp():.2f}")
             camp_label = lc2.campaign
-        ax = lc.scatter(label="everest")
+        if ax is None:
+            ax = lc.scatter(label="everest")
+        else:
+            _ = lc.scatter(ax=ax, label="everest")
         lc2.scatter(label="k2sff", ax=ax)
         ax.set_title(f"EPIC {epicid} (C{camp_label})")
-        return ax.figure
+        return ax
 
 
 class Everest(K2):
@@ -1138,3 +1161,44 @@ def get_K2_star_data():
         print("Downloading Table X of Hardegree-Ullmann+2020:")
         urlretrieve(url, fp)
         print("Saved: ", fp)
+
+
+# def get_K2_targetlist(campaign, outdir=DATA_PATH, verbose=True):
+#     """
+#     campaign: K2 campaign number [0-18]
+#     """
+#     if verbose:
+#         print("Retrieving K2 campaign {} target list...\n".format(campaign))
+#
+#     file_list = sorted(glob(os.path.join(outdir, "*csv")))
+#
+#     if len(file_list) == 0:
+#         link = (
+#             "https://keplerscience.arc.nasa.gov/data/campaigns/c"
+#             + str(campaign)
+#             + "/K2Campaign"
+#             + str(campaign)
+#             + "targets.csv"
+#         )
+#         d = pd.read_csv(link)
+#         d = clean_df(d)
+#         if not os.path.exists(outdir):
+#             os.makedirs(outdir)
+#         name = link.split("/"[-1])
+#         outpath = os.path.join(outdir, name)
+#         targets.to_csv(outpath)
+#     else:
+#         fp = os.path.join(outdir, "K2Campaign" + str(campaign) + "targets.csv")
+#
+#         dtypes = {
+#             "EPIC": int,
+#             "RA": float,
+#             "Dec": float,
+#             "Kp": float,
+#             "InvestigationIDs": str,
+#         }
+#         d = pd.read_csv(fp, delimiter=",", skipinitialspace=True, dtype=dtypes)
+#         targets = clean_df(d)
+#
+#     # targets = targets.replace(r'^\s+$', np.nan, regex=True)
+#     return targets

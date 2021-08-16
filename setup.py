@@ -13,7 +13,7 @@ with open("requirements.txt", "r") as fh:
 setup(
     name="chronos",
     version="0.1.0",
-    description="discovery and characterization of young stars",
+    description="toolkit for discovery and characterization of exoplanets",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="http://github.com/jpdeleon/chronos",
@@ -21,6 +21,7 @@ setup(
     author_email="jpdeleon.bsap@gmail.com",
     license="MIT",
     packages=find_packages(exclude=["tests"]),
+    # package_data={'chronos': ['data/*.csv']},
     # scripts=[
     #    "calc_fpp",
     #     "scripts/check_target_in_cluster",
@@ -42,9 +43,7 @@ setup(
         "contaminante": [
             "git+https://github.com/christinahedges/contaminante#egg=contaminante"
         ],
-        "popstar": [
-            "git+https://github.com/astropy/PyPopStar.git#egg=PyPopStar"
-        ],
+        "spisea": ["https://github.com/astropy/SPISEA#egg=PyPopStar"],
         "isochrones": [
             "git+https://github.com/timothydmorton/isochrones.git#egg=isochrones"
         ],
