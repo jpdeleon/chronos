@@ -3,6 +3,9 @@ This installation requires git which pulls large files first before pip installa
 https://stackoverflow.com/a/58932741/1910174
 """
 from setuptools import setup, find_packages
+import sys
+if sys.version_info < (3,6):
+    sys.exit('Sorry, chronos only works using Python 3.6')
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
