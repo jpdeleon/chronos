@@ -15,3 +15,4 @@ deepdish==0.3.6
 #-e git://github.com/rodluger/k2plr.git@master#egg=k2plr
 jupyter 
 notebook
+pytest

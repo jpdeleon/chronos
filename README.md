@@ -3,6 +3,13 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
 [![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
+
+## Setup
+```bash
+$ conda create -n chronos python=3.6
+$ conda activate chronos
+```
+
 ## Installation
 ```bash
 $ git clone git@github.com:jpdeleon/chronos.git
@@ -12,7 +19,7 @@ $ pip install -e .
 
 ## test
 ```
-$ pytest tests/
+$ pytest tests
 ```
 
 ## Modules
