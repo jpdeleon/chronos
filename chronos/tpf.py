@@ -93,7 +93,7 @@ class Tpf(Target):
         self.quality_bitmask = quality_bitmask
         self.apply_data_quality_mask = apply_data_quality_mask
         self.tpf = None
-        calc_fpp
+
         if calc_fpp:
             try:
                 from triceratops import triceratops

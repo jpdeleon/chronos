@@ -648,8 +648,8 @@ def get_tess_ccd_info(target_coord):
 def get_all_sectors(target_coord):
     """ """
     ccd_info = get_tess_ccd_info(target_coord)
-    all_sectors = [int(i) for i in ccd_info["sector"].values]
-    return np.array(all_sectors)
+    all_sectors = np.array([int(i) for i in ccd_info["sector"].values])
+    return np.unique(all_sectors)
 
 
 def get_all_campaigns(epicid):

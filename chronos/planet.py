@@ -156,7 +156,7 @@ class Planet(Star):
         outdir=".",
         save_lc=False,
         cadence="short",
-        pipeline="everest",
+        # pipeline="everest",
         lctype="pdcsap",
         teff=None,
         logg=None,
@@ -178,8 +178,6 @@ class Planet(Star):
             (default='short')
         lctype : str
             (default='pdcsap')
-        pipeline : str
-            everest or k2sff (if mission=='k2')
         teff : tuple
         logg : tuple
         feh : tuple

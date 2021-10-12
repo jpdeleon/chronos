@@ -73,6 +73,7 @@ class K2(Target):
 
     def __init__(
         self,
+        k2id=None,
         epicid=None,
         campaign=None,
         gaiaDR2id=None,
@@ -83,6 +84,11 @@ class K2(Target):
         quality_bitmask="default",
         verbose=True,
         clobber=True,
+        sap_mask="square",
+        aper_radius=1,  # added for custom lc
+        threshold_sigma=5,  #
+        percentile=95,  #
+        cutout_size=(15, 15),  #
     ):
         super().__init__(
             epicid=epicid,
@@ -95,6 +101,7 @@ class K2(Target):
             clobber=clobber,
             mission="k2",
         )
+        self.k2id = k2id
         if self.epicid is None:
             # epicid is initialized in Target if name has EPIC
             self.epicid = epicid
@@ -110,6 +117,13 @@ class K2(Target):
             if self.verbose:
                 print(f"Available campaigns: {self.all_campaigns}")
                 print(f"Using campaign={self.campaign}.")
+        self.k2_params = None
+        self.sap_mask = sap_mask  # added for custom lc
+        self.aper_mask = None  #
+        self.aper_radius = aper_radius  #
+        self.percentile = percentile  #
+        self.threshold_sigma = threshold_sigma  #
+        # self.cutout_size = cutout_size           #
         self.tls_results = None
         # if self.verbose:
         #     print(f"Target: {name}")
@@ -796,6 +810,7 @@ class Everest(K2):
 
     def __init__(
         self,
+        k2id=None,
         epicid=None,
         campaign=None,
         gaiaDR2id=None,
@@ -976,6 +991,7 @@ class K2sff(K2):
 
     def __init__(
         self,
+        k2id=None,
         epicid=None,
         campaign=None,
         gaiaDR2id=None,

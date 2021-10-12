@@ -59,7 +59,7 @@ class Tess(Target):
     Provides static methods applicable for TESS targets
     """
 
-    def __ini__(
+    def __init__(
         self,
         name=None,
         toiid=None,

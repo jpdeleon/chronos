@@ -462,7 +462,7 @@ def tshape_approx(k, b=0):
     """
     alpha = (1 - k) ** 2 - b ** 2
     beta = (1 + k) ** 2 - b ** 2
-    return np.sqrt(alpha / beta)
+    return (alpha / beta) ** 0.5
 
 
 def max_k(tshape):
