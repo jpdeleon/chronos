@@ -864,16 +864,26 @@ def get_rotation_period(
         raise ValueError("Use method=[ls | gls]")
 
 
-def get_transit_mask(lc, period, epoch, duration_hours):
+def get_transit_mask2(time, period, t0, dur):
     """
     lc : lk.LightCurve
         lightcurve that contains time and flux properties
+    """
+    if dur >= 1:
+        raise ValueError("dur should be in days")
 
     mask = []
     t0 += np.ceil((time[0] - dur - t0) / period) * period
     for t in np.arange(t0, time[-1] + dur, period):
-        mask.extend(np.where(np.abs(time - t) < dur / 2.)[0])
-    return  np.array(mask)
+        mask.extend(np.where(np.abs(time - t) < dur / 2.0)[0])
+
+    return np.array(mask)
+
+
+def get_transit_mask(lc, period, epoch, duration_hours):
+    """
+    lc : lk.LightCurve
+        lightcurve that contains time and flux properties
     """
     assert isinstance(lc, lk.LightCurve)
     assert (
@@ -885,6 +895,7 @@ def get_transit_mask(lc, period, epoch, duration_hours):
     fractional_duration = (duration_hours / 24.0) / period
     phase_mask = np.abs(temp_fold.phase) < (fractional_duration * 1.5)
     transit_mask = np.in1d(lc.time, temp_fold.time_original[phase_mask])
+
     return transit_mask
 
 

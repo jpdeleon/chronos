@@ -584,7 +584,7 @@ class LongCadence(FFI_cutout):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
-            lc, period=period, epoch=epoch, duration_hours=duration
+            lc.time, period=period, t0=epoch, dur=duration / 24
         )
         return tmask
 
@@ -1053,7 +1053,7 @@ class ShortCadence(Tpf):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
-            lc, period=period, epoch=epoch, duration_hours=duration
+            lc.time, period=period, t0=epoch, dur=duration / 24
         )
         return tmask
 
@@ -1110,7 +1110,7 @@ def _get_flat_lc(
         )
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask = get_transit_mask(
-            lc, period=period, epoch=epoch, duration_hours=duration
+            lc.time, period=period, t0=epoch, dur=duration / 24
         )
     else:
         tmask = np.zeros_like(lc.time, dtype=bool)
@@ -1162,7 +1162,7 @@ def _plot_trend_flat_lcs(
                 f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr."
             )
         tmask = get_transit_mask(
-            lc, period=period, epoch=epoch, duration_hours=duration
+            lc.time, period=period, t0=epoch, dur=duration / 24
         )
     else:
         tmask = np.zeros_like(lc.time, dtype=bool)
@@ -1184,7 +1184,7 @@ def _plot_trend_flat_lcs(
 
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask2 = get_transit_mask(
-            flat, period=period, epoch=epoch, duration_hours=duration
+            flat.time, period=period, t0=epoch, dur=duration / 24
         )
     else:
         tmask2 = np.zeros_like(lc.time, dtype=bool)

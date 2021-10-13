@@ -276,7 +276,7 @@ class K2(Target):
             )
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask = get_transit_mask(
-                lc, period=period, epoch=epoch, duration_hours=duration
+                lc.time, period=period, t0=epoch, dur=duration / 24
             )
         else:
             tmask = np.zeros_like(lc.time, dtype=bool)
@@ -326,7 +326,7 @@ class K2(Target):
 
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask = get_transit_mask(
-                lc, period=period, epoch=epoch, duration_hours=duration
+                lc.time, period=period, t0=epoch, dur=duration / 24
             )
         else:
             tmask = np.zeros_like(lc.time, dtype=bool)
@@ -343,7 +343,7 @@ class K2(Target):
 
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask2 = get_transit_mask(
-                flat, period=period, epoch=epoch, duration_hours=duration
+                flat.time, period=period, t0=epoch, dur=duration / 24
             )
         else:
             tmask2 = np.zeros_like(lc.time, dtype=bool)
@@ -415,7 +415,7 @@ class K2(Target):
         """
         """
         tmask = get_transit_mask(
-            lc, period=period, epoch=epoch, duration_hours=duration_hours
+            lc.time, period=period, t0=epoch, dur=duration_hours / 24
         )
         return tmask
 
