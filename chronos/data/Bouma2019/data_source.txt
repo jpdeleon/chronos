@@ -1,3 +1,3 @@
-* OC_MG_FINAL_v0.3_publishable.csv was requested from L. Bouma through J. Livingston
-* apjsab4a7et1_mrt.txt was downloaded from iopscience.iop.org/0067-0049/245/1/13/suppdata/apjsab4a7et1_mrt.txt 
-* 
+version https://git-lfs.github.com/spec/v1
+oid sha256:e52bc6790266e1bee79e68ce6e6e575a2ef192efd85682813f1821f6668ec2fc
+size 200

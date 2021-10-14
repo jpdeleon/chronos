@@ -26,7 +26,7 @@ from astroplan.plots import plot_finder_image
 from astropy.timeseries import LombScargle
 from mpl_toolkits.mplot3d import Axes3D
 from skimage import measure
-import deepdish as dd
+import flammkuchen as fk
 
 # Import from package
 from chronos.target import Target

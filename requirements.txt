@@ -12,7 +12,6 @@ scikit-image #==0.16.2 #just for measure.find_contours
 pyvo #for query_eso()
 # triceratops==0.2.1
 flammkuchen
-#deepdish==0.3.6
 #-e git://github.com/rodluger/k2plr.git@master#egg=k2plr
 jupyter 
 notebook

@@ -47,7 +47,7 @@ from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs, Tesscut
 from astroquery.gaia import Gaia
-import deepdish as dd
+import flammkuchen as fk
 
 # Import from package
 from chronos import target
@@ -1979,13 +1979,13 @@ def query_gaia_params_of_all_tois(
             except Exception as e:
                 if verbose:
                     print(e)
-        dd.io.save(fp, toi_gaia_params)
+        fk.save(fp, toi_gaia_params)
         msg = f"Saved: {fp}"
     elif exists(fp) and update:
         # load file and append new queries
         if verbose:
             print("Querying Gaia DR2 catalog for new TOIs\n")
-        toi_gaia_params = dd.io.load(fp)
+        toi_gaia_params = fk.load(fp)
         downloaded_tois = np.sort(list(toi_gaia_params.keys()))
         for toi in tqdm(toiids):
             if toi not in downloaded_tois:
@@ -2000,11 +2000,11 @@ def query_gaia_params_of_all_tois(
                 except Exception as e:
                     if verbose:
                         print(e)
-        dd.io.save(fp, toi_gaia_params)
+        fk.save(fp, toi_gaia_params)
         msg = f"Saved: {fp}"
     else:
         # load
-        toi_gaia_params = dd.io.load(fp)
+        toi_gaia_params = fk.load(fp)
         msg = f"Loaded: {fp}"
     if verbose:
         print(msg)
