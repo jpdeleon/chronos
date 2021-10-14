@@ -105,7 +105,7 @@ class Tpf(Target):
                     ID=self.ticid, sectors=self.all_sectors
                 )
             except HTTPError:
-                errmsg = "Check if target tpf is available in short cadence.\n"
+                errmsg = "Check if target TPF is available in short cadence.\n"
                 errmsg += "Short cadence targets only are currently supported."
                 raise Exception(errmsg)
         self.calc_fpp = calc_fpp
@@ -120,7 +120,7 @@ class Tpf(Target):
         print(f"Using sector={self.sector}.")
 
     def get_tpf(self, sector=None, quality_bitmask=None, return_df=False):
-        """Download tpf from MAST given coordinates
+        """Download TPF from MAST given coordinates
            though using TIC id yields unique match.
 
         Parameters
@@ -132,10 +132,10 @@ class Tpf(Target):
 
         Returns
         -------
-        tpf and/or df: lk.targetpixelfile, pd.DataFrame
+        TPF and/or df: lk.targetpixelfile, pd.DataFrame
 
         Note: find a way to compress the logic below
-        if tpf is None:
+        if TPF is None:
             - download_tpf
         else:
             if tpf.sector==sector
@@ -226,7 +226,7 @@ class Tpf(Target):
             )
             if not exists(filepath) or self.clobber:
                 if self.verbose:
-                    print(f"Downloading TIC {self.ticid} ...\n")
+                    print(f"Downloading TPF for TIC {self.ticid} ...\n")
                 ticstr = f"TIC {self.ticid}"
                 res = lk.search_targetpixelfile(
                     ticstr, mission=MISSION, sector=sector
@@ -250,7 +250,7 @@ class Tpf(Target):
             else:
                 return tpf
         else:
-            msg = "No tpf file found! Check FFI data using --cadence=long\n"
+            msg = "No TPF file found! Check FFI data using --cadence=long\n"
             logging.info(msg)
             raise FileNotFoundError(msg)
 
@@ -503,7 +503,7 @@ class FFI_cutout(Target):
                     ID=self.ticid, sectors=self.all_sectors
                 )
             except HTTPError:
-                errmsg = "Check if target tpf is available in short cadence.\n"
+                errmsg = "Check if target TPF is available in short cadence.\n"
                 errmsg += "Short cadence targets only are currently supported."
                 raise Exception(errmsg)
         self.calc_fpp = calc_fpp

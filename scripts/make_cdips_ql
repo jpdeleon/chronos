@@ -51,8 +51,8 @@ if __name__ == "__main__":
         lc = cdips.lc.remove_outliers()
 
         flat_lc, trend_lc = flatten(
-            lc.time,  # Array of time values
-            lc.flux,  # Array of flux values
+            lc.time.value,  # Array of time values
+            lc.flux.value,  # Array of flux values
             method="gp",
             kernel="periodic_auto",  # GP kernel choice
             kernel_size=10,  # GP kernel length
@@ -60,7 +60,7 @@ if __name__ == "__main__":
             return_trend=True,  # Return trend and flattened light curve
         )
 
-        tls = transitleastsquares(lc.time, flat_lc)
+        tls = transitleastsquares(lc.time.value, flat_lc)
         res = tls.power()
         missing = res["empty_transit_count"] / res["transit_count"]
 
@@ -68,8 +68,8 @@ if __name__ == "__main__":
         fig, ax = pl.subplots(4, 1, figsize=(15, 12), constrained_layout=True)
 
         n = 0
-        ax[n].plot(lc.time, lc.flux, ".")
-        ax[n].plot(lc.time, trend_lc, "-")
+        ax[n].plot(lc.time.value, lc.flux.value, ".")
+        ax[n].plot(lc.time.value, trend_lc, "-")
         ax[n].set_xlabel("Time", fontsize=fontsize)
         ax[n].set_ylabel("Flux", fontsize=fontsize)
         n = 1
@@ -78,14 +78,14 @@ if __name__ == "__main__":
         ax[n].set_xlabel("Periods", fontsize=fontsize)
         ax[n].set_ylabel("Power", fontsize=fontsize)
         n = 2
-        ax[n].plot(lc.time, flat_lc, ".")
+        ax[n].plot(lc.time.value, flat_lc, ".")
         ax[n].set_xlabel("Time", fontsize=fontsize)
         ax[n].set_ylabel("Flux", fontsize=fontsize)
         ax[n].axhline(res["depth_mean"][0], 0, 1, ls="--")
         for t in res["transit_times"]:
             ax[n].axvline(t, 0, 1, ls="--")
-            idx = lc.time == t
-            ax[n].plot(lc.time[idx], flat_lc[idx], "ro")
+            idx = lc.time.value == t
+            ax[n].plot(lc.time.value[idx], flat_lc.value[idx], "ro")
         n = 3
         ax[n].plot(res["folded_phase"], res["folded_y"], ".")
         ax[n].plot(res["folded_phase"], res["model_folded_model"], lw=3)

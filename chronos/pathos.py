@@ -326,16 +326,16 @@ class PATHOS(Target):
             )
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask = get_transit_mask(
-                lc.time, period=period, t0=epoch, dur=duration / 24
+                lc.time.value, period=period, t0=epoch, dur=duration / 24
             )
         else:
-            tmask = np.zeros_like(lc.time, dtype=bool)
+            tmask = np.zeros_like(lc.time.value, dtype=bool)
         # dummy holder
         flat, trend = lc.flatten(return_trend=True)
         # flatten using wotan
         wflat, wtrend = flatten(
-            lc.time,
-            lc.flux,
+            lc.time.value,
+            lc.flux.value,
             method=method,
             window_length=window_length,
             mask=tmask,
@@ -376,10 +376,10 @@ class PATHOS(Target):
 
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask = get_transit_mask(
-                lc.time, period=period, t0=epoch, dur=duration / 24
+                lc.time.value, period=period, t0=epoch, dur=duration / 24
             )
         else:
-            tmask = np.zeros_like(lc.time, dtype=bool)
+            tmask = np.zeros_like(lc.time.value, dtype=bool)
         ax = axs.flatten()
         flat, trend = self.get_flat_lc(
             lc, period=period, duration=duration, return_trend=True, **kwargs
@@ -396,7 +396,7 @@ class PATHOS(Target):
                 flat, period=period, epoch=epoch, duration_hours=duration
             )
         else:
-            tmask2 = np.zeros_like(lc.time, dtype=bool)
+            tmask2 = np.zeros_like(lc.time.value, dtype=bool)
         flat.scatter(ax=ax[1], c="k", alpha=0.5, label="flat")
         if np.any(tmask2):
             flat[tmask2].scatter(
@@ -465,6 +465,6 @@ class PATHOS(Target):
         """
         """
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration_hours / 24
+            lc.time.value, period=period, t0=epoch, dur=duration_hours / 24
         )
         return tmask

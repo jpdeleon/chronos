@@ -121,9 +121,9 @@ class QLP(Target):
         self.lc = self.get_qlp_lc()
         self.lc.targetid = self.ticid
         self.cadence = self.header["TIMEDEL"] * u.d
-        self.time = self.lc.time
-        self.flux = self.lc.flux
-        self.err = self.lc.flux_err
+        self.time = self.lc.time.value
+        self.flux = self.lc.flux.value
+        self.err = self.lc.flux_err.value
         self.sap_mask = "round"
         self.threshold_sigma = 5  # dummy
         self.percentile = 95  # dummy

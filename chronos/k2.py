@@ -168,7 +168,7 @@ class K2(Target):
                     print(
                         f"Searching lightcurvefile for {query_str} (campaign {campaign})"
                     )
-                q = lk.search_lightcurvefile(
+                q = lk.search_lightcurve(
                     query_str, campaign=campaign, mission="K2"
                 )
                 if len(q) == 0:
@@ -176,7 +176,7 @@ class K2(Target):
                         print(
                             f"Searching lightcurvefile for {self.target_coord.to_string()} (campaign {campaign})"
                         )
-                    q = lk.search_lightcurvefile(
+                    q = lk.search_lightcurve(
                         self.target_coord, campaign=campaign, mission="K2"
                     )
                 assert q is not None, "Empty result. Check long cadence."
@@ -196,7 +196,7 @@ class K2(Target):
                 print(
                     f"Searching lightcurvefile for {query_str} (campaign {campaign})"
                 )
-            q = lk.search_lightcurvefile(
+            q = lk.search_lightcurve(
                 query_str, campaign=campaign, mission="K2"
             )
             if len(q) == 0:
@@ -204,7 +204,7 @@ class K2(Target):
                     print(
                         f"Searching lightcurvefile for ra,dec=({self.target_coord.to_string()}) (campaign {campaign})"
                     )
-                q = lk.search_lightcurvefile(
+                q = lk.search_lightcurve(
                     self.target_coord, campaign=campaign, mission="K2"
                 )
             assert q is not None, "Empty result. Check long cadence."
@@ -276,16 +276,16 @@ class K2(Target):
             )
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask = get_transit_mask(
-                lc.time, period=period, t0=epoch, dur=duration / 24
+                lc.time.value, period=period, t0=epoch, dur=duration / 24
             )
         else:
-            tmask = np.zeros_like(lc.time, dtype=bool)
+            tmask = np.zeros_like(lc.time.value, dtype=bool)
         # dummy holder
         flat, trend = lc.flatten(return_trend=True)
         # flatten using wotan
         wflat, wtrend = flatten(
-            lc.time,
-            lc.flux,
+            lc.time.value,
+            lc.flux.value,
             method=method,
             window_length=window_length,
             mask=tmask,
@@ -326,10 +326,10 @@ class K2(Target):
 
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask = get_transit_mask(
-                lc.time, period=period, t0=epoch, dur=duration / 24
+                lc.time.value, period=period, t0=epoch, dur=duration / 24
             )
         else:
-            tmask = np.zeros_like(lc.time, dtype=bool)
+            tmask = np.zeros_like(lc.time.value, dtype=bool)
         ax = axs.flatten()
         flat, trend = self.get_flat_lc(
             lc, period=period, duration=duration, return_trend=True, **kwargs
@@ -346,7 +346,7 @@ class K2(Target):
                 flat.time, period=period, t0=epoch, dur=duration / 24
             )
         else:
-            tmask2 = np.zeros_like(lc.time, dtype=bool)
+            tmask2 = np.zeros_like(lc.time.value, dtype=bool)
         flat.scatter(ax=ax[1], c="k", alpha=0.5, label="flat")
         if np.any(tmask2):
             flat[tmask2].scatter(
@@ -415,7 +415,7 @@ class K2(Target):
         """
         """
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration_hours / 24
+            lc.time.value, period=period, t0=epoch, dur=duration_hours / 24
         )
         return tmask
 

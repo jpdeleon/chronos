@@ -41,7 +41,7 @@ def test_archival():
 
 
 # def test_Prot():
-#     fig = plot_rotation_period(lc.time, lc.flux, lc.flux_err, npoints=5)
+#     fig = plot_rotation_period(lc.time.value, lc.flux.value, lc.flux_err.value, npoints=5)
 #     assert isinstance(fig, Figure)
 
 

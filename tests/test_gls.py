@@ -15,7 +15,7 @@ def test_gls():
     sc = LongCadence(ticid=TICID, sector=SECTOR)
     lc = sc.make_custom_lc()
 
-    data = lc.time, lc.flux, lc.flux_err
+    data = lc.time.value, lc.flux.value, lc.flux_err.value
     gls = Gls(data, Pbeg=1, verbose=False)
     assert isinstance(gls.best, dict)
     # fig = gls.plot(block=True)

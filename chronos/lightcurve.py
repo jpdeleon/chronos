@@ -308,9 +308,9 @@ class LongCadence(FFI_cutout):
         )
         # remove nans
         idx = (
-            np.isnan(raw_lc.time)
-            | np.isnan(raw_lc.flux)
-            | np.isnan(raw_lc.flux_err)
+            np.isnan(raw_lc.time.value)
+            | np.isnan(raw_lc.flux.value)
+            | np.isnan(raw_lc.flux_err.value)
         )
         self.tpf_tesscut = tpf_tesscut[~idx]
         self.lc_custom_raw = raw_lc[~idx]
@@ -347,7 +347,9 @@ class LongCadence(FFI_cutout):
             # Optional: Remove the scattered light, allowing for the large offset from scattered light
             if with_offset:
                 corrected_lc = (
-                    raw_lc - rc.model_lc + np.percentile(rc.model_lc.flux, q=5)
+                    raw_lc
+                    - rc.model_lc
+                    + np.percentile(rc.model_lc.flux.value, q=5)
                 )
         lc = corrected_lc.normalize()
         self.lc_custom = lc
@@ -584,7 +586,7 @@ class LongCadence(FFI_cutout):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time.value, period=period, t0=epoch, dur=duration / 24
         )
         return tmask
 
@@ -722,7 +724,7 @@ class ShortCadence(Tpf):
                     print(
                         f"Searching lightcurvefile for {query_str} (sector {sector})."
                     )
-                q = lk.search_lightcurvefile(
+                q = lk.search_lightcurve(
                     query_str, sector=sector, mission=MISSION
                 )
                 if len(q) == 0:
@@ -730,7 +732,7 @@ class ShortCadence(Tpf):
                         print(
                             f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})."
                         )
-                    q = lk.search_lightcurvefile(
+                    q = lk.search_lightcurve(
                         self.target_coord, sector=sector, mission=MISSION
                     )
                 assert q is not None, "Empty result. Check long cadence."
@@ -749,15 +751,13 @@ class ShortCadence(Tpf):
                 print(
                     f"Searching lightcurvefile for {query_str} (sector {sector})."
                 )
-            q = lk.search_lightcurvefile(
-                query_str, sector=sector, mission=MISSION
-            )
+            q = lk.search_lightcurve(query_str, sector=sector, mission=MISSION)
             if len(q) == 0:
                 if self.verbose:
                     print(
                         f"Searching lightcurvefile for {self.target_coord.to_string()} (sector {sector})."
                     )
-                q = lk.search_lightcurvefile(
+                q = lk.search_lightcurve(
                     self.target_coord, sector=sector, mission=MISSION
                 )
             assert q is not None, "Empty result. Check long cadence."
@@ -858,9 +858,9 @@ class ShortCadence(Tpf):
         )
         # remove nans
         idx = (
-            np.isnan(raw_lc.time)
-            | np.isnan(raw_lc.flux)
-            | np.isnan(raw_lc.flux_err)
+            np.isnan(raw_lc.time.value)
+            | np.isnan(raw_lc.flux.value)
+            | np.isnan(raw_lc.flux_err.value)
         )
         self.tpf = tpf[~idx]
         self.raw_lc = raw_lc[~idx]
@@ -899,7 +899,7 @@ class ShortCadence(Tpf):
                 corrected_lc = (
                     self.raw_lc
                     - rc.model_lc
-                    + np.percentile(rc.model_lc.flux, q=5)
+                    + np.percentile(rc.model_lc.flux.value, q=5)
                 )
         lc = corrected_lc.normalize()
         self.lc_custom = lc
@@ -1053,7 +1053,7 @@ class ShortCadence(Tpf):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time.value, period=period, t0=epoch, dur=duration / 24
         )
         return tmask
 
@@ -1110,17 +1110,17 @@ def _get_flat_lc(
         )
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time.value, period=period, t0=epoch, dur=duration / 24
         )
     else:
-        tmask = np.zeros_like(lc.time, dtype=bool)
+        tmask = np.zeros_like(lc.time.value, dtype=bool)
     # dummy holder
     flat, trend = lc.flatten(return_trend=True)
     # flatten using wotan
     # import pdb; pdb.set_trace()
     wflat, wtrend = flatten(
-        lc.time,
-        lc.flux,
+        lc.time.value,
+        lc.flux.value,
         method=method,
         mask=tmask,
         window_length=window_length,
@@ -1162,10 +1162,10 @@ def _plot_trend_flat_lcs(
                 f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr."
             )
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time.value, period=period, t0=epoch, dur=duration / 24
         )
     else:
-        tmask = np.zeros_like(lc.time, dtype=bool)
+        tmask = np.zeros_like(lc.time.value, dtype=bool)
     ax = axs.flatten()
     flat, trend = self.get_flat_lc(
         lc,
@@ -1187,7 +1187,7 @@ def _plot_trend_flat_lcs(
             flat.time, period=period, t0=epoch, dur=duration / 24
         )
     else:
-        tmask2 = np.zeros_like(lc.time, dtype=bool)
+        tmask2 = np.zeros_like(lc.time.value, dtype=bool)
     flat.scatter(ax=ax[1], c="k", alpha=0.5, label="flat")
     if np.any(tmask2):
         flat[tmask2].scatter(ax=ax[1], zorder=5, c="r", s=10, label="transit")
