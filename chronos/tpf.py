@@ -196,7 +196,9 @@ class Tpf(Target):
         df = res.table.to_pandas()
 
         if len(df) > 0:
-            all_sectors = [int(i) for i in df["sequence_number"].values]
+            all_sectors = np.unique(
+                [int(i) for i in df["sequence_number"].values]
+            )
             if sector:
                 sector_idx = df["sequence_number"][
                     df["sequence_number"].isin([sector])
@@ -214,8 +216,8 @@ class Tpf(Target):
                 obsid = df.iloc[sector_idx]["obs_id"]
                 # ticid = int(df.iloc[sector_idx]["target_name"])
                 fitsfilename = df.iloc[sector_idx]["productFilename"]
-
-            msg = f"{len(df)} tpf(s) found in sector(s) {all_sectors}.\n"
+            tpf_sectors = np.unique(df.mission.apply(lambda x: x.split()[-1]))
+            msg = f"{len(tpf_sectors)} tpf(s) found in sector(s) {all_sectors}.\n"
             msg += f"Using data from sector {sector} only.\n"
             if self.verbose:
                 logging.info(msg)
