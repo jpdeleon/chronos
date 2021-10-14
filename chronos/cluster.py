@@ -25,7 +25,7 @@ from astropy.coordinates import SkyCoord, Distance
 from astropy.table import Table
 import astropy.units as u
 from tqdm import tqdm
-import deepdish as dd
+import flammkuchen as fk
 
 # Import from package
 from chronos import target
@@ -1622,10 +1622,10 @@ class Cluster(ClusterCatalog):
             # save
             errmsg = "data is empty"
             assert len(gaia_data) > 0, errmsg
-            dd.io.save(fp, gaia_data)
+            fk.save(fp, gaia_data)
             msg = f"Saved: {fp}"
         else:
-            gaia_data = dd.io.load(fp)
+            gaia_data = fk.load(fp)
             msg = f"Loaded: {fp}"
             errmsg = "data is empty"
             assert len(gaia_data) > 0, errmsg
