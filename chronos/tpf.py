@@ -152,7 +152,7 @@ class Tpf(Target):
                 # search by TICID
                 ticstr = f"TIC {self.ticid}"
                 if self.verbose:
-                    print(f"\nSearching mast for {ticstr}.\n")
+                    print(f"\nSearching TPF in MAST for {ticstr}.\n")
                 res = lk.search_targetpixelfile(
                     ticstr, mission=MISSION, sector=None
                 )
@@ -160,7 +160,7 @@ class Tpf(Target):
                 # search by position
                 if self.verbose:
                     print(
-                        f"\nSearching mast for ra,dec=({self.target_coord.to_string()}).\n"
+                        f"\nSearching TPF in MAST for ra,dec=({self.target_coord.to_string()}).\n"
                     )
                 res = lk.search_targetpixelfile(
                     self.target_coord,

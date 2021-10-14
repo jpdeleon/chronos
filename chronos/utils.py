@@ -54,6 +54,7 @@ from chronos import target
 from chronos import cluster
 from chronos import gls
 from chronos.config import DATA_PATH
+from chronos.constants import TESS_TIME_OFFSET
 
 log = logging.getLogger(__name__)
 
@@ -891,6 +892,10 @@ def get_transit_mask(lc, period, epoch, duration_hours):
         & (epoch is not None)
         & (duration_hours is not None)
     )
+    assert duration_hours > 1, "Duration must be in hours"
+    assert (
+        epoch < TESS_TIME_OFFSET
+    ), f"Epoch must be in BTJD, t0<{TESS_TIME_OFFSET} d"
     temp_fold = lc.fold(period, t0=epoch)
     fractional_duration = (duration_hours / 24.0) / period
     phase_mask = np.abs(temp_fold.phase) < (fractional_duration * 1.5)
