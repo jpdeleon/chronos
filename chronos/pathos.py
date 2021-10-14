@@ -411,7 +411,9 @@ class PATHOS(Target):
     def run_tls(self, flat, plot=True, **tls_kwargs):
         """
         """
-        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls = transitleastsquares(
+            t=flat.time.value, y=flat.flux.value, dy=flat.flux_err.value
+        )
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
         if plot:

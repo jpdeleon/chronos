@@ -548,7 +548,9 @@ class LongCadence(FFI_cutout):
     def run_tls(self, flat, plot=True, **tls_kwargs):
         """
         """
-        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls = transitleastsquares(
+            t=flat.time.value, y=flat.flux.value, dy=flat.flux_err.value
+        )
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
         if plot:
@@ -771,17 +773,17 @@ class ShortCadence(Tpf):
         assert lcf is not None, "Empty result. Check long cadence."
         sap = lcf.SAP_FLUX
         pdcsap = lcf.PDCSAP_FLUX
-        if isinstance(lcf, lk.LightCurveFileCollection):
-            # merge multi-sector into one lc
-            if len(lcf) > 1:
-                sap0 = sap[0].normalize()
-                sap = [sap0.append(l.normalize()) for l in sap[1:]][0]
-                pdcsap0 = pdcsap[0].normalize()
-                pdcsap = [pdcsap0.append(l.normalize()) for l in pdcsap[1:]][0]
-            else:
-                raise ValueError(
-                    f"Only sector {lcf[0].sector} (in {self.all_sectors}) is available"
-                )
+        # if isinstance(lcf, lk.LightCurveFile):
+        #     # merge multi-sector into one lc
+        #     if len(lcf) > 1:
+        #         sap0 = sap[0].normalize()
+        #         sap = [sap0.append(l.normalize()) for l in sap[1:]][0]
+        #         pdcsap0 = pdcsap[0].normalize()
+        #         pdcsap = [pdcsap0.append(l.normalize()) for l in pdcsap[1:]][0]
+        #     else:
+        #         raise ValueError(
+        #             f"Only sector {lcf[0].sector} (in {self.all_sectors}) is available"
+        #         )
         self.lc_sap = sap
         self.lc_pdcsap = pdcsap
         if lctype == "pdcsap":
@@ -1016,7 +1018,9 @@ class ShortCadence(Tpf):
     def run_tls(self, flat, plot=True, **tls_kwargs):
         """
         """
-        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls = transitleastsquares(
+            t=flat.time.value, y=flat.flux.value, dy=flat.flux_err.value
+        )
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
         if plot:
@@ -1184,7 +1188,7 @@ def _plot_trend_flat_lcs(
 
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask2 = get_transit_mask(
-            flat.time, period=period, t0=epoch, dur=duration / 24
+            flat.time.value, period=period, t0=epoch, dur=duration / 24
         )
     else:
         tmask2 = np.zeros_like(lc.time.value, dtype=bool)

@@ -219,7 +219,7 @@ class K2(Target):
         assert lcf is not None, "Empty result. Check long cadence."
         sap = lcf.SAP_FLUX
         pdcsap = lcf.PDCSAP_FLUX
-        if isinstance(lcf, lk.LightCurveFileCollection):
+        if isinstance(lcf, lk.LightCurveFile):
             # merge multi-campaign into one lc
             if len(lcf) > 1:
                 sap0 = sap[0].normalize()
@@ -343,7 +343,7 @@ class K2(Target):
 
         if (period is not None) & (epoch is not None) & (duration is not None):
             tmask2 = get_transit_mask(
-                flat.time, period=period, t0=epoch, dur=duration / 24
+                flat.time.value, period=period, t0=epoch, dur=duration / 24
             )
         else:
             tmask2 = np.zeros_like(lc.time.value, dtype=bool)
@@ -361,7 +361,9 @@ class K2(Target):
     def run_tls(self, flat, plot=True, **tls_kwargs):
         """
         """
-        tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
+        tls = transitleastsquares(
+            t=flat.time.value, y=flat.flux.value, dy=flat.flux_err.value
+        )
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
         if plot:
