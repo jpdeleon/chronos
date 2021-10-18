@@ -2393,6 +2393,11 @@ def get_between_limits(lower, upper, data_mu, data_sig, sigma=1):
     return idx
 
 
+def get_weighted_error(errs):
+    inv_err = np.sqrt(np.square(1 / np.array(errs)).sum())
+    return 1 / inv_err
+
+
 def map_float(x):
     return list(map(float, x))
 
