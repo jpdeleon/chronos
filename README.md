@@ -45,6 +45,8 @@ $ pytest tests
 * [`triceratops`](https://github.com/stevengiacalone/triceratops) for FPP calculation based on lightcurve shape and contrast curve constraints
 
 ## For next update
+* [TESS_Deblending](https://github.com/sailoryf/TESS_Deblending)
+* [apertureoptimizer](https://github.com/christinahedges/apertureoptimizer)
 * [psfmachine](https://github.com/SSDataLab/psfmachine)
 * [GALAH DR3](github.com/svenbuder/GALAH_DR3)
 * [TASOC](http://archive.stsci.edu/hlsp/tasoc)
