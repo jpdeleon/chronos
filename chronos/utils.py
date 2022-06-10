@@ -47,7 +47,7 @@ from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs, Tesscut
 from astroquery.gaia import Gaia
-import flammkuchen as fk
+import deepdish as dd
 
 # Import from package
 from chronos import target
@@ -150,6 +150,18 @@ class TessLightCurve(lk.TessLightCurve):
             polyorder=polyorder,
             break_tolerance=break_tolerance,
         )
+
+
+def get_gaia_DR2_from_exofop(ticid):
+    """"""
+    url = f"https://exofop.ipac.caltech.edu/tess/target.php?id={ticid}"
+    dfs = pd.read_html(url)
+    gaiaid = (
+        dfs[7]["Basic Information"]["Star Name & Aliases"][0]
+        .split("Gaia DR2 ")[1]
+        .split(",")[0]
+    )
+    return gaiaid
 
 
 def distance_modulus(d):
@@ -892,10 +904,10 @@ def get_transit_mask(lc, period, epoch, duration_hours):
         & (epoch is not None)
         & (duration_hours is not None)
     )
-    assert duration_hours > 1, "Duration must be in hours"
-    assert (
-        epoch < TESS_TIME_OFFSET
-    ), f"Epoch must be in BTJD, t0<{TESS_TIME_OFFSET} d"
+    # assert duration_hours > 1, "Duration must be in hours"
+    # assert (
+    #     epoch < TESS_TIME_OFFSET
+    # ), f"Epoch must be in BTJD, t0<{TESS_TIME_OFFSET} d"
     temp_fold = lc.fold(period, t0=epoch)
     fractional_duration = (duration_hours / 24.0) / period
     phase_mask = np.abs(temp_fold.phase) < (fractional_duration * 1.5)
@@ -1979,13 +1991,13 @@ def query_gaia_params_of_all_tois(
             except Exception as e:
                 if verbose:
                     print(e)
-        fk.save(fp, toi_gaia_params)
+        dd.io.save(fp, toi_gaia_params)
         msg = f"Saved: {fp}"
     elif exists(fp) and update:
         # load file and append new queries
         if verbose:
             print("Querying Gaia DR2 catalog for new TOIs\n")
-        toi_gaia_params = fk.load(fp)
+        toi_gaia_params = dd.io.load(fp)
         downloaded_tois = np.sort(list(toi_gaia_params.keys()))
         for toi in tqdm(toiids):
             if toi not in downloaded_tois:
@@ -2000,11 +2012,11 @@ def query_gaia_params_of_all_tois(
                 except Exception as e:
                     if verbose:
                         print(e)
-        fk.save(fp, toi_gaia_params)
+        dd.io.save(fp, toi_gaia_params)
         msg = f"Saved: {fp}"
     else:
         # load
-        toi_gaia_params = fk.load(fp)
+        toi_gaia_params = dd.io.load(fp)
         msg = f"Loaded: {fp}"
     if verbose:
         print(msg)
@@ -2445,3 +2457,19 @@ def get_secondary_eclipse_threshold(flat, t14, per, t0, factor=3):
         means.append(mean)
 
     return factor * np.nanstd(means)
+
+
+def weighted_mean(arr, errs):
+    """https://www.wikiwand.com/en/Weighted_arithmetic_mean#/Occurrences_of_using_weighted_mean
+    """
+    num = np.array(arr) / np.array(errs) ** 2
+    den = 1 / np.array(errs) ** 2
+    return np.sum(num) / np.sum(den)
+
+
+def std_err_weighted_mean(errs):
+    """std err should be smaller than each input"""
+    werr = np.sqrt(1 / np.sum(1 / np.array(errs) ** 2))
+    errmsg = f"{werr} is not smaller than {errs}"
+    assert np.all(werr < np.array(errs)), errmsg
+    return werr

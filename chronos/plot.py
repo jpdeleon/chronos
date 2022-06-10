@@ -1432,6 +1432,8 @@ def plot_interactive(
                 "Nstars:Q",
             ],
         )
+        .properties(width=width, height=height)
+        .interactive()
     )
 
     # get TOI list
@@ -1492,6 +1494,8 @@ def plot_interactive(
                 "phot_g_mean_mag:Q",
             ],
         )
+        .properties(width=width, height=height)
+        .interactive()
     )
 
     return chart2 + chart1 + chart0

@@ -584,7 +584,7 @@ class LongCadence(FFI_cutout):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time, period=period, epoch=epoch, duration_hours=duration / 24
         )
         return tmask
 
@@ -1053,7 +1053,7 @@ class ShortCadence(Tpf):
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time, period=period, epoch=epoch, duration_hours=duration / 24
         )
         return tmask
 
@@ -1110,7 +1110,7 @@ def _get_flat_lc(
         )
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time, period=period, epoch=epoch, duration_hours=duration / 24
         )
     else:
         tmask = np.zeros_like(lc.time, dtype=bool)
@@ -1162,7 +1162,7 @@ def _plot_trend_flat_lcs(
                 f"Using period={period:.4f} d, epoch={epoch:.2f} BTJD, duration={duration:.2f} hr."
             )
         tmask = get_transit_mask(
-            lc.time, period=period, t0=epoch, dur=duration / 24
+            lc.time, period=period, epoch=epoch, duration_hours=duration / 24
         )
     else:
         tmask = np.zeros_like(lc.time, dtype=bool)
@@ -1184,7 +1184,7 @@ def _plot_trend_flat_lcs(
 
     if (period is not None) & (epoch is not None) & (duration is not None):
         tmask2 = get_transit_mask(
-            flat.time, period=period, t0=epoch, dur=duration / 24
+            flat.time, period=period, epoch=epoch, duration_hours=duration / 24
         )
     else:
         tmask2 = np.zeros_like(lc.time, dtype=bool)
@@ -1209,7 +1209,7 @@ def _plot_fold_lc(
     duration = self.toi_duration if duration is None else duration
     errmsg = "Provide period and epoch."
     assert (period is not None) & (epoch is not None), errmsg
-    fold = flat.fold(period=period, t0=epoch)
+    fold = flat.fold(period=period, epoch=epoch)
     fold.scatter(ax=ax, c="k", alpha=0.5, label="raw")
     fold.bin(binsize).scatter(ax=ax, s=20, c="C1", label=f"bin {binsize}")
     if duration is None:

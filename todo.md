@@ -1,6 +1,8 @@
 # To do
 
 ## Basic
+- [] Move .pre-commit-config.yaml to .github/workflow/tests.yaml. See [example](https://github.com/SSDataLab/vetting/blob/main/.github/workflows/tests.yml).
+- [] update pyproject.toml. See [example](https://github.com/SSDataLab/vetting/blob/main/pyproject.toml).
 - [] query_gaia_dr2_catalog and tic catalog can be combined with galex into query_mast(catalog=["gaia","tic","galex"]) [see here](https://astroquery.readthedocs.io/en/latest/mast/mast.html) using [lower level functions here](https://mast.stsci.edu/api/v0/pyex.html)
 - [] make input to cr.Target using get_target_coord unified as in mirai.parse_target_coord  
 - [x] make setup.py work in fresh conda environment

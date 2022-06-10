@@ -155,6 +155,8 @@ class Target(object):
             self.tess_ccd_info = get_tess_ccd_info(self.target_coord)
         elif (self.mission == "k2") | (self.mission == "kepler"):
             try:
+                # k2 target also observed in tess
+                self.all_sectors = get_all_sectors(self.target_coord)
                 self.all_campaigns = get_all_campaigns(self.epicid)
             except Exception as e:
                 # error when GaiaDR2id is only given

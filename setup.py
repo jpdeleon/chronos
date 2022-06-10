@@ -16,7 +16,7 @@ with open("requirements.txt", "r") as fh:
 
 setup(
     name="chronos",
-    version="0.1.0",
+    version="1.0.0",
     # python_requires='>3.6.1,<3.6.13',
     description="toolkit for discovery and characterization of exoplanets",
     long_description=long_description,

@@ -5,6 +5,7 @@
 
 
 ## Setup
+The package requires python 3.6:
 ```bash
 $ conda create -n chronos python=3.6
 $ conda activate chronos
@@ -15,6 +16,11 @@ $ conda activate chronos
 $ git clone git@github.com:jpdeleon/chronos.git
 $ cd chronos
 $ pip install -e .
+```
+
+Note that batman package requires gcc. To install:
+```
+sudo apt install gcc
 ```
 
 ## test
@@ -45,8 +51,12 @@ $ pytest tests
 * [`triceratops`](https://github.com/stevengiacalone/triceratops) for FPP calculation based on lightcurve shape and contrast curve constraints
 
 ## For next update
+* [GAIA eDR3 Wide binaries catalog](https://zenodo.org/record/4435257)
+* [LAMOST DR6 spectra](http://dr6.lamost.org/catalogue)
+* [vetting](https://github.com/SSDataLab/vetting)
 * [TESS_Deblending](https://github.com/sailoryf/TESS_Deblending)
 * [apertureoptimizer](https://github.com/christinahedges/apertureoptimizer)
+* [pyia](https://github.com/adrn/pyia)
 * [psfmachine](https://github.com/SSDataLab/psfmachine)
 * [GALAH DR3](github.com/svenbuder/GALAH_DR3)
 * [TASOC](http://archive.stsci.edu/hlsp/tasoc)

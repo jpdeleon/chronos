@@ -93,13 +93,13 @@ def test_sc_percentile():
     # assert sc.sap_mask == "percentile"
 
 
-def test_sc_triceratops():
-    """
-    """
-    sc = ShortCadence(ticid=TICID, calc_fpp=True)
-    # df = sc.get_NEB_depths()
-    # df = sc.get_fpp(flat=flat, plot=False)
-    assert sc.triceratops is not None
+# def test_sc_triceratops():
+#    """
+#    """
+#    sc = ShortCadence(ticid=TICID, calc_fpp=True)
+#    # df = sc.get_NEB_depths()
+#    # df = sc.get_fpp(flat=flat, plot=False)
+#    assert sc.triceratops is not None
 
 
 def test_lc():
@@ -116,10 +116,10 @@ def test_lc():
     assert isinstance(lc.lc_custom, lk.LightCurve)
 
 
-def test_lc_triceratops():
-    """
-    """
-    lc = LongCadence(ticid=TICID, calc_fpp=True)
-    # df = sc.get_NEB_depths()
-    # df = sc.get_fpp(flat=flat, plot=False)
-    assert lc.triceratops is not None
+# def test_lc_triceratops():
+#    """
+#    """
+#    lc = LongCadence(ticid=TICID, calc_fpp=True)
+#    # df = sc.get_NEB_depths()
+#    # df = sc.get_fpp(flat=flat, plot=False)
+#    assert lc.triceratops is not None

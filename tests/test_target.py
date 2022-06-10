@@ -122,10 +122,10 @@ def test_harps():
     assert isinstance(df, pd.DataFrame)
 
 
-def test_eso():
-    t = Target(ticid=410214986)
-    df = t.query_eso()
-    assert isinstance(df, pd.DataFrame)
+# def test_eso():
+#    t = Target(ticid=410214986)
+#    df = t.query_eso()
+#    assert isinstance(df, pd.DataFrame)
 
 
 def test_specs_tfop():

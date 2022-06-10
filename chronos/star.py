@@ -55,6 +55,12 @@ VIZIER_KEYS_PROT_CATALOG = {
     # https://filtergraph.com/tess_rotation_tois
 }
 
+
+VIZIER_KEYS_BINARY_CATALOG = {
+    #
+    "": ""
+}
+
 VIZIER_KEYS_AGE_CATALOG = {
     "Berger2018_Kepler_iso": "",
     "Berger2020_Kepler_iso": "",
@@ -75,7 +81,16 @@ VIZIER_KEYS_AGE_CATALOG = {
 # ax.plot(Bmag-Vmag, Prot, 'r*', ms=20, label=star.target_name)
 # ax.legend()
 
-# latest catalogs: GAIA2, APOGEE16, SDSS16, RAVE6, GES3 and GALAH2, LAMOST, ALL-WISE, 2MASS
+# latest catalogs:
+#   GAIA3:
+#   APOGEE16:
+#   SDSS16:
+#   RAVE6:
+#   GES3:
+#   GALAH3: https://ui.adsabs.harvard.edu/abs/2021MNRAS.506..150B/abstract
+#   LAMOST:
+#   ALL-WISE:
+#   2MASS:
 # Asteroid Terrestrial-impact Last Alert System (ATLAS) and the All-Sky Automated Survey for Supernovae (ASAS-SN)
 CATALOGS_STAR_PARMS = {
     "Carillo2020": "https://arxiv.org/abs/1911.07825",  # Gaia2+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper for TESS host stars
