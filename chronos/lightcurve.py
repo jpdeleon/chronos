@@ -44,9 +44,7 @@ from chronos.utils import (
 )
 from chronos.constants import TESS_TIME_OFFSET
 
-user = getpass.getuser()
 MISSION = "TESS"
-fitsoutdir = join("/home", user, "data/transit")
 
 pl.style.use("default")
 log = logging.getLogger(__name__)

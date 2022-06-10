@@ -13,14 +13,13 @@ from time import time as timer
 from os.path import join, exists
 from requests.exceptions import HTTPError
 import logging
-import getpass
 
 import numpy as np
 import astropy.units as u
 import lightkurve as lk
 
 # Import from package
-from chronos.config import DATA_PATH
+from chronos.config import DATA_PATH, FITS_OUTDIR
 from chronos.target import Target
 from chronos.utils import (
     remove_bad_data,
@@ -30,10 +29,8 @@ from chronos.utils import (
 )
 from chronos.constants import TESS_TIME_OFFSET
 
-user = getpass.getuser()
 MISSION = "TESS"
 # TODO: ~/.astropy/cache/astroquery/*.pickle better default location than below?
-fitsoutdir = join("/home", user, "data/transit")
 log = logging.getLogger(__name__)
 
 __all__ = ["Tpf", "FFI_cutout"]
@@ -222,7 +219,7 @@ class Tpf(Target):
                 print(msg)
 
             filepath = join(
-                fitsoutdir, "mastDownload/TESS", obsid, fitsfilename
+                FITS_OUTDIR, "mastDownload/TESS", obsid, fitsfilename
             )
             if not exists(filepath) or self.clobber:
                 if self.verbose:
@@ -232,13 +229,13 @@ class Tpf(Target):
                     ticstr, mission=MISSION, sector=sector
                 )
                 tpf = res.download(
-                    quality_bitmask=quality_bitmask, download_dir=fitsoutdir
+                    quality_bitmask=quality_bitmask, download_dir=FITS_OUTDIR
                 )
             else:
                 if self.verbose:
                     print(
                         "Loading TIC {} from {}/\n".format(
-                            self.ticid, fitsoutdir
+                            self.ticid, FITS_OUTDIR
                         )
                     )
                 tpf = lk.TessTargetPixelFile(filepath)

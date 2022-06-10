@@ -47,7 +47,7 @@ from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs, Tesscut
 from astroquery.gaia import Gaia
-import deepdish as dd
+#import deepdish as dd
 
 # Import from package
 from chronos import target
