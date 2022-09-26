@@ -52,6 +52,18 @@ __all__ = [
 
 
 VIZIER_KEYS_CLUSTER_CATALOG = {
+    # 3794 open clusters parameters (Hao+, 2021)
+    "Hao2022": "J/A+A/660/A4",
+    # c.f. Evolution of the local spiral structure of the Milky Way revealedby open clusters
+    "Hao2021": "J/A+A/652/A102",
+    # 1656 new star clusters found in Gaia EDR3
+    # "He2022c": "https://ui.adsabs.harvard.edu/abs/2022arXiv220908504H/abstract",
+    # 886 Clusters within 1.2 kpc of the Sun
+    "He2022b": "J/ApJS/262/7",
+    # 541 new open cluster candidates
+    "He2022a": "J/ApJS/260/8",
+    # 628 new open clusters found with OCfinder
+    "CastroGinard2022": "J/A+A/661/A118",
     # 570 new open clusters in the Galactic disc
     "CastroGinard2020": "J/A+A/635/A45",
     # 1481 clusters and their members
@@ -232,8 +244,7 @@ class CatalogDownloader:
         return base_url + vizier_key
 
     def __repr__(self):
-        """Override to print a readable string representation of class
-        """
+        """Override to print a readable string representation of class"""
         included_args = ["catalog_name", "cluster_name"]
         args = []
         for key in self.__dict__.keys():
@@ -322,7 +333,43 @@ class ClusterCatalog(CatalogDownloader):
         self.catalog_name = name if name is not None else self.catalog_name
         if self.verbose:
             print(f"Using {self.catalog_name} catalog.")
-        if self.catalog_name == "Bouma2019":
+        if self.catalog_name == "Hao2022":
+            if return_members:
+                df_mem = self.get_members_Hao2022()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Hao2022()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "He2022a":
+            if return_members:
+                df_mem = self.get_members_He2022a()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_He2022a()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "He2022b":
+            if return_members:
+                df_mem = self.get_members_He2022b()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_He2022b()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "CastroGinard2022":
+            if return_members:
+                df_mem = self.get_members_CastroGinard2022()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_CastroGinard2022()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Bouma2019":
             if return_members:
                 df_mem = self.get_members_Bouma2019()
                 self.all_members = df_mem
@@ -514,15 +561,247 @@ class ClusterCatalog(CatalogDownloader):
                 f"Catalog name not found in list: {self.catalog_list}"
             )
 
-    def get_clusters_CastroGinard2020(self):
-        """Castro-Ginard et al. 2020,
+    def get_clusters_Hao2022(self):
+        """Hao+2022: Gaia EDR3 new Galactic open clusters
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...660A...4H/abstract
+
+        tab1: (c)Mean parameters for the reported open clusters (704 rows)
+
+        c.f. Hao+2021: Evolution of the local spiral structure of the Milky Way revealed by open clusters
+        Parameters for 3794 clusters based on the Gaia EDR3 (3794 rows)
         """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "age": "log10_age",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_Hao2022(self):
+        """Hao+2022:
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...660A...4H/abstract
+
+        tab: (c)Members for the reported open clusters (19425 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+                "RV": "radial_velocity",
+                "e_RV": "e_radial_velocity",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_He2022b(self):
+        """He+2022b: 886 Clusters within 1.2 kpc of the Sun
+        https://ui.adsabs.harvard.edu/abs/2022yCat..22620007H/abstract
+
+        tab1: Parameters for the 886 objects (886 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "logAge": "log10_age",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "s_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_He2022b(self):
+        """He+2022b: 886 Clusters within 1.2 kpc of the Sun
+        https://ui.adsabs.harvard.edu/abs/2022yCat..22620007H/abstract
+
+        tab1: Gaia EDR3 parameters of the member stars (134192 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+                # "RV": "radial_velocity",
+                # "e_RV": "e_radial_velocity"
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_He2022a(self):
+        """He+2022: New Open-cluster Candidates Found in the Galactic Disk Using Gaia DR2/EDR3 Data
+        https://ui.adsabs.harvard.edu/abs/2022ApJS..260....8H/abstract
+
+
+        tab1: Parameters of median astrometric values and isochrone fits for 541 new open cluster candidates (541 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "logAge": "log10_age",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "s_Plx": "e_parallax",
+                "pmRA": "pmra",
+                "s_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "s_pmDE": "e_pmdec",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_He2022a(self):
+        """He+2022: New Open-cluster Candidates Found in the Galactic Disk Using Gaia DR2/EDR3 Data
+        https://ui.adsabs.harvard.edu/abs/2022ApJS..260....8H/abstract
+
+        tab2: Member stars for 541 new OCCs (66468 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "e_Plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+                "RV": "radial_velocity",
+                "e_RV": "e_radial_velocity",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_CastroGinard2022(self):
+        """Castro-Ginard et al. 2022:
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.118C/abstract
+
+        tab1: Mean parameters for the reported UBC clusters (628 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "RA_ICRS": "raJ2015",
+                "s_RA_ICRS": "e_raJ2015",
+                "DE_ICRS": "decJ2015",
+                "s_DE_ICRS": "e_decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "s_plx": "e_parallax",
+                "pmRA": "pmra",
+                "s_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "s_pmDE": "e_pmdec",
+                "RV": "radial_velocity",
+                "s_RV": "e_radial_velocity",
+            }
         )
+        # add distance
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_CastroGinard2022(self):
+        """Castro-Ginard et al. 2022:
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.118C/abstract
+
+        tab2: Members for the reported UBC clusters (25466 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "RA_ICRS": "raJ2015",
+                "DE_ICRS": "decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "Source": "source_id",
+            }
+        )
+        return df
+
+    def get_clusters_CastroGinard2019(self):
+        """Castro-Ginard et al. 2019,
+        open clusters in the galactic anti-center
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "RA_ICRS": "raJ2015",
+                "e_RA_ICRS": "e_raJ2015",
+                "DE_ICRS": "decJ2015",
+                "e_DE_ICRS": "e_decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            }
+        )
+        # add distance
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_CastroGinard2020(self):
+        """Castro-Ginard et al. 2020,"""
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
         df = df.rename(
             columns={
                 "RA_ICRS": "raJ2015",
@@ -544,14 +823,9 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_members_CastroGinard2020(self):
-        """Castro-Ginard et al. 2020,
-        """
+        """Castro-Ginard et al. 2020,"""
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
+        df = _read_clean_df(fp)
         df = df.rename(
             columns={
                 "RA_ICRS": "raJ2015",
@@ -566,46 +840,12 @@ class ClusterCatalog(CatalogDownloader):
         )
         return df
 
-    def get_clusters_CastroGinard2019(self):
-        """Castro-Ginard et al. 2019,
-        open clusters in the galactic anti-center
-        """
-        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
-        df = df.rename(
-            columns={
-                "RA_ICRS": "raJ2015",
-                "e_RA_ICRS": "e_raJ2015",
-                "DE_ICRS": "decJ2015",
-                "e_DE_ICRS": "e_decJ2015",
-                "_RA.icrs": "ra",
-                "_DE.icrs": "dec",
-                "Plx": "parallax",
-                "e_plx": "e_parallax",
-                "pmRA": "pmra",
-                "e_pmRA": "e_pmra",
-                "pmDE": "pmdec",
-                "e_pmDE": "e_pmdec",
-            }
-        )
-        # add distance
-        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
-        return df
-
     def get_members_CastroGinard2019(self):
         """Castro-Ginard et al. 2019,
         open clusters in the galactic anti-center
         """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
+        df = _read_clean_df(fp)
         df = df.rename(
             columns={
                 "RA_ICRS": "raJ2015",
@@ -706,8 +946,7 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_clusters_CantatGaudin2020(self):
-        """Cantat-Gaudin et al. 2020:
-        """
+        """Cantat-Gaudin et al. 2020:"""
         fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
@@ -728,26 +967,22 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_members_CantatGaudin2020(self):
-        """Cantat-Gaudin et al. 2020:
-        """
+        """Cantat-Gaudin et al. 2020:"""
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
+        df = _read_clean_df(fp)
         df = df.rename(
             columns={
                 "RA_ICRS": "raJ2015",
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
                 "_DE.icrs": "dec",
-                "Source": "source_id",  # 'RV':'radial_velocity',
+                "Source": "source_id",  # 'RV':'rv',
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "Plx": "parallax",
                 "Gmag": "phot_g_mean_mag",
                 "BP-RP": "bp_rp",
+                "RV": "radial_velocity",
             }
         )
         return df
@@ -777,11 +1012,7 @@ class ClusterCatalog(CatalogDownloader):
         http://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/618/A93
         """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
+        df = _read_clean_df(fp)
         df = df.rename(
             columns={
                 "RA_ICRS": "raJ2015",
@@ -815,11 +1046,7 @@ class ClusterCatalog(CatalogDownloader):
         https://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/A+A/623/A80
         """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
+        df = _read_clean_df(fp)
         df = df.rename(
             columns={
                 "SourceId": "source_id",
@@ -859,11 +1086,7 @@ class ClusterCatalog(CatalogDownloader):
         https://vizier.u-strasbg.fr/viz-bin/VizieR?-source=J/AJ/158/14
         """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
-        tab = Table.read(fp, format="ascii")
-        df = tab.to_pandas()
-        df = df.applymap(
-            lambda x: x.decode("ascii") if isinstance(x, bytes) else x
-        )
+        df = _read_clean_df(fp)
         df = df.rename(columns={"RAJ2000": "ra", "DEJ2000": "dec"})
         return df
 
@@ -888,7 +1111,7 @@ class ClusterCatalog(CatalogDownloader):
                 # '_RA.icrs':'ra', '_DE.icrs':'dec',
                 "RAJ2000": "ra",
                 "DEJ2000": "dec",
-                # 'RV':'radial_velocity', 'e_RV':'e_radial_velocity',
+                # 'RV':'rv', 'e_RV':'e_rv',
                 "o_RV": "RV_n_obs",
                 "NMemb": "Nstars",
                 "pmRA": "pmra",
@@ -990,7 +1213,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "plx": "parallax",
-                "RVel": "RV",
+                "RVel": "radial_velocity",
                 "Dist": "distance",
             }
         )
@@ -1015,7 +1238,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "plx": "parallax",
-                "RVel": "RV",
+                "RVel": "radial_velocity",
             }
         )
         return df
@@ -1049,7 +1272,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "plx": "parallax",
-                "RVel": "RV",
+                "RVel": "radial_velocity",
                 "r_RVel": "r_RV",
                 "Gaia": "source_id",
             }
@@ -1068,16 +1291,14 @@ class ClusterCatalog(CatalogDownloader):
         return d[3]
 
     def get_clusters_Murphy2013(self):
-        """Murphy+2013:
-        """
+        """Murphy+2013:"""
         fp = Path(self.data_loc, f"{self.catalog_name}_tab2.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         return df
 
     def get_members_Murphy2013(self):
-        """Murphy+2013:
-        """
+        """Murphy+2013:"""
         fp1 = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab1 = Table.read(fp1, format="ascii").to_pandas()
         fp2 = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
@@ -1099,24 +1320,21 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_clusters_Bell2015(self):
-        """Bell+2015:
-        """
+        """Bell+2015:"""
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
         return df
 
     def get_members_Bell2015(self):
-        """Bell+2015:
-        """
+        """Bell+2015:"""
         fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         df = Table.read(fp, format="ascii").to_pandas()
         df = df.rename(columns={"_RA": "ra", "_DE": "dec", "Dist": "distance"})
         return df
 
     def get_clusters_Sampedro2017(self):
-        """
-        """
+        """ """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
@@ -1135,8 +1353,7 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_members_Sampedro2017(self):
-        """
-        """
+        """ """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
@@ -1231,8 +1448,7 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_clusters_Curtis2019(self):
-        """
-        """
+        """ """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
@@ -1248,8 +1464,7 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_members_Lodieu2019(self):
-        """
-        """
+        """ """
         dfs = []
         for n, name in enumerate(["alpha_per", "pleiades", "praesepe"]):
             fp = Path(self.data_loc, f"{self.catalog_name}_tab{n}.txt")
@@ -1361,7 +1576,15 @@ class Cluster(ClusterCatalog):
         assert np.any(
             self.all_members.Cluster.isin([self.cluster_name])
         ), errmsg
-        self.cluster_members_gaia_params = None
+        if self.catalog_name in [
+            "Hao2022",
+            "He2022a",
+            "He2022b",
+            "CastroGinard2022",
+        ]:
+            self.cluster_members_gaia_params = self.cluster_members.copy()
+        else:
+            self.cluster_members_gaia_params = None
         # Clear memory
         self.all_members = None
 
@@ -1805,6 +2028,8 @@ def plot_cmd(
     ax : axis
     """
     assert len(df) > 0, "df is empty"
+    errmsg = f"color={color} not in {df.columns}"
+    assert color in df.columns, errmsg
     df["parallax"] = df["parallax"].astype(float)
     idx = ~np.isnan(df["parallax"]) & (df["parallax"] > 0)
     df = df[idx]
@@ -1864,6 +2089,7 @@ def plot_cmd(
             c=target_color,
             ms="25",
             label=target_label,
+            zorder=10,
         )
     if log_age is not None:
         # plot isochrones
@@ -2008,8 +2234,8 @@ def plot_hrd(
         assert abs(nearest_feh - feh) < 0.1, errmsg
         # get isochrone
         iso_df = iso_grid.df.loc[nearest_log_age, nearest_feh]
-        iso_df["L"] = iso_df["logL"].apply(lambda x: 10 ** x)
-        iso_df["Teff"] = iso_df["logTeff"].apply(lambda x: 10 ** x)
+        iso_df["L"] = iso_df["logL"].apply(lambda x: 10**x)
+        iso_df["Teff"] = iso_df["logTeff"].apply(lambda x: 10**x)
         label = f"log(t)={log_age:.2f}\nfeh={feh:.2f}"
         # limit eep
         idx = (iso_df.eep > eep_limits[0]) & (iso_df.eep < eep_limits[1])
@@ -2049,7 +2275,7 @@ def plot_rdp_pmrv(
     Parameters
     ----------
     df : pandas.DataFrame
-        contains ra, dec, parallax, pmra, pmdec, radial_velocity columns
+        contains ra, dec, parallax, pmra, pmdec, rv columns
     target_gaiaid : int
         target gaia DR2 id
     """
@@ -2060,6 +2286,8 @@ def plot_rdp_pmrv(
     n = 1
     x, y = "ra", "dec"
     # _ = df.plot.scatter(x=x, y=y, c=color, marker=marker, ax=ax[n], cmap=cmap)
+    errmsg = f"color={color} not in {df.columns}"
+    assert color in df.columns, errmsg
     c = df[color] if color is not None else None
     cbar = ax[n].scatter(df[x], df[y], c=c, marker=marker, cmap=cmap)
     if color is not None:
@@ -2155,6 +2383,8 @@ def plot_rdp_pmrv(
     ax[n].text(0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes)
     n = 2
     par = "radial_velocity"
+    errmsg = f"{par} is not available in {df.columns}"
+    assert df.columns.isin([par]).any(), errmsg
     try:
         df[par].plot.kde(ax=ax[n])
         if target_gaiaid is not None:
@@ -2180,11 +2410,12 @@ def plot_rdp_pmrv(
             0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes
         )
     except Exception as e:
-        print(e)
-        # catalog_name = df.Cluster.unique()()
-        raise ValueError(
-            "radial_velocity is not available"
-        )  # in {catalog_name}
+        print("Error: ", e)
+        npar = len(df[par].dropna())
+        if npar < 10:
+            errmsg = f"Cluster members have only {npar} {par} measurements."
+            print("Error: ", errmsg)
+            # raise ValueError(errmsg)
     return fig
 
 
@@ -2208,7 +2439,7 @@ def plot_xyz_uvw(
     Parameters
     ----------
     df : pandas.DataFrame
-        contains ra, dec, parallax, pmra, pmdec, radial_velocity columns
+        contains ra, dec, parallax, pmra, pmdec, rv columns
     target_gaiaid : int
         target gaia DR2 id
     df_target : pandas.Series
@@ -2231,6 +2462,8 @@ def plot_xyz_uvw(
     fig, axs = pl.subplots(2, 3, figsize=figsize, constrained_layout=True)
     ax = axs.flatten()
 
+    errmsg = f"color={color} not in {df.columns}"
+    assert color in df.columns, errmsg
     if not np.all(df.columns.isin("X Y Z U V W".split())):
         df = get_transformed_coord(df, frame="galactocentric", verbose=verbose)
     if df_target is not None:
@@ -2341,6 +2574,8 @@ def plot_xyz_3d(
     ax = fig.add_subplot(111, projection="3d")
     ax.view_init(30, 120)
 
+    errmsg = f"color={color} not in {df.columns}"
+    assert color in df.columns, errmsg
     if "distance" not in df.columns:
         df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
 
@@ -2379,15 +2614,17 @@ def plot_xyz_3d(
     )
     if color is not None:
         fig.colorbar(cbar, ax=ax, label=color)
-    idx = df.source_id == target_gaiaid
-    ax.scatter(
-        xs=df[idx].x,
-        ys=df[idx].y,
-        zs=df[idx].z,
-        marker=r"$\star$",
-        c=target_color,
-        s=300,
-    )
+    if target_gaiaid is not None:
+        idx = df.source_id == target_gaiaid
+        ax.scatter(
+            xs=df[idx].x,
+            ys=df[idx].y,
+            zs=df[idx].z,
+            marker=r"$\star$",
+            c=target_color,
+            s=300,
+            zorder=10,
+        )
     pl.setp(ax, xlabel="X", ylabel="Y", zlabel="Z")
     return fig
 
@@ -2400,6 +2637,15 @@ def _print_warning(df, default_rows=50):
         print(warning)
     else:
         pass
+
+
+def _read_clean_df(fp):
+    tab = Table.read(fp, format="ascii")
+    df = tab.to_pandas()
+    df = df.applymap(
+        lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+    )
+    return df
 
 
 def _decode_n_drop(df, columns):

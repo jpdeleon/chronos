@@ -18,6 +18,9 @@
 - [x] migrate constants to constants.py
 
 ## Functions
+- [] see (gaia_tools)[https://github.com/jobovy/gaia_tools]
+- [] see (tpfplotter)[https://github.com/jlillo/tpfplotter]
+- [] see (tess_infos)[https://github.com/MNGuenther/tess_infos] TIC-Banyan cross-matching
 - [] incorporate (chronostar)[https://github.com/mikeireland/chronostar]
 - [] mr-relation
 - [] join multi-sector light curves

@@ -7,6 +7,7 @@ Module for star bookkeeping, e.g. position, catalog cross-matching, archival dat
 # Import standard library
 # from inspect import signature
 from pathlib import Path
+import pdb
 import warnings
 from pprint import pprint
 import logging
@@ -194,8 +195,7 @@ class Target(object):
             self.query_variable_star_catalogs()
 
     def __repr__(self):
-        """Override to print a readable string representation of class
-        """
+        """Override to print a readable string representation of class"""
         # params = signature(self.__init__).parameters
         # val = repr(getattr(self, key))
 
@@ -328,7 +328,7 @@ class Target(object):
             print(f"Gaia DR2 {gaiaid} not found in TGv8 catalog.")
 
     def query_gaia_dr2_catalog(
-        self, radius=None, return_nearest_xmatch=False, verbose=None
+        self, radius=None, version=2, return_nearest_xmatch=False, verbose=None
     ):
         """
         cross-match to Gaia DR2 catalog by angular separation
@@ -407,7 +407,7 @@ class Target(object):
             )
         # load gaia params for all TOIs
         tab = Catalogs.query_region(
-            self.target_coord, radius=radius, catalog="Gaia", version=2
+            self.target_coord, radius=radius, catalog="Gaia", version=version
         ).to_pandas()
         # rename distance to separation because it is confusing
         tab = tab.rename(columns={"distance": "separation"})
@@ -625,8 +625,7 @@ class Target(object):
         return True
 
     def validate_gaia_epic_xmatch(self, mtol=0.5):
-        """
-        """
+        """ """
         errmsg = "Under development"
         raise NotImplementedError(errmsg)
         # if (self.epicid is not None) & (self.mission == "k2"):
@@ -795,7 +794,7 @@ class Target(object):
             )
         else:
             gaia_params = self.gaia_params
-        params = "ra dec parallax pmra pmdec RV".split()
+        params = "ra dec parallax pmra pmdec rv".split()
         gparams = "ra dec parallax pmra pmdec radial_velocity".split()
 
         if self.cc is None:
@@ -820,7 +819,7 @@ class Target(object):
         # pd.merge(clusters, errs, on='index')
         g = members.groupby("Cluster")
         # add RV based on each cluster mean
-        clusters = clusters.join(g.RV.mean(), on="Cluster")
+        clusters = clusters.join(g["rv"].mean(), on="Cluster")
         self.all_clusters = clusters
 
         # add error for each param
@@ -907,13 +906,13 @@ class Target(object):
         with_parallax : bool
             uses parallax to compute 3d distance; otherwise 2d
         radius : float
-            search radius in arcsec (used when match_id=False)
+            search radius in parcsec (used when match_id=False)
         Returns
         -------
         match : pandas.Series
             matched cluster member by gaiaid
         """
-        radius = self.search_radius if radius is None else radius * u.arcsec
+        radius = 100 * u.pc if radius is None else radius * u.pc
         if (df is None) or (len(df) == 0):
             cc = ClusterCatalog(catalog_name=catalog_name)
             df = cc.query_catalog(return_members=True)
@@ -925,8 +924,10 @@ class Target(object):
             if self.gaiaid is not None:
                 idx = df.source_id.isin([self.gaiaid])
                 if sum(idx) == 0:
-                    errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog\n"
-                    errmsg += "Use match_id=False to get nearest cluster\n"
+                    errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog.\n"
+                    errmsg += (
+                        "Use match_id=False to get the nearest cluster.\n"
+                    )
                     raise ValueError(errmsg)
                 nearest_star = df.iloc[np.argmax(idx)]
                 self.nearest_cluster_member = nearest_star
@@ -995,12 +996,14 @@ class Target(object):
                 separations = cluster_mem_coords.separation(self.target_coord)
 
             nearest_star = df.iloc[separations.argmin()]
+            nearest_star["distance_to_target"] = separations.min()
             self.distance_to_nearest_cluster_member = separations.min()
             self.nearest_cluster_member = nearest_star
-            if radius < self.distance_to_nearest_cluster_member:
-                print(
-                    f"separation ({separations.min().arcsec:.1f} arcsec) > {radius}"
-                )
+
+            print(
+                f"Separation between target & nearest cluster star={separations.min():.2f}"
+            )
+
             if catalog_name != "Grandjean2020":
                 cluster_name = nearest_star.Cluster
                 self.nearest_cluster_name = cluster_name
@@ -1113,8 +1116,7 @@ class Target(object):
         return tables
 
     def query_vizier_param(self, param=None, radius=3):
-        """looks for value of param in each vizier table
-        """
+        """looks for value of param in each vizier table"""
         if self.vizier_tables is None:
             tabs = self.query_vizier(radius=radius, verbose=False)
         else:
@@ -1615,13 +1617,11 @@ class Target(object):
         return fig
 
     def get_k2_data_from_exofop(self, table="star"):
-        """
-        """
+        """ """
         return get_k2_data_from_exofop(self.epicid, table=table)
 
     def query_specs_from_tfop(self, clobber=None, mission=None):
-        """
-        """
+        """ """
         mission = self.mission if mission is None else mission.lower()
         base = f"https://exofop.ipac.caltech.edu/{mission}"
         if mission == "tess":
