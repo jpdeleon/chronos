@@ -290,7 +290,7 @@ class ClusterCatalog(CatalogDownloader):
         """
         self.catalog_list = CATALOG_LIST
         self.all_clusters = None  # self.query_catalog(return_members=False)
-        self.all_members = None
+        self.all_members = None  # self.query_catalog(return_members=True)
 
         # files = glob(join(self.data_loc, "*.txt"))
         if self.data_loc.exists():  # & len(files)<2:
@@ -302,8 +302,12 @@ class ClusterCatalog(CatalogDownloader):
             _ = self.get_tables_from_vizier(
                 row_limit=-1, save=True, clobber=self.clobber
             )
+        if self.verbose:
+            print("Data url:", self.get_vizier_url())
 
-    def query_catalog(self, name=None, return_members=False, **kwargs):
+    def query_catalog(
+        self, name=None, return_members=False, verbose=None, **kwargs
+    ):
         """Query catalogs
 
         Parameters
@@ -331,7 +335,8 @@ class ClusterCatalog(CatalogDownloader):
         FIXME: self.all_clusters and self.all_members are repeated each if else block
         """
         self.catalog_name = name if name is not None else self.catalog_name
-        if self.verbose:
+        verbose = verbose if verbose is not None else self.verbose
+        if verbose:
             print(f"Using {self.catalog_name} catalog.")
         if self.catalog_name == "Hao2022":
             if return_members:
@@ -688,6 +693,7 @@ class ClusterCatalog(CatalogDownloader):
                 "s_pmDE": "e_pmdec",
             }
         ).reset_index(drop=True)
+        df["Cluster"] = df["Cluster"].apply(lambda x: "Cluster_" + str(x))
         df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
@@ -715,6 +721,7 @@ class ClusterCatalog(CatalogDownloader):
                 "e_RV": "e_radial_velocity",
             }
         ).reset_index(drop=True)
+        df["Cluster"] = df["Cluster"].apply(lambda x: "Cluster_" + str(x))
         df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
@@ -770,6 +777,7 @@ class ClusterCatalog(CatalogDownloader):
                 "Source": "source_id",
             }
         )
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
     def get_clusters_CastroGinard2019(self):
@@ -838,6 +846,7 @@ class ClusterCatalog(CatalogDownloader):
                 "Source": "source_id",
             }
         )
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
     def get_members_CastroGinard2019(self):
@@ -858,6 +867,7 @@ class ClusterCatalog(CatalogDownloader):
                 "Source": "source_id",
             }
         )
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
     def get_members_Bouma2019(self):
@@ -943,6 +953,7 @@ class ClusterCatalog(CatalogDownloader):
         df = df.drop("source_id", axis=1)
         df = pd.merge(df, members, left_index=True, right_index=True)
         df = df.reset_index()
+        # df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
     def get_clusters_CantatGaudin2020(self):
@@ -964,6 +975,9 @@ class ClusterCatalog(CatalogDownloader):
                 "N": "Nstars",
             }
         )
+        df["distance"] = Distance(
+            parallax=df.parallax.values * u.mas, allow_negative=True
+        ).pc
         return df
 
     def get_members_CantatGaudin2020(self):
@@ -985,6 +999,9 @@ class ClusterCatalog(CatalogDownloader):
                 "RV": "radial_velocity",
             }
         )
+        df["distance"] = Distance(
+            parallax=df.parallax.values * u.mas, allow_negative=True
+        ).pc
         return df
 
     def get_clusters_CantatGaudin2018(self):
@@ -1005,6 +1022,7 @@ class ClusterCatalog(CatalogDownloader):
                 "plx": "parallax",
             }
         )
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
     def get_members_CantatGaudin2018(self):
@@ -1028,6 +1046,7 @@ class ClusterCatalog(CatalogDownloader):
                 "BP-RP": "bp_rp",
             }
         )
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
         return df
 
     def get_clusters_Carrera2019(self):
@@ -1564,7 +1583,7 @@ class Cluster(ClusterCatalog):
         )
         self.mission = mission
         self.cluster_name = cluster_name.replace(" ", "_")
-
+        self.log10_age = None
         _ = self.query_catalog(return_members=True)
         idx = self.all_members.Cluster.isin([self.cluster_name])
         self.cluster_members = self.all_members.loc[idx].copy()
@@ -1587,6 +1606,17 @@ class Cluster(ClusterCatalog):
             self.cluster_members_gaia_params = None
         # Clear memory
         self.all_members = None
+
+    def get_age(self):
+        _ = self.query_catalog(return_members=False, verbose=False)
+        if "log10_age" in self.all_clusters.columns:
+            d = self.all_clusters.query(f"Cluster == '{self.cluster_name}'")
+            if len(d) == 1:
+                self.log10_age = d.log10_age.values[0]
+        print(
+            f"log10_age = {self.log10_age} = {10 ** self.log10_age/1e6:.2f} Myr"
+        )
+        return self.log10_age
 
     def get_cluster_age(self, cluster_name=None):
         """
@@ -1907,8 +1937,9 @@ class Cluster(ClusterCatalog):
                 ax[0].add_artist(ell)
             ax = ax[1]
             _ = df[z].plot(ax=ax, kind="kde")
+            ax.plot(df[z], np.full_like(df[z], -0.01), "|k", markeredgewidth=1)
             ax.set_xlabel(z)
-            fig.suptitle(self.cluster_name)
+            fig.suptitle(f"{self.cluster_name} ({self.catalog_name})")
             return fig
 
     def plot_cmd(self, **kwargs):
@@ -1922,7 +1953,7 @@ class Cluster(ClusterCatalog):
         gaia_params = gaia_params[idx]
 
         ax = plot_cmd(df=gaia_params, **kwargs)
-        ax.set_title(self.cluster_name)
+        ax.set_title(f"{self.cluster_name} ({self.catalog_name})")
         return ax
 
     def plot_hrd(self, **kwargs):
@@ -1936,7 +1967,7 @@ class Cluster(ClusterCatalog):
         gaia_params = gaia_params[idx]
 
         ax = plot_hrd(df=gaia_params, **kwargs)
-        ax.set_title(self.cluster_name)
+        ax.set_title(f"{self.cluster_name} ({self.catalog_name})")
         return ax
 
     def plot_xyz_3d(self, **kwargs):
@@ -1950,7 +1981,7 @@ class Cluster(ClusterCatalog):
         gaia_params = gaia_params[idx]
 
         fig = plot_xyz_3d(df=gaia_params, **kwargs)
-        fig.suptitle(self.cluster_name)
+        fig.suptitle(f"{self.cluster_name} ({self.catalog_name})")
         return fig
 
     def plot_rdp_pmrv(self, **kwargs):
@@ -1964,7 +1995,7 @@ class Cluster(ClusterCatalog):
         gaia_params = gaia_params[idx]
 
         fig = plot_rdp_pmrv(df=gaia_params, **kwargs)
-        fig.suptitle(self.cluster_name)
+        fig.suptitle(f"{self.cluster_name} ({self.catalog_name})")
         return fig
 
     def plot_xyz_uvw(self, **kwargs):
@@ -1978,7 +2009,7 @@ class Cluster(ClusterCatalog):
         gaia_params = gaia_params[idx]
 
         fig = plot_xyz_uvw(df=gaia_params, **kwargs)
-        fig.suptitle(self.cluster_name)
+        fig.suptitle(f"{self.cluster_name} ({self.catalog_name})")
         return fig
 
     def __call__(self):
@@ -2324,6 +2355,7 @@ def plot_rdp_pmrv(
     n = 0
     par = "parallax"
     df[par].plot.kde(ax=ax[n])
+    ax[n].plot(df[par], np.full_like(df[par], -0.01), "|k", markeredgewidth=1)
     if target_gaiaid is not None:
         idx = df.source_id.astype(int).isin([target_gaiaid])
         if match_id:
@@ -2387,6 +2419,9 @@ def plot_rdp_pmrv(
     assert df.columns.isin([par]).any(), errmsg
     try:
         df[par].plot.kde(ax=ax[n])
+        ax[n].plot(
+            df[par], np.full_like(df[par], -0.01), "|k", markeredgewidth=1
+        )
         if target_gaiaid is not None:
             idx = df.source_id.astype(int).isin([target_gaiaid])
             if match_id:
@@ -2410,6 +2445,7 @@ def plot_rdp_pmrv(
             0.8, 0.9, f"n={text}", fontsize=14, transform=ax[n].transAxes
         )
     except Exception as e:
+        ax[n].clear()
         print("Error: ", e)
         npar = len(df[par].dropna())
         if npar < 10:

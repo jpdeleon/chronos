@@ -185,8 +185,7 @@ class TessLightCurve(lk.TessLightCurve):
 
 
 def get_gaia_DR2_from_exofop(ticid):
-    """
-    """
+    """ """
     url = f"https://exofop.ipac.caltech.edu/tess/target.php?id={ticid}"
     dfs = pd.read_html(url)
     gaiaid = (
@@ -559,8 +558,7 @@ def get_nexsci_archive(table="all"):
 
 
 def get_nexsci_candidates(cache=False):
-    """
-    """
+    """ """
     try:
         from astroquery.nasa_exoplanet_archive import NasaExoplanetArchive
     except Exception:
@@ -667,15 +665,13 @@ def get_tois_mass_RV_K(clobber=False):
 
 
 def get_phase(time, period, epoch, offset=0.5):
-    """phase offset -0.5,0.5
-    """
+    """phase offset -0.5,0.5"""
     phase = (((((time - epoch) / period) + offset) % 1) / offset) - 1
     return phase
 
 
 def bin_data(array, binsize, func=np.mean):
-    """
-    """
+    """ """
     a_b = []
     for i in range(0, array.shape[0], binsize):
         a_b.append(func(array[i : i + binsize], axis=0))
@@ -711,8 +707,7 @@ def get_all_campaigns(epicid):
 
 
 def get_sector_cam_ccd(target_coord, sector=None):
-    """get TESS sector, camera, and ccd numbers using Tesscut
-    """
+    """get TESS sector, camera, and ccd numbers using Tesscut"""
     df = get_tess_ccd_info(target_coord)
     all_sectors = np.unique([int(i) for i in df["sector"].values])
     if sector is not None:
@@ -772,8 +767,7 @@ def query_tpf(
     mission="TESS",
     verbose=True,
 ):
-    """
-    """
+    """ """
     if verbose:
         print(f"Searching targetpixelfile for {query_str} using lightkurve")
 
@@ -793,8 +787,7 @@ def query_tpf_tesscut(
     apply_data_quality_mask=False,
     verbose=True,
 ):
-    """
-        """
+    """ """
     if verbose:
         if isinstance(query_str, sky_coordinate.SkyCoord):
             query = f"ra,dec=({query_str.to_string()})"
@@ -815,8 +808,7 @@ def query_tpf_tesscut(
 
 
 def detrend(self, polyorder=1, break_tolerance=10):
-    """mainly to be added as method to lk.LightCurve
-    """
+    """mainly to be added as method to lk.LightCurve"""
     lc = self.copy()
     half = lc.time.shape[0] // 2
     if half % 2 == 0:
@@ -1756,8 +1748,7 @@ def get_target_coord(
     gaiaid=None,
     name=None,
 ):
-    """get target coordinate
-    """
+    """get target coordinate"""
     if np.all([ra, dec]):
         target_coord = SkyCoord(ra=ra * u.deg, dec=dec * u.deg)
     elif toi:
@@ -1958,7 +1949,8 @@ def get_transformed_coord(df, frame="galactocentric", verbose=True):
             print("These are removed for the meantime.")
             print("For proper treatment, see:")
             print("https://arxiv.org/pdf/1804.09366.pdf\n")
-
+    errmsg = f"radial_velocity is not in {df.columns}"
+    assert df.columns.isin(["radial_velocity"]).any(), errmsg
     icrs = SkyCoord(
         ra=df["ra"].values * u.deg,
         dec=df["dec"].values * u.deg,
@@ -2070,8 +2062,7 @@ def get_cartersian_distance(x1, y1, x2, y2):
 
 
 def is_point_inside_mask(border, target):
-    """determine if target coordinate is within polygon border
-    """
+    """determine if target coordinate is within polygon border"""
     degree = 0
     for i in range(len(border) - 1):
         a = border[i]
@@ -2137,8 +2128,7 @@ def get_fluxes_within_mask(tpf, aper_mask, gaia_sources):
 def get_limbdark(
     band, teff=None, logg=None, feh=None, tic_params=None, **kwargs
 ):
-    """
-    """
+    """ """
     try:
         import limbdark as ld
     except Exception:
@@ -2221,7 +2211,7 @@ def get_pix_area_threshold(Tmag):
     # 最小値を3*3に制限
     # restrict the minimum as 3*3
     area_len = max(area_len, 3)
-    return area_len ** 2
+    return area_len**2
 
 
 # def determine_aperture(img, center, area_thresh=9):
@@ -2337,7 +2327,7 @@ def get_RV_K(
         (2 * np.pi * c.G / (P * Ms * Ms)) ** (1.0 / 3)
         * mp
         * np.sin(inc)
-        / unumpy.sqrt(1 - ecc ** 2)
+        / unumpy.sqrt(1 - ecc**2)
     ).value
     K, K_lo, K_hi = np.percentile(K_samples, percs)
     K, K_siglo, K_sighi = K, K - K_lo, K_hi - K
@@ -2493,8 +2483,7 @@ def get_secondary_eclipse_threshold(flat, t14, per, t0, factor=3):
 
 
 def weighted_mean(arr, errs):
-    """https://www.wikiwand.com/en/Weighted_arithmetic_mean#/Occurrences_of_using_weighted_mean
-    """
+    """https://www.wikiwand.com/en/Weighted_arithmetic_mean#/Occurrences_of_using_weighted_mean"""
     num = np.array(arr) / np.array(errs) ** 2
     den = 1 / np.array(errs) ** 2
     return np.sum(num) / np.sum(den)
