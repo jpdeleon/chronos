@@ -16,3 +16,5 @@ flammkuchen
 jupyter 
 notebook
 pytest
+flake8
+#black

@@ -794,7 +794,7 @@ class Target(object):
             )
         else:
             gaia_params = self.gaia_params
-        params = "ra dec parallax pmra pmdec rv".split()
+        params = "ra dec parallax pmra pmdec radial_velocity".split()
         gparams = "ra dec parallax pmra pmdec radial_velocity".split()
 
         if self.cc is None:
@@ -819,7 +819,7 @@ class Target(object):
         # pd.merge(clusters, errs, on='index')
         g = members.groupby("Cluster")
         # add RV based on each cluster mean
-        clusters = clusters.join(g["rv"].mean(), on="Cluster")
+        clusters = clusters.join(g["radial_velocity"].mean(), on="Cluster")
         self.all_clusters = clusters
 
         # add error for each param

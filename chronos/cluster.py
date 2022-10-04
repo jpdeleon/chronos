@@ -257,12 +257,15 @@ class CatalogDownloader:
 
 
 class ClusterCatalog(CatalogDownloader):
+    """read and parse downloaded catalog data from vizier"""
+
     # __slots__ = ["catalog_name", "all_clusters", "all_members", "catalog_list",
     # "verbose", "clobber", "data_loc"
     # ]
     def __init__(
         self,
         catalog_name="CantatGaudin2020",
+        # df_mem_path=None,
         verbose=True,
         clobber=False,
         data_loc=DATA_PATH,
@@ -274,7 +277,10 @@ class ClusterCatalog(CatalogDownloader):
             clobber=clobber,
         )
         """Initialize the catalog
-
+        # Parameters
+        # ----------
+        # df_mem_path : str
+        #     path to the cluster members file
         Attributes
         ----------
         data_loc : str
@@ -289,6 +295,7 @@ class ClusterCatalog(CatalogDownloader):
         seems not
         """
         self.catalog_list = CATALOG_LIST
+        # self.df_mem_path = df_mem_path
         self.all_clusters = None  # self.query_catalog(return_members=False)
         self.all_members = None  # self.query_catalog(return_members=True)
 
@@ -304,6 +311,9 @@ class ClusterCatalog(CatalogDownloader):
             )
         if self.verbose:
             print("Data url:", self.get_vizier_url())
+
+        # if self.df_mem_path is not None:
+        #     self.all_members = pd.read_csv(self.df_mem_path)
 
     def query_catalog(
         self, name=None, return_members=False, verbose=None, **kwargs
@@ -957,7 +967,9 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_clusters_CantatGaudin2020(self):
-        """Cantat-Gaudin et al. 2020:"""
+        """Cantat-Gaudin et al. 2020:
+        https://ui.adsabs.harvard.edu/?#abs/2020A%26A...633A..99C
+        """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
         tab = Table.read(fp, format="ascii")
         df = tab.to_pandas()
@@ -981,7 +993,9 @@ class ClusterCatalog(CatalogDownloader):
         return df
 
     def get_members_CantatGaudin2020(self):
-        """Cantat-Gaudin et al. 2020:"""
+        """Cantat-Gaudin et al. 2020:
+        https://ui.adsabs.harvard.edu/?#abs/2020A%26A...633A..99C
+        """
         fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
         df = _read_clean_df(fp)
         df = df.rename(
@@ -990,12 +1004,12 @@ class ClusterCatalog(CatalogDownloader):
                 "DE_ICRS": "decJ2015",
                 "_RA.icrs": "ra",
                 "_DE.icrs": "dec",
-                "Source": "source_id",  # 'RV':'rv',
+                "Source": "source_id",
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "Plx": "parallax",
                 "Gmag": "phot_g_mean_mag",
-                "BP-RP": "bp_rp",
+                # "BP-RP": "bp_rp",
                 "RV": "radial_velocity",
             }
         )
@@ -1043,10 +1057,12 @@ class ClusterCatalog(CatalogDownloader):
                 "pmDE": "pmdec",
                 "plx": "parallax",
                 # 'Gmag': 'phot_g_mean_mag',
-                "BP-RP": "bp_rp",
+                # "BP-RP": "bp_rp",
             }
         )
-        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        df["distance"] = Distance(
+            parallax=df.parallax.values * u.mas, allow_negative=True
+        ).pc
         return df
 
     def get_clusters_Carrera2019(self):
@@ -1076,7 +1092,7 @@ class ClusterCatalog(CatalogDownloader):
                 "pmRA": "pmra",
                 "pmDE": "pmdec",
                 "Plx": "parallax",
-                "BP-RP": "bp_rp",
+                # "BP-RP": "bp_rp",
                 "Gmag": "phot_g_mean_mag",
             }
         )
@@ -1477,7 +1493,7 @@ class ClusterCatalog(CatalogDownloader):
                 "RA_ICRS": "ra",
                 "DE_ICRS": "dec",
                 "Source": "source_id",
-                "GBP-GRP": "bp_rp",
+                # "GBP-GRP": "bp_rp",
             }
         )
         return df
@@ -1608,6 +1624,9 @@ class Cluster(ClusterCatalog):
         self.all_members = None
 
     def get_age(self):
+        """
+        log10(age) is taken from ClusterCatalog.query_catalog(return_members=False)
+        """
         _ = self.query_catalog(return_members=False, verbose=False)
         if "log10_age" in self.all_clusters.columns:
             d = self.all_clusters.query(f"Cluster == '{self.cluster_name}'")
@@ -2061,26 +2080,38 @@ def plot_cmd(
     assert len(df) > 0, "df is empty"
     errmsg = f"color={color} not in {df.columns}"
     assert color in df.columns, errmsg
-    df["parallax"] = df["parallax"].astype(float)
-    idx = ~np.isnan(df["parallax"]) & (df["parallax"] > 0)
-    df = df[idx]
-    if sum(~idx) > 0:
-        print(f"{sum(~idx)} removed NaN or negative parallaxes")
+
+    if "distance" not in df.columns.any():
+        df["parallax"] = df["parallax"].astype(float)
+        idx = ~np.isnan(df["parallax"]) & (df["parallax"] > 0)
+        df = df[idx]
+        if sum(~idx) > 0:
+            print(f"{sum(~idx)} removed NaN or negative parallaxes")
+
+        df["distance"] = Distance(parallax=df["parallax"].values * u.mas).pc
+
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=figsize, constrained_layout=True)
 
-    df["distance"] = Distance(parallax=df["parallax"].values * u.mas).pc
-    # compute absolute Gmag
-    df["abs_gmag"] = get_absolute_gmag(
-        df["phot_g_mean_mag"], df["distance"], df["a_g_val"]
-    )
-    # compute intrinsic color index
-    if estimate_color:
-        df["bp_rp0"] = get_absolute_color_index(
-            df["a_g_val"], df["phot_bp_mean_mag"], df["phot_rp_mean_mag"]
-        )
+    if df.columns.isin([xaxis, yaxis]).sum() == 2:
+        x = df[xaxis]
+        y = df[yaxis]
+        ax.set_xlabel(xaxis, fontsize=16)
+        ax.set_ylabel(yaxis, fontsize=16)
     else:
-        df["bp_rp0"] = df["bp_rp"] - df["e_bp_min_rp_val"]
+        # compute absolute Gmag
+        df["abs_gmag"] = get_absolute_gmag(
+            df["phot_g_mean_mag"], df["distance"], df["a_g_val"]
+        )
+        # compute intrinsic color index
+        if estimate_color:
+            df["bp_rp0"] = get_absolute_color_index(
+                df["a_g_val"], df["phot_bp_mean_mag"], df["phot_rp_mean_mag"]
+            )
+        else:
+            df["bp_rp0"] = df["bp_rp"] - df["e_bp_min_rp_val"]
+        ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
+        ax.set_ylabel(r"$G$ [mag]", fontsize=16)
 
     if target_gaiaid is not None:
         idx = df.source_id.astype(int).isin([target_gaiaid])
@@ -2145,11 +2176,11 @@ def plot_cmd(
         c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
         ax.figure.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
     else:
-        ax.scatter(df[xaxis], df[yaxis], c=color, marker=".")
-    ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
+        c = ax.scatter(df[xaxis], df[yaxis], c=df[color], marker=".")
+        ax.figure.colorbar(c, ax=ax, label=color)
+
     ax.set_xlim(df[xaxis].min(), df[xaxis].max())
     ax.invert_yaxis()
-    ax.set_ylabel(r"$G$ [mag]", fontsize=16)
     if add_text:
         text = len(df[["bp_rp0", "abs_gmag"]].dropna())
         ax.text(0.8, 0.8, f"n={text}", fontsize=14, transform=ax.transAxes)
