@@ -3,6 +3,7 @@
 test methods of planet module
 * query harps bank rv data
 """
+import pytest
 import numpy as np
 from matplotlib.figure import Figure
 from astroquery.utils import TableList
@@ -16,6 +17,7 @@ def test_planet_init():
     assert isinstance(tables, TableList)
 
 
+@pytest.mark.skip
 def test_methods():
     Mp, Mp_siglo, Mp_sighi = p.get_Mp_from_MR_relation(use_toi_params=True)
     assert isinstance(list([Mp, Mp_siglo, Mp_sighi]), list)

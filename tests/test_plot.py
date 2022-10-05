@@ -2,6 +2,7 @@
 """
 test methods of plot module
 """
+import pytest
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 import lightkurve as lk
@@ -11,6 +12,8 @@ from chronos.plot import (
     get_dss_data,
     plot_dss_image,
     plot_possible_NEBs,
+    plot_rotation_period,
+    plot_cluster_kinematics,
 )
 
 # TICID = 460205581
@@ -40,9 +43,10 @@ def test_archival():
     assert isinstance(ax, Axes)
 
 
-# def test_Prot():
-#     fig = plot_rotation_period(lc.time, lc.flux, lc.flux_err, npoints=5)
-#     assert isinstance(fig, Figure)
+@pytest.mark.skip
+def test_Prot():
+    fig = plot_rotation_period(lc.time, lc.flux, lc.flux_err, npoints=5)
+    assert isinstance(fig, Figure)
 
 
 def test_NEBs():
@@ -50,5 +54,6 @@ def test_NEBs():
     assert isinstance(ax, Axes)
 
 
-# def test_cluster_plot():
-#     _ = plot_cluster_kinematics(toiid=TOIID)
+@pytest.mark.skip
+def test_cluster_plot():
+    _ = plot_cluster_kinematics(toiid=TOIID)

@@ -2,6 +2,7 @@
 """
 test methods of cluster module
 """
+import pytest
 from chronos.cluster import ClusterCatalog, Cluster
 
 CATALOG = "CantatGaudin2020"
@@ -17,8 +18,9 @@ def test_cluster_catalog():
     assert len(df_mem) > 0
 
 
+@pytest.mark.skip
 # FIXME: test takes too long to download
-# def test_cluster():
-#     c = Cluster(CLUSTER, catalog_name=CATALOG, verbose=False)
-#     df_gaia_mem = c.query_cluster_members_gaia_params()
-#     assert len(df_gaia_mem) > 0
+def test_cluster():
+    c = Cluster(CLUSTER, catalog_name=CATALOG, verbose=False)
+    df_gaia_mem = c.query_cluster_members_gaia_params()
+    assert len(df_gaia_mem) > 0

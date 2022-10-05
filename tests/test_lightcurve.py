@@ -2,7 +2,9 @@
 """
 test methods of lightcurve module
 """
+import pytest
 import lightkurve as lk
+import pandas as pd
 
 # from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -25,8 +27,6 @@ def test_tess_methods():
 
 
 def test_sc_pipeline():
-    """
-    """
     sc = ShortCadence(
         ticid=TICID, sap_mask="pipeline", quality_bitmask=QUALITY_BITMASK
     )
@@ -36,8 +36,6 @@ def test_sc_pipeline():
 
 
 def test_sc_square():
-    """
-    """
     sc = ShortCadence(
         ticid=TICID,
         sap_mask="square",
@@ -52,8 +50,6 @@ def test_sc_square():
 
 
 def test_sc_round():
-    """
-    """
     sc = ShortCadence(
         ticid=TICID,
         sap_mask="round",
@@ -66,8 +62,6 @@ def test_sc_round():
 
 
 def test_sc_threshold():
-    """
-    """
     sc = ShortCadence(
         ticid=TICID,
         sap_mask="threshold",
@@ -80,8 +74,6 @@ def test_sc_threshold():
 
 
 def test_sc_percentile():
-    """
-    """
     sc = ShortCadence(
         ticid=TICID,
         sap_mask="percentile",
@@ -93,18 +85,7 @@ def test_sc_percentile():
     # assert sc.sap_mask == "percentile"
 
 
-# def test_sc_triceratops():
-#    """
-#    """
-#    sc = ShortCadence(ticid=TICID, calc_fpp=True)
-#    # df = sc.get_NEB_depths()
-#    # df = sc.get_fpp(flat=flat, plot=False)
-#    assert sc.triceratops is not None
-
-
 def test_lc():
-    """
-    """
     lc = LongCadence(
         ticid=TICID,
         sap_mask="square",
@@ -116,10 +97,18 @@ def test_lc():
     assert isinstance(lc.lc_custom, lk.LightCurve)
 
 
-# def test_lc_triceratops():
-#    """
-#    """
-#    lc = LongCadence(ticid=TICID, calc_fpp=True)
-#    # df = sc.get_NEB_depths()
-#    # df = sc.get_fpp(flat=flat, plot=False)
-#    assert lc.triceratops is not None
+@pytest.mark.skip
+def test_sc_triceratops():
+    sc = ShortCadence(ticid=TICID, calc_fpp=True)
+    df = sc.get_NEB_depths()
+    # df = sc.get_fpp(flat=flat, plot=False)
+    assert sc.triceratops is not None
+    assert isinstance(df, pd.DataFrame)
+
+
+@pytest.mark.skip
+def test_lc_triceratops():
+    lc = LongCadence(ticid=TICID, calc_fpp=True)
+    # df = sc.get_NEB_depths()
+    # df = sc.get_fpp(flat=flat, plot=False)
+    assert lc.triceratops is not None

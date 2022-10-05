@@ -175,8 +175,7 @@ class CDIPS(Target):
         self.aper_mask = None
 
     def get_mast_table(self):
-        """https://archive.stsci.edu/hlsp/cdips
-        """
+        """https://archive.stsci.edu/hlsp/cdips"""
         if self.gaia_params is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
         if self.tic_params is None:
@@ -220,14 +219,13 @@ class CDIPS(Target):
             base
             + f"s{sec}/cam{self.cam}_ccd{self.ccd}"
             + f"/hlsp_cdips_tess_ffi_gaiatwo{gid}-"
-            + f"{sec}-cam{self.cam}-ccd{self.ccd}"
+            + f"s{sec}-cam{self.cam}-ccd{self.ccd}"
             + "_tess_v01_llc.fits"
         )
         return fp
 
     def get_cdips_fits(self):
-        """get cdips target and light curve header and data
-        """
+        """get cdips target and light curve header and data"""
         fp = self.get_cdips_url()
         try:
             hdulist = fits.open(fp)
@@ -351,8 +349,7 @@ class CDIPS(Target):
         return aper_mask
 
     def plot_all_lcs(self):
-        """
-        """
+        """ """
         cdips_lcs = {}
         fig, ax = pl.subplots(1, 1, figsize=(10, 6))
         for aper in [1, 2, 3]:
@@ -374,8 +371,7 @@ class CDIPS(Target):
         sigma_lower=None,
         return_trend=False,
     ):
-        """
-        """
+        """ """
         if duration < 1:
             print("Duration should be in hours.")
         if window_length is None:
@@ -469,8 +465,7 @@ class CDIPS(Target):
         return fig
 
     def run_tls(self, flat, plot=True, **tls_kwargs):
-        """
-        """
+        """ """
         tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
@@ -504,8 +499,7 @@ class CDIPS(Target):
         return ax
 
     def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
-        """
-        """
+        """ """
         period = self.toi_period if period is None else period
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         if (period is None) or (epoch is None):
@@ -522,8 +516,7 @@ class CDIPS(Target):
         return fig
 
     def get_transit_mask(self, lc, period, epoch, duration_hours):
-        """
-        """
+        """ """
         tmask = get_transit_mask(
             lc.time, period=period, t0=epoch, dur=duration_hours / 24
         )

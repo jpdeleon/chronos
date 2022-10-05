@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 test methods of cdips module
+
+ex. file:
+https://archive.stsci.edu/hlsps/cdips/s0010/cam3_ccd1/hlsp_cdips_tess_ffi_gaiatwo0005228253248367065856-s0010-cam3-ccd1_tess_v01_llc.fits
 """
 from matplotlib.axes import Axes
 import lightkurve as lk

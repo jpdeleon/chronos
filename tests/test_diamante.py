@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 test methods of cdips module
+
+ex file:
+https://archive.stsci.edu/hlsps/diamante/0000/0009/0167/4675/hlsp_diamante_tess_lightcurve_tic-0000000901674675_tess_v1_llc.fits
 """
 from matplotlib.axes import Axes
 import lightkurve as lk
 from chronos import Diamante
 
-TICID = 460205581
-TOIID = 837
-SECTOR = 10
+TICID = 901674675
 QUALITY_BITMASK = "default"
 
 

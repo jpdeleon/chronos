@@ -7,6 +7,7 @@ test methods of target module
 * gaia and tic cross-matching
 * cluster catalog cross-matching
 """
+import pytest
 import numpy as np
 import pandas as pd
 from astropy.table import Table
@@ -59,11 +60,12 @@ def test_epic_name():
     )
 
 
-# def test_k2():
-#     # k2
-#     t = Target(name="K2-33")
-#     coord = t.target_coord
-#     assert (coord is not None) & (coord is not None)
+@pytest.mark.skip
+def test_k2():
+    # k2
+    t = Target(name="K2-33")
+    coord = t.target_coord
+    assert coord is not None
 
 
 def test_radec():
@@ -122,10 +124,11 @@ def test_harps():
     assert isinstance(df, pd.DataFrame)
 
 
-# def test_eso():
-#    t = Target(ticid=410214986)
-#    df = t.query_eso()
-#    assert isinstance(df, pd.DataFrame)
+@pytest.mark.skip
+def test_eso():
+    t = Target(ticid=410214986)
+    df = t.query_eso()
+    assert isinstance(df, pd.DataFrame)
 
 
 def test_specs_tfop():
