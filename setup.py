@@ -27,14 +27,15 @@ setup(
     license="MIT",
     packages=find_packages(exclude=["tests"]),
     # package_data={'chronos': ['data/*.csv']},
-    # scripts=[
-    #    "calc_fpp",
-    #     "scripts/check_target_in_cluster",
-    #     "scripts/make_tql_per_cluster",
-    #     "scripts/query_cluster_members_gaia_params",
-    #     "scripts/find_cluster_near_target",
-    #     "scripts/make_cdips_ql",
-    # ],
+    scripts=[
+        "find_tois_in_cluster_catalog",
+        #    "calc_fpp",
+        #    "scripts/check_target_in_cluster",
+        #    "scripts/make_tql_per_cluster",
+        #    "scripts/query_cluster_members_gaia_params",
+        #    "scripts/find_cluster_near_target",
+        #    "scripts/make_cdips_ql",
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",

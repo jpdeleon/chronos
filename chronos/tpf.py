@@ -79,12 +79,17 @@ class Tpf(Target):
             clobber=clobber,
             check_if_variable=check_if_variable,
         )
-        # allow negative to get recent sector
-        # e.g. -1 means most recent sector
-        if sector < 0:
-            self.sector = self.all_sectors[sector]
+        if sector is None:
+            msg = "Target is not found in any TESS sectors."
+            assert len(self.all_sectors) > 0, msg
+            self.sector = self.all_sectors[0]
         else:
-            self.sector = sector
+            if sector < 0:
+                # allow negative to get recent sector
+                # e.g. -1 means most recent sector
+                self.sector = self.all_sectors[sector]
+            else:
+                self.sector = sector
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius
@@ -109,13 +114,6 @@ class Tpf(Target):
                 errmsg += "Short cadence targets only are currently supported."
                 raise Exception(errmsg)
         self.calc_fpp = calc_fpp
-
-        if self.sector is None:
-            msg = "Target not found in any TESS sectors."
-            assert len(self.all_sectors) > 0, msg
-            self.sector = self.all_sectors[0]  # get first sector by default
-        if self.sector == -1:
-            self.sector = self.all_sectors[-1]
         print(f"Available sectors: {self.all_sectors}")
         print(f"Using sector={self.sector}.")
 
@@ -479,12 +477,17 @@ class FFI_cutout(Target):
             clobber=clobber,
             check_if_variable=check_if_variable,
         )
-        # allow negative to get recent sector
-        # e.g. -1 means most recent sector
-        if sector < 0:
-            self.sector = self.all_sectors[sector]
+        if sector is None:
+            msg = "Target is not found in any TESS sectors."
+            assert len(self.all_sectors) > 0, msg
+            self.sector = self.all_sectors[0]
         else:
-            self.sector = sector
+            if sector < 0:
+                # allow negative to get recent sector
+                # e.g. -1 means most recent sector
+                self.sector = self.all_sectors[sector]
+            else:
+                self.sector = sector
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius
@@ -509,12 +512,6 @@ class FFI_cutout(Target):
                 errmsg += "Short cadence targets only are currently supported."
                 raise Exception(errmsg)
         self.calc_fpp = calc_fpp
-        if self.sector is None:
-            msg = "Target not found in any TESS sectors"
-            assert len(self.all_sectors) > 0, msg
-            self.sector = self.all_sectors[0]  # get first sector by default
-        if self.sector == -1:
-            self.sector = self.all_sectors[-1]
         print(f"Available sectors: {self.all_sectors}")
         print(f"Using sector={self.sector}.")
 
