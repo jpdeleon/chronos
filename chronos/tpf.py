@@ -79,9 +79,12 @@ class Tpf(Target):
             clobber=clobber,
             check_if_variable=check_if_variable,
         )
-        # self.mission = mission
-        self.sector = sector
-        # self.all_sectors = self.get_all_sectors()
+        # allow negative to get recent sector
+        # e.g. -1 means most recent sector
+        if sector < 0:
+            self.sector = self.all_sectors[sector]
+        else:
+            self.sector = sector
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius
@@ -260,8 +263,7 @@ class Tpf(Target):
         threshold_sigma=None,
         verbose=True,
     ):
-        """
-        """
+        """ """
         sector = sector if sector else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius
@@ -477,9 +479,12 @@ class FFI_cutout(Target):
             clobber=clobber,
             check_if_variable=check_if_variable,
         )
-        # self.mission = mission
-        self.sector = sector
-        # self.all_sectors = self.get_all_sectors()
+        # allow negative to get recent sector
+        # e.g. -1 means most recent sector
+        if sector < 0:
+            self.sector = self.all_sectors[sector]
+        else:
+            self.sector = sector
         self.sap_mask = sap_mask
         self.aper_mask = None
         self.aper_radius = aper_radius
@@ -514,8 +519,7 @@ class FFI_cutout(Target):
         print(f"Using sector={self.sector}.")
 
     def get_tpf_tesscut(self, sector=None, cutout_size=None):
-        """
-        """
+        """ """
         cutout_size = cutout_size if cutout_size else self.cutout_size
         sector = sector if sector else self.sector
 
@@ -560,8 +564,7 @@ class FFI_cutout(Target):
         tpf_size=None,
         verbose=True,
     ):
-        """
-        """
+        """ """
         sector = sector if sector else self.sector
         sap_mask = sap_mask if sap_mask else self.sap_mask
         aper_radius = aper_radius if aper_radius else self.aper_radius

@@ -316,7 +316,7 @@ class Star(Target):
             self.gaia_params[f"{col}_percentile_upper"]
             - self.gaia_params[f"{col}_val"]
         )
-        uteff = np.sqrt(sighi ** 2 + siglo ** 2)
+        uteff = np.sqrt(sighi**2 + siglo**2)
         s_teff = (
             teff + np.random.randn(nsamples) * uteff
         )  # Monte Carlo samples
@@ -448,7 +448,7 @@ class Star(Target):
         # make sure slope is non-positive
         slope_s = [i if i <= 0 else 0 for i in slope_s]
 
-        A_s = alpha_s * t ** slope_s
+        A_s = alpha_s * t**slope_s
         # remove out of sample/ replace with median value
         A_s = [i if i < 20 else np.nan for i in A_s]
         A_s = [i if i > 0.01 else np.nan for i in A_s]
@@ -583,7 +583,9 @@ class Star(Target):
         try:
             import stardate as sd
         except Exception:
-            raise ModuleNotFoundError("pip install stardate")
+            raise ModuleNotFoundError(
+                "pip install git+https://github.com/RuthAngus/stardate.git"
+            )
 
         if self.verbose:
             print("Estimating age from rotation period\n")
@@ -618,7 +620,7 @@ class Star(Target):
                 for x, y in zip(log10_period_samples, bprp_samples)
             ]
         )
-        age_samples = 10 ** log10_age_yrs
+        age_samples = 10**log10_age_yrs
         siglo, mid, sighi = np.percentile(age_samples, self.perc)
         errm = mid - siglo
         errp = sighi - mid
@@ -1053,8 +1055,7 @@ class Star(Target):
         return fig
 
     def plot_posterior_eep(self):
-        """
-        """
+        """ """
         errmsg = "try self.run_isochrones()"
         assert self.isochrones_model._samples is not None, errmsg
         emin = self.isochrones_model.derived_samples.eep.min() - 100
@@ -1182,7 +1183,7 @@ class Star(Target):
             _, _, _, age_samples = star.age_results(
                 burnin=burnin
             )  # in log10(age/yr)
-            age_samples = 10 ** age_samples
+            age_samples = 10**age_samples
             siglo, mid, sighi = np.percentile(age_samples, self.perc)
             errp = sighi - mid
             errm = mid - siglo

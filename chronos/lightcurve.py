@@ -34,7 +34,6 @@ from chronos.diamante import Diamante
 from chronos.qlp import QLP
 from chronos.plot import plot_tls, plot_odd_even, plot_aperture_outline
 from chronos.utils import (
-    get_all_sectors,
     remove_bad_data,
     parse_aperture_mask,
     get_fluxes_within_mask,
@@ -85,8 +84,7 @@ class Tess(Target):
 
     # @staticmethod
     def plot_pdc_sap_comparison(self, period=None, t0=None):
-        """
-        """
+        """ """
         sc = ShortCadence(toiid=self.toiid, ticid=self.ticid)
         sap = sc.lc_sap
         pdcsap = sc.lc_pdcsap
@@ -542,8 +540,7 @@ class LongCadence(FFI_cutout):
         )
 
     def run_tls(self, flat, plot=True, **tls_kwargs):
-        """
-        """
+        """ """
         tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
@@ -555,8 +552,7 @@ class LongCadence(FFI_cutout):
     def plot_odd_even(
         self, flat, period=None, epoch=None, duration=None, ylim=None
     ):
-        """
-        """
+        """ """
         period = self.toi_period if period is None else period
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.duration if duration is None else duration
@@ -576,8 +572,7 @@ class LongCadence(FFI_cutout):
         return fig
 
     def get_transit_mask(self, lc, period=None, epoch=None, duration=None):
-        """
-        """
+        """ """
         period = self.toi_period if period is None else period
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
@@ -592,8 +587,7 @@ class LongCadence(FFI_cutout):
 
     @staticmethod
     def plot_out_of_transit(flat, per, t0, depth):
-        """
-        """
+        """ """
         fig, axs = pl.subplots(
             3, 1, figsize=(10, 10), gridspec_kw={"hspace": 0.1}
         )
@@ -702,8 +696,7 @@ class ShortCadence(Tpf):
             print(f"Using {self.mission.upper()} short cadence.\n")
 
     def get_lc(self, lctype="pdcsap", sector=None, quality_bitmask=None):
-        """
-        """
+        """ """
         sector = sector if sector is not None else self.sector
         quality_bitmask = (
             quality_bitmask if quality_bitmask else self.quality_bitmask
@@ -1012,8 +1005,7 @@ class ShortCadence(Tpf):
         )
 
     def run_tls(self, flat, plot=True, **tls_kwargs):
-        """
-        """
+        """ """
         tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
@@ -1025,8 +1017,7 @@ class ShortCadence(Tpf):
     def plot_odd_even(
         self, flat, period=None, epoch=None, duration=None, ylim=None
     ):
-        """
-        """
+        """ """
         period = self.toi_period if period is None else period
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         if (period is None) or (epoch is None):
@@ -1045,8 +1036,7 @@ class ShortCadence(Tpf):
         return fig
 
     def get_transit_mask(self, lc, period=None, epoch=None, duration=None):
-        """
-        """
+        """ """
         period = self.toi_period if period is None else period
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         duration = self.toi_duration if duration is None else duration
