@@ -45,6 +45,7 @@ VIZIER_KEYS_PROT_CATALOG = {
     "Rebull2016_Pleiades": "J/AJ/152/114",  # 100 Myr
     "Rebull2018_USco_rhoOph": "J/AJ/155/196",  # 10 Myr
     "Rebull2020_Taurus": "J/AJ/159/273",
+    "Douglas2014_PraesepeHyades": "J/ApJ/795/161",
     "Reinhold2020_K2C0C18": "J/A+A/635/A43",
     # "Feinstein+2020"
     # http://simbad.u-strasbg.fr/simbad/sim-ref?querymethod=bib&simbo=on&submit=submit+bibcode&bibcode=

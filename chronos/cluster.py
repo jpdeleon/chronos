@@ -241,7 +241,10 @@ class CatalogDownloader:
             catalog_name = self.catalog_name
         base_url = "https://vizier.u-strasbg.fr/viz-bin/VizieR?-source="
         vizier_key = self.catalog_dict[catalog_name]
-        return base_url + vizier_key
+        url = base_url + vizier_key
+        if self.verbose:
+            print("Data url:", url)
+        return url
 
     def __repr__(self):
         """Override to print a readable string representation of class"""
@@ -309,8 +312,6 @@ class ClusterCatalog(CatalogDownloader):
             _ = self.get_tables_from_vizier(
                 row_limit=-1, save=True, clobber=self.clobber
             )
-        if self.verbose:
-            print("Data url:", self.get_vizier_url())
 
         # if self.df_mem_path is not None:
         #     self.all_members = pd.read_csv(self.df_mem_path)
@@ -2265,7 +2266,7 @@ def plot_hrd(
         c = ax.scatter(df[xaxis], df[yaxis], marker=".", c=rstar, cmap=cmap)
         ax.figure.colorbar(c, ax=ax, label=r"$\log$(R/R$_{\odot}$)")
     else:
-        ax.scatter(df[xaxis], df[yaxis], c=color, marker=".")
+        ax.scatter(df[xaxis], df[yaxis], c=df[color], marker=".")
 
     if annotate_Sun:
         assert (yaxis == "lum_val") & (xaxis == "teff_val")

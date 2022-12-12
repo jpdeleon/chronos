@@ -28,7 +28,7 @@ setup(
     packages=find_packages(exclude=["tests"]),
     # package_data={'chronos': ['data/*.csv']},
     scripts=[
-        "find_tois_in_cluster_catalog",
+        "scripts/find_tois_in_cluster_catalog",
         #    "calc_fpp",
         #    "scripts/check_target_in_cluster",
         #    "scripts/make_tql_per_cluster",

@@ -2,8 +2,9 @@
 """
 checks if target is in cluster catalog
 """
-import chronos as cr
+import sys
 import argparse
+import chronos as cr
 
 parser = argparse.ArgumentParser(description="check if target in cluster")
 parser.add_argument("-gaia", type=int, help="Gaia DR2 ID", default=None)
@@ -13,11 +14,11 @@ parser.add_argument("-ctoi", type=str, help="CTOI ID", default=None)
 parser.add_argument("-epic", type=str, help="EPIC ID", default=None)
 parser.add_argument("-n", "--name", type=str, help="target name", default=None)
 parser.add_argument(
-    "--catalog", type=str, help="catalog name", default="Bouma2019"
+    "--catalog", type=str, help="catalog name", default="CantatGaudin2020"
 )
 parser.add_argument("--cluster", type=str, help="cluster name", default=None)
+args = parser.parse_args(None if sys.argv[1:] else ["-h"])
 
-args = parser.parse_args()
 toiid = args.toi
 ctoiid = args.ctoi
 ticid = args.tic

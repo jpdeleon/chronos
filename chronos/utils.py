@@ -583,11 +583,11 @@ def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):
     -------
     tables if tab_index is None else parsed df
     """
+    base_url = "https://vizier.u-strasbg.fr/viz-bin/VizieR?-source="
     if row_limit == -1:
-        msg = "Downloading all tables in "
+        msg = f"Downloading all rows in {base_url}{key}"
     else:
-        msg = f"Downloading the first {row_limit} rows of each table in "
-    msg += f"{key} from vizier."
+        msg = f"Downloading the first {row_limit} rows of each table in {base_url}{key}"
     if verbose:
         print(msg)
     # set row limit
@@ -606,6 +606,9 @@ def get_vizier_tables(key, tab_index=None, row_limit=50, verbose=True):
         df = df.applymap(
             lambda x: x.decode("ascii") if isinstance(x, bytes) else x
         )
+        if verbose:
+            print(f"Columns: {df.columns}")
+            print(f"Shape: {df.shape}")
         return df
 
 
@@ -1607,7 +1610,7 @@ def get_toi(toi, verbose=False, remove_FP=True, clobber=False):
         assert len(planet) == 2, "use pattern: TOI.01"
     idx = df["TOI"].isin([toi])
     q = df.loc[idx]
-    assert len(q) > 0, "TOI not found!"
+    assert len(q) > 0, f"TOI {toi} not found!"
 
     q.index = q["TOI"].values
     if verbose:
@@ -1694,7 +1697,7 @@ def get_ctoi(ctoi, verbose=False, remove_FP=False, clobber=False):
     idx = df["CTOI"].isin([ctoi])
 
     q = df.loc[idx]
-    assert len(q) > 0, "CTOI not found!"
+    assert len(q) > 0, f"CTOI {ctoi} not found!"
 
     q.index = q["CTOI"].values
     if verbose:

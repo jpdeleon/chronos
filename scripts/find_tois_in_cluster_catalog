@@ -67,6 +67,8 @@ if __name__ == "__main__":
     # args = ap.parse_args(None if sys.argv[1:] else ["-h"])
     args = ap.parse_args()
     tois = cr.get_tois(clobber=args.clobber, verbose=True, remove_FP=True)
+    if args.verbose:
+        print(tois.tail())
     # update
     fp = Path(cr.DATA_PATH + "/toi_gaia_params.hdf5")
     if args.clobber:
@@ -76,14 +78,15 @@ if __name__ == "__main__":
         tois_gaia.source_id = tois_gaia.source_id.astype(int)
     else:
         tois_gaia = fk.load(fp)
-    tois_gaia = pd.DataFrame(tois_gaia).T
+    if args.clobber:
+        tois_gaia = pd.DataFrame(tois_gaia)
+    else:
+        tois_gaia = pd.DataFrame(tois_gaia).T
+        tois_gaia.index.name = "TOI"
+
     cc = cr.ClusterCatalog(catalog_name=args.catalog)
     df_mem = cc.query_catalog(return_members=True)
     # df_mem.columns
-    import pdb
-
-    pdb.set_trace()
-
     idx1 = df_mem.source_id.isin(tois_gaia.source_id)
     idx2 = tois_gaia.source_id.isin(df_mem.source_id)
     # merge
@@ -109,11 +112,6 @@ if __name__ == "__main__":
         unit=("hourangle", "degree"),
     )
     if args.verbose:
-        print(
-            short_list[
-                ["TOI", "RA", "Dec", "Cluster", "Comments"]
-            ].reset_index(drop=True)
-        )
         # for toi in short_list.TOI:
         #     t = cr.Target(toiid=toi,verbose=False)
         #     _ = t.query_tic_catalog(return_nearest_xmatch=True)

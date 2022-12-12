@@ -171,8 +171,7 @@ def plot_cluster_map(
     offset=10,
     ax=None,
 ):
-    """
-    """
+    """ """
     tra = target_coord.ra.deg
     tdec = target_coord.dec.deg
     if ax is None:
@@ -192,7 +191,7 @@ def plot_cluster_map(
         mem = c.query_cluster_members()
         rsig = mem["ra"].std()
         dsig = mem["dec"].std()
-        r = np.sqrt(rsig ** 2 + dsig ** 2)
+        r = np.sqrt(rsig**2 + dsig**2)
         circle = pl.Circle((tra, tdec), r, color="r")
         ax.plot(mem["ra"], mem["dec"], "r.", alpha=0.1)
         ax.add_artist(circle)
@@ -221,8 +220,7 @@ def plot_orientation_on_tpf(tpf, ax=None):
 
 
 def plot_orientation(tpf, ax):
-    """overlay orientation arrows on tpf plot
-    """
+    """overlay orientation arrows on tpf plot"""
     nx, ny = tpf.flux.shape[1:]
     x0, y0 = tpf.column + int(0.9 * nx), tpf.row + int(0.2 * ny)
     # East
@@ -284,7 +282,7 @@ def plot_gaia_sources_on_tpf(
     )
     if fov_rad is None:
         nx, ny = tpf.shape[1:]
-        diag = np.sqrt(nx ** 2 + ny ** 2)
+        diag = np.sqrt(nx**2 + ny**2)
         fov_rad = (0.4 * diag * pix_scale).to(u.arcmin).round(0)
 
     if gaia_sources is None:
@@ -369,7 +367,7 @@ def plot_gaia_sources_on_tpf(
         ax.scatter(
             pix[1],
             pix[0],
-            s=base_ms / 2 ** dmag,  # fainter -> smaller
+            s=base_ms / 2**dmag,  # fainter -> smaller
             c=color,
             alpha=alpha,
             zorder=2,
@@ -395,7 +393,7 @@ def plot_gaia_sources_on_tpf(
     dmags = dmags[dmags < dmag_limit]
     _, dmags = pd.cut(dmags, 3, retbins=True)
     for dmag in dmags:
-        size = base_ms / 2 ** dmag
+        size = base_ms / 2**dmag
         # -1, -1 is outside the fov
         # dmag = 0 if float(dmag)==0 else 0
         ax.scatter(
@@ -481,7 +479,7 @@ def plot_gaia_sources_on_survey(
     assert target_gaiaid is not None
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:
-        diag = np.sqrt(nx ** 2 + ny ** 2)
+        diag = np.sqrt(nx**2 + ny**2)
         fov_rad = (0.4 * diag * pix_scale).to(u.arcmin).round(0)
     target_coord = SkyCoord(ra=tpf.ra * u.deg, dec=tpf.dec * u.deg)
     if gaia_sources is None:
@@ -587,7 +585,9 @@ def plot_gaia_sources_on_survey(
         nax,
         xlim=(0, mx),
         ylim=(0, my),
-        title="{0} ({1:.2f}' x {1:.2f}')".format(survey, fov_rad.value),
+    )
+    nax.set_title(
+        f"{survey} ({fov_rad.value:.2f}' x {fov_rad.value:.2f}')", y=0.95
     )
     return ax
 
@@ -946,8 +946,7 @@ def plot_aperture_outline2(
 
 
 def plot_possible_NEBs(gaia_sources, depth, gaiaid=None, kmax=1.0, ax=None):
-    """
-    """
+    """ """
     assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=(5, 5))
@@ -1126,8 +1125,7 @@ def plot_tls(results, period=None, plabel=None, figsize=None):
 def plot_odd_even(
     flat, period, epoch, duration=None, yline=None, figsize=(8, 4)
 ):
-    """
-    """
+    """ """
     fig, axs = pl.subplots(
         1, 2, figsize=figsize, sharey=True, constrained_layout=True
     )
@@ -1160,8 +1158,7 @@ def plot_hrd_spectral_types(
     invert_yaxis=False,
     **plot_kwargs,
 ):
-    """
-    """
+    """ """
     df = get_mamajek_table()
     fig, ax = pl.subplots(1, 1, **plot_kwargs)
 
@@ -1200,8 +1197,7 @@ def plot_cluster_kinematics(
     rv=None,
     savefig=False,
 ):
-    """
-    """
+    """ """
     assert (ticid is not None) | (toiid is not None)
 
     t = Target(toiid=toiid, ticid=ticid)
@@ -1321,8 +1317,7 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
 
 
 def plot_out_of_transit(flat, per, t0, depth):
-    """
-    """
+    """ """
     fig, axs = pl.subplots(3, 1, figsize=(10, 10), gridspec_kw={"hspace": 0.1})
     dy = 5 if depth < 0.01 else 1.5
     ylim = (1 - dy * depth, 1 + 1.1 * depth)
