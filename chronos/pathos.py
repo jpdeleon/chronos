@@ -27,7 +27,7 @@ from chronos.plot import plot_tls, plot_odd_even
 from chronos.utils import get_transit_mask, parse_aperture_mask, TessLightCurve
 from chronos.constants import TESS_TIME_OFFSET
 
-PATHOS_SECTORS = np.arange(1, 14, 1)
+PATHOS_SECTORS = np.arange(1, 27, 1)
 PATHOS_PAPER = "https://ui.adsabs.harvard.edu/abs/2020arXiv200512281N/abstract"
 PATHOS_README = "https://archive.stsci.edu/hlsps/pathos/hlsp_pathos_tess_lightcurve_all_tess_v1_readme.txt"
 
@@ -146,8 +146,7 @@ class PATHOS(Target):
         return d
 
     def get_mast_table(self):
-        """https://archive.stsci.edu/hlsp/cdips
-        """
+        """https://archive.stsci.edu/hlsp/cdips"""
         if self.gaia_params is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
         if self.tic_params is None:
@@ -184,8 +183,7 @@ class PATHOS(Target):
         return url
 
     def get_pathos_fits(self):
-        """get pathos target and light curve header and data
-        """
+        """get pathos target and light curve header and data"""
         fp = self.get_pathos_url()
         try:
             hdulist = fits.open(fp)
@@ -220,7 +218,7 @@ class PATHOS(Target):
             # tstr = "TIMECORR"
             fstr = f"AP{aper}_FLUX_COR"
         else:
-            raise ValueError("use raw or corr")
+            raise ValueError(" or ".join(self.lctypes))
         # barycentric-corrected, truncated TESS Julian Date (BJD - 2457000.0)
         time = self.data[tstr]
         flux = self.data[fstr]
@@ -288,8 +286,7 @@ class PATHOS(Target):
         raise NotImplementedError()
 
     def plot_all_lcs(self, lctype="corr", sigma=10):
-        """
-        """
+        """ """
         pathos_lcs = {}
         fig, ax = pl.subplots(1, 1, figsize=(10, 6))
         for aper in [1, 2, 3, 4]:
@@ -314,8 +311,7 @@ class PATHOS(Target):
         sigma_lower=None,
         return_trend=False,
     ):
-        """
-        """
+        """ """
         if duration < 1:
             raise ValueError("Duration should be in hours.")
         if window_length is None:
@@ -409,8 +405,7 @@ class PATHOS(Target):
         return fig
 
     def run_tls(self, flat, plot=True, **tls_kwargs):
-        """
-        """
+        """ """
         tls = transitleastsquares(t=flat.time, y=flat.flux, dy=flat.flux_err)
         tls_results = tls.power(**tls_kwargs)
         self.tls_results = tls_results
@@ -444,8 +439,7 @@ class PATHOS(Target):
         return ax
 
     def plot_odd_even(self, flat, period=None, epoch=None, ylim=None):
-        """
-        """
+        """ """
         period = self.toi_period if period is None else period
         epoch = self.toi_epoch - TESS_TIME_OFFSET if epoch is None else epoch
         if (period is None) or (epoch is None):
@@ -462,8 +456,7 @@ class PATHOS(Target):
         return fig
 
     def get_transit_mask(self, lc, period, epoch, duration_hours):
-        """
-        """
+        """ """
         tmask = get_transit_mask(
             lc.time, period=period, t0=epoch, dur=duration_hours / 24
         )

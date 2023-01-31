@@ -68,6 +68,7 @@ class Target(object):
         ticid=None,
         epicid=None,
         gaiaDR2id=None,
+        gaiaDR3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -91,9 +92,9 @@ class Target(object):
         self.ctoiid = ctoiid  # e.g. 364107753.01
         self.ticid = ticid if ticid is None else int(ticid)  # e.g. 364107753
         self.epicid = epicid if epicid is None else int(epicid)  # 201270176
-        self.gaiaid = gaiaDR2id  # e.g. Gaia DR2 5251470948229949568
         self.ra = ra_deg
         self.dec = dec_deg
+        self.gaiaid = None
         self.target_name = name  # e.g. Pi Mensae
         # determine target name
         if self.toiid is not None:
@@ -103,8 +104,12 @@ class Target(object):
         elif self.epicid is not None:
             name = f"EPIC {self.epicid}"
             self.mission = "k2"
-        elif self.gaiaid is not None:
-            name = f"Gaia DR2 {self.gaiaid}"
+        elif gaiaDR2id is not None:
+            name = f"Gaia DR2 {gaiaDR2id}"
+            self.gaiaid = gaiaDR2id
+        elif gaiaDR3id is not None:
+            name = f"Gaia DR3 {gaiaDR3id}"
+            self.gaiaid = gaiaDR3id
         elif self.target_name is not None:
             if self.target_name[:2].lower() == "k2":
                 name = self.target_name.upper()
@@ -403,7 +408,7 @@ class Target(object):
         if verbose:
             # silenced when verbose=False instead of None
             print(
-                f"""Querying Gaia DR2 catalog for ra,dec=({self.target_coord.to_string()}) within {radius:.2f}."""
+                f"""Querying Gaia DR{version} catalog for ra,dec=({self.target_coord.to_string()}) within {radius:.2f}."""
             )
         # load gaia params for all TOIs
         tab = Catalogs.query_region(

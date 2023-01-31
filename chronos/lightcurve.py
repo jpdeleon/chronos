@@ -32,6 +32,7 @@ from chronos.cdips import CDIPS
 from chronos.pathos import PATHOS
 from chronos.diamante import Diamante
 from chronos.qlp import QLP
+from chronos.tglc import TGLC
 from chronos.plot import plot_tls, plot_odd_even, plot_aperture_outline
 from chronos.utils import (
     remove_bad_data,
@@ -165,6 +166,7 @@ class LongCadence(FFI_cutout):
         ticid=None,
         epicid=None,
         gaiaDR2id=None,
+        gaiaDR3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -205,6 +207,7 @@ class LongCadence(FFI_cutout):
             ticid=ticid,
             epicid=epicid,
             gaiaDR2id=gaiaDR2id,
+            gaiaDR3id=gaiaDR3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             sector=sector,
@@ -230,6 +233,7 @@ class LongCadence(FFI_cutout):
         self.cdips = None
         self.pathos = None
         self.qlp = None
+        self.tglc = None
         self.tls_results = None
         _ = self.make_custom_lc()
 
@@ -379,6 +383,27 @@ class LongCadence(FFI_cutout):
         self.lc_qlp = qlp.lc
         self.lc_qlp.targetid = self.ticid
         return qlp.lc
+
+    def get_tglc_lc(self, sector=None, lctype="psf", verbose=False):
+        verbose = verbose if verbose is not None else self.verbose
+        sector = sector if sector is not None else self.sector
+        if self.gaiaid is None:
+            d = self.query_gaia_dr2_catalog(
+                return_nearest_xmatch=True, version=3
+            )
+            self.gaiaid = int(d.source_id)
+        tglc = TGLC(
+            toiid=self.toiid,
+            ticid=self.ticid,
+            gaiaDR3id=self.gaiaid,
+            sector=sector,
+            lctype=lctype,
+            verbose=verbose,
+        )
+        self.tglc = tglc
+        self.lc_tglc = tglc.lc
+        self.lc_tglc.targetid = self.ticid
+        return tglc.lc
 
     def get_cdips_lc(
         self, sector=None, aper_idx=3, lctype="flux", verbose=False
@@ -630,6 +655,7 @@ class ShortCadence(Tpf):
         ticid=None,
         epicid=None,
         gaiaDR2id=None,
+        gaiaDR3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -667,6 +693,7 @@ class ShortCadence(Tpf):
             ticid=ticid,
             epicid=epicid,
             gaiaDR2id=gaiaDR2id,
+            gaiaDR3id=gaiaDR3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             sector=sector,

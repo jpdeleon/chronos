@@ -10,6 +10,7 @@ from .cluster import *
 from .tpf import *
 from .lightcurve import *
 from .qlp import *
+from .tglc import *
 from .cdips import *
 from .pathos import *
 from .diamante import *

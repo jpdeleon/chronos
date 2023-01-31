@@ -33,10 +33,10 @@ $ pytest tests
 * `star.py`: physics-related calculations, e.g. extinction, spectral typing, isochrones, gyrochronology (inherits `target`)
 * `planet.py`: planet parameters calculations (inherits `star`)
 * `tpf.py`: targetpixel file manipulation
-* `lightcurve.py`: light curve analysis either using SPOC, QLP, or custom pipeline for short and long cadence (inherits `tpf`)
+* `lightcurve.py`: light curve analysis either using SPOC, TGLC, QLP, DIAMANTE, PATHOS, or custom pipeline for short and long cadence (inherits `tpf`)
 * `k2.py`: tpf and light curve for K2; likely to be ingested/refactored to tpf.py & lightcurve.py
 * `cluster.py`: cluster catalog, cluster analysis + plotting
-* `qlp.py`, `cdips.py`, `pathos.py`, & `diamante.py`: api for [QLP](http://archive.stsci.edu/hlsp/qlp), [CDIPS](http://archive.stsci.edu/hlsp/qlp), [PATHOS](http://archive.stsci.edu/hlsp/qlp), and [DIAmante](https://archive.stsci.edu/hlsp/diamante) pipelines
+* `tglc.py`, `qlp.py`, `cdips.py`, `pathos.py`, & `diamante.py`: api for [TGLC](https://github.com/TeHanHunter/TESS_Gaia_Light_Curve), [QLP](http://archive.stsci.edu/hlsp/qlp), [CDIPS](http://archive.stsci.edu/hlsp/qlp), [PATHOS](http://archive.stsci.edu/hlsp/qlp), and [DIAmante](https://archive.stsci.edu/hlsp/diamante) pipelines
 * `plot.py`: custom plotting functionalities
 * `utils.py`: useful utilities
 
