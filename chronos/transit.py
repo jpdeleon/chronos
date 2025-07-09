@@ -500,8 +500,10 @@ def rho_from_mr(m, r):
     -------
     density in g/cm3
     """
-    vol = (4 / 3) * np.pi * r * u.Rsun.to(u.cm) ** 3
-    return m * u.Msun.to(u.g) / vol
+    m = m * u.Msun.to(u.g)
+    r = r* u.Rsun.to(u.cm)
+    vol = (4 / 3) * np.pi * r ** 3
+    return m / vol
 
 
 def rho_from_mr_cgs(m, r, unit="sun", cgs=True):

@@ -63,7 +63,8 @@ class Tess(Target):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -75,7 +76,8 @@ class Tess(Target):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             search_radius=search_radius,
@@ -165,8 +167,8 @@ class LongCadence(FFI_cutout):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
-        gaiaDR3id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -206,8 +208,8 @@ class LongCadence(FFI_cutout):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
-            gaiaDR3id=gaiaDR3id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             sector=sector,
@@ -368,13 +370,14 @@ class LongCadence(FFI_cutout):
     def get_qlp_lc(self, sector=None, lctype="kspsap", verbose=False):
         verbose = verbose if verbose is not None else self.verbose
         sector = sector if sector is not None else self.sector
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-            self.gaiaid = int(d.source_id)
+            self.gaia2id = int(d.source_id)
         qlp = QLP(
             toiid=self.toiid,
             ticid=self.ticid,
-            gaiaDR2id=self.gaiaid,
+            gaia2id=self.gaia2id,
+            gaia3id=self.gaia3id,
             sector=sector,
             lctype=lctype,
             verbose=verbose,
@@ -410,13 +413,14 @@ class LongCadence(FFI_cutout):
     ):
         verbose = verbose if verbose is not None else self.verbose
         sector = sector if sector is not None else self.sector
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-            self.gaiaid = int(d.source_id)
+            self.gaia2id = int(d.source_id)
         cdips = CDIPS(
             toiid=self.toiid,
             ticid=self.ticid,
-            gaiaDR2id=self.gaiaid,
+            gaia2id=self.gaia2id,
+            gaia3id=self.gaia3id,
             sector=sector,
             aper_idx=aper_idx,
             lctype=lctype,
@@ -432,13 +436,14 @@ class LongCadence(FFI_cutout):
     ):
         verbose = verbose if verbose is not None else self.verbose
         sector = sector if sector is not None else self.sector
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-            self.gaiaid = int(d.source_id)
+            self.gaia2id = int(d.source_id)
         pathos = PATHOS(
             toiid=self.toiid,
             ticid=self.ticid,
-            gaiaDR2id=self.gaiaid,
+            gaia2id=self.gaia2id,
+            gaia3id=self.gaia3id,
             sector=sector,
             aper_idx=aper_idx,
             lctype=lctype,
@@ -451,13 +456,14 @@ class LongCadence(FFI_cutout):
 
     def get_diamante_lc(self, lc_num=1, aper_radius=2, verbose=False):
         verbose = verbose if verbose is not None else self.verbose
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             d = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-            self.gaiaid = int(d.source_id)
+            self.gaia2id = int(d.source_id)
         diamante = Diamante(
             toiid=self.toiid,
             ticid=self.ticid,
-            gaiaDR2id=self.gaiaid,
+            gaia2id=self.gaia2id,
+            gaia3id=self.gaia3id,
             lc_num=lc_num,
             aper_radius=aper_radius,
             verbose=verbose,
@@ -654,8 +660,8 @@ class ShortCadence(Tpf):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
-        gaiaDR3id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -692,8 +698,8 @@ class ShortCadence(Tpf):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
-            gaiaDR3id=gaiaDR3id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             sector=sector,

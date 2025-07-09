@@ -110,7 +110,7 @@ __all__ = [
     "detrend",
     "query_tpf",
     "query_tpf_tesscut",
-    "is_gaiaid_in_cluster",
+    "is_gaia2id_in_cluster",
     "get_pix_area_threshold",
     "get_above_lower_limit",
     "get_below_upper_limit",
@@ -188,12 +188,23 @@ def get_gaia_DR2_from_exofop(ticid):
     """ """
     url = f"https://exofop.ipac.caltech.edu/tess/target.php?id={ticid}"
     dfs = pd.read_html(url)
-    gaiaid = (
+    gaia2id = (
         dfs[7]["Basic Information"]["Star Name & Aliases"][0]
         .split("Gaia DR2 ")[1]
         .split(",")[0]
     )
-    return gaiaid
+    return gaia2id
+
+def get_gaia_DR3_from_exofop(ticid):
+    """ """
+    url = f"https://exofop.ipac.caltech.edu/tess/target.php?id={ticid}"
+    dfs = pd.read_html(url)
+    gaia3id = (
+        dfs[7]["Basic Information"]["Star Name & Aliases"][0]
+        .split("Gaia DR3 ")[1]
+        .split(",")[0]
+    )
+    return gaia3id
 
 
 def distance_modulus(d):
@@ -684,7 +695,7 @@ def bin_data(array, binsize, func=np.mean):
 
 def get_tess_ccd_info(target_coord):
     """use search_targetpixelfile like get_all_sectors?"""
-    ccd_info = Tesscut.get_sectors(target_coord)
+    ccd_info = Tesscut.get_sectors(coordinates=target_coord)
     errmsg = "Target not found in any TESS sectors"
     assert len(ccd_info) > 0, errmsg
     return ccd_info.to_pandas()
@@ -727,14 +738,14 @@ def get_sector_cam_ccd(target_coord, sector=None):
     return sector, cam, ccd
 
 
-def is_gaiaid_in_cluster(
-    gaiaid, cluster_name=None, catalog_name="Bouma2019", verbose=True
+def is_gaia2id_in_cluster(
+    gaia2id, cluster_name=None, catalog_name="Bouma2019", verbose=True
 ):
     """
     See scripts/check_target_in_cluster
     """
     # reduce the redundant names above
-    gaiaid = int(gaiaid)
+    gaia2id = int(gaia2id)
     if cluster_name is None:
         cc = cluster.ClusterCatalog(catalog_name=catalog_name, verbose=False)
         df_mem = cc.query_catalog(return_members=True)
@@ -743,7 +754,7 @@ def is_gaiaid_in_cluster(
             catalog_name=catalog_name, cluster_name=cluster_name, verbose=False
         )
         df_mem = c.query_cluster_members()
-    idx = df_mem.source_id.isin([gaiaid])
+    idx = df_mem.source_id.isin([gaia2id])
     if idx.sum() > 0:
         if verbose:
             if cluster_name is None:
@@ -752,12 +763,12 @@ def is_gaiaid_in_cluster(
                 # TODO: what if cluster_match != cluster_name?
                 cluster_match = cluster_name
             print(
-                f"Gaia DR2 {gaiaid} is IN {cluster_match} cluster based on {catalog_name} catalog!"
+                f"Gaia DR2 {gaia2id} is IN {cluster_match} cluster based on {catalog_name} catalog!"
             )
         return True
     else:
         if verbose:
-            print(f"Gaia DR2 {gaiaid} is NOT in {catalog_name} catalog!")
+            print(f"Gaia DR2 {gaia2id} is NOT in {catalog_name} catalog!")
         return False
 
 
@@ -1382,8 +1393,6 @@ def remove_bad_data(tpf, sector=None, verbose=True):
         ]
     if sector == 9:
         """
-
-
         use of Cam1 in attitude control was disabled at the
         start of both orbits due to strong scattered light"""
         cam1_guide_enabled = 1543.75080
@@ -1556,7 +1565,8 @@ def get_tois(
             "GJ",
             "LHS",
             "XO",
-            "Pi Men" "WASP",
+            "Pi Men",
+            "WASP",
             "SWASP",
             "HAT",
             "HATS",
@@ -1748,7 +1758,8 @@ def get_target_coord(
     ctoi=None,
     tic=None,
     epic=None,
-    gaiaid=None,
+    gaia2id=None,
+    gaia3id=None,
     name=None,
 ):
     """get target coordinate"""
@@ -1781,12 +1792,14 @@ def get_target_coord(
     # name resolver
     elif epic is not None:
         target_coord = get_coord_from_epicid(epic)
-    elif gaiaid is not None:
-        target_coord = SkyCoord.from_name(f"Gaia DR2 {gaiaid}")
+    elif gaia2id is not None:
+        target_coord = SkyCoord.from_name(f"Gaia DR2 {gaia2id}")
+    elif gaia3id is not None:
+        target_coord = SkyCoord.from_name(f"Gaia DR3 {gaia3id}")
     elif name is not None:
         target_coord = SkyCoord.from_name(name)
     else:
-        raise ValueError("Supply RA & Dec, TOI, TIC, or Name")
+        raise ValueError("Supply RA & Dec, TOI, TIC, EPIC, Gaia, or Name")
     return target_coord
 
 

@@ -46,7 +46,8 @@ class PATHOS(Target):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         quality_bitmask=None,
@@ -67,7 +68,8 @@ class PATHOS(Target):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             search_radius=search_radius,
@@ -110,7 +112,7 @@ class PATHOS(Target):
                     )
             print(f"Using sector={self.sector}.")
         self.mast_table = self.get_mast_table()
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
         self.lctype = lctype
         self.lctypes = ["raw", "corr"]
@@ -173,7 +175,7 @@ class PATHOS(Target):
         """
         base = "https://archive.stsci.edu/hlsps/pathos/"
         assert self.sector is not None
-        assert self.gaiaid is not None
+        assert self.gaia2id is not None
         tic = str(self.ticid).zfill(10)
         sect = str(self.sector).zfill(4)
         url = (
@@ -265,7 +267,8 @@ class PATHOS(Target):
             # first download tpf cutout
             self.ffi_cutout = FFI_cutout(
                 sector=self.sector,
-                gaiaDR2id=self.gaiaid,
+                gaia2id=self.gaia2id,
+                gaia3id=self.gaia3id,
                 toiid=self.toiid,
                 ticid=self.ticid,
                 search_radius=self.search_radius,

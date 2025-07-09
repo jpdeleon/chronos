@@ -148,30 +148,7 @@ VIZIER_KEYS_CLUSTER_CATALOG = {
     + "ajabe4d6t1_mrt.txt?AWSAccessKeyId=AKIAYDKQL6LTV7YY2HIK&Expires=1622511816&Signature=CVdNivtn2MJv1%2FY%2F4ztoZKBPzaw%3D",
 }
 
-CLUSTER_ALTERNATE_NAMES = {
-    "Pleiades": "M45",
-    "Praesepe": "Beehive/M44/NGC2632/Cr189",
-    "Hyades": "Melotte25/Caldwell41/Collinder50",
-    "Sco-Cen": "Sco OB2",
-    # star forming regions in Sco–Cen's immediate vicinity
-    "Rho Oph": "",
-    "Pipe Nebula": "",
-    "Barnard 68": "",
-    "Chamaeleon": "",
-    "Lupus": "",
-    "Corona Australis": "",
-    "Coalsack": "",
-    "epsilon Cha group": "",
-    "eta Chamaeleontis": "Mamajek 1",
-    "TW Hydrae": "",
-    "Beta Pictoris": "",
-}
-
-# https://docs.google.com/document/d/1s6OgiJlBVwonAYvQ3VONB4ioWOn0SHtJesrnaXJETBA/edit
-VIZIER_KEYS_EB_CATALOG = {"Oelkers2016": "J/AJ/152/75"}  # PMS binaries in YMG
-
 CATALOG_LIST = [key for key in VIZIER_KEYS_CLUSTER_CATALOG.keys()]
-
 
 class CatalogDownloader:
     """download tables from vizier
@@ -1519,9 +1496,9 @@ class ClusterCatalog(CatalogDownloader):
         df = pd.concat(dfs, axis=1)
         return df
 
-    def is_gaiaid_in_catalog(self, gaiaid):
+    def is_gaia2id_in_catalog(self, gaia2id):
         df_mem = self.query_catalog(return_members=True)
-        if df_mem.source_id.isin([gaiaid]).sum() > 0:
+        if df_mem.source_id.isin([gaia2id]).sum() > 0:
             return True
         else:
             return False
@@ -1672,8 +1649,8 @@ class Cluster(ClusterCatalog):
         assert self.cluster_members is not None, errmsg
         return self.cluster_members
 
-    def is_gaiaid_in_cluster(self, gaiaid):
-        if self.cluster_members.source_id.isin([gaiaid]).sum() > 0:
+    def is_gaia2id_in_cluster(self, gaia2id):
+        if self.cluster_members.source_id.isin([gaia2id]).sum() > 0:
             return True
         else:
             return False
@@ -1861,20 +1838,20 @@ class Cluster(ClusterCatalog):
                 # sort in decreasing magnitude
                 df = df.sort_values("phot_g_mean_mag", ascending=True)
                 # use only top_n_brighest
-                gaiaids = df.iloc[:top_n_brighest]["source_id"].values
+                gaia2ids = df.iloc[:top_n_brighest]["source_id"].values
             elif gmag_cut is not None:
                 # apply Gmag cut
                 idx = df["phot_g_mean_mag"] < gmag_cut
-                gaiaids = df.loc[idx, "source_id"].values
+                gaia2ids = df.loc[idx, "source_id"].values
             else:
                 # use all ids
-                gaiaids = df["source_id"].values
+                gaia2ids = df["source_id"].values
 
             if self.verbose:
                 print(
-                    f"Querying Gaia DR2 for {len(gaiaids)} {self.cluster_name} members.\n"
+                    f"Querying Gaia DR2 for {len(gaia2ids)} {self.cluster_name} members.\n"
                 )
-            for gaiaid in tqdm(gaiaids):
+            for gaia2id in tqdm(gaia2ids):
                 try:
                     errmsg = (
                         f"multiple cluster names found: {df.Cluster.unique()}"
@@ -1882,14 +1859,14 @@ class Cluster(ClusterCatalog):
                     assert np.all(df.Cluster.isin([self.cluster_name])), errmsg
                     # query gaia to populate target parameters including its distance
                     t = target.Target(
-                        gaiaDR2id=gaiaid,
+                        gaiaDR2id=gaia2id,
                         verbose=self.verbose,
                         mission=self.mission,
                     )
                     df_gaia = t.query_gaia_dr2_catalog(
                         radius=radius, return_nearest_xmatch=True
                     )
-                    gaia_data[gaiaid] = df_gaia
+                    gaia_data[gaia2id] = df_gaia
                 except Exception as e:
                     print(e)
             # save
@@ -2038,7 +2015,7 @@ class Cluster(ClusterCatalog):
 
 def plot_cmd(
     df,
-    target_gaiaid=None,
+    target_gaia2id=None,
     match_id=True,
     df_target=None,
     target_label=None,
@@ -2062,7 +2039,7 @@ def plot_cmd(
     df : pd.DataFrame
         cluster member properties
     match_id : bool
-        checks if target gaiaid in df
+        checks if target gaia2id in df
     df_target : pd.Series
         info of target
     estimate_color : bool
@@ -2114,10 +2091,10 @@ def plot_cmd(
         ax.set_xlabel(r"$G_{BP} - G_{RP}$ [mag]", fontsize=16)
         ax.set_ylabel(r"$G$ [mag]", fontsize=16)
 
-    if target_gaiaid is not None:
-        idx = df.source_id.astype(int).isin([target_gaiaid])
+    if target_gaia2id is not None:
+        idx = df.source_id.astype(int).isin([target_gaia2id])
         if match_id:
-            errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaiaid}]"
+            errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaia2id}]"
             assert sum(idx) > 0, errmsg
             x, y = df.loc[idx, "bp_rp0"], df.loc[idx, "abs_gmag"]
         else:
@@ -2190,7 +2167,7 @@ def plot_cmd(
 
 def plot_hrd(
     df,
-    target_gaiaid=None,
+    target_gaia2id=None,
     match_id=True,
     df_target=None,
     target_label=None,
@@ -2215,7 +2192,7 @@ def plot_hrd(
     df : pd.DataFrame
         cluster memeber properties
     match_id : bool
-        checks if target gaiaid in df
+        checks if target gaia2id in df
     df_target : pd.Series
         info of target
     log_age : float
@@ -2234,10 +2211,10 @@ def plot_hrd(
     assert len(df) > 0, "df is empty"
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=figsize, constrained_layout=True)
-    if target_gaiaid is not None:
-        idx = df.source_id.astype(int).isin([target_gaiaid])
+    if target_gaia2id is not None:
+        idx = df.source_id.astype(int).isin([target_gaia2id])
         if match_id:
-            errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaiaid}]"
+            errmsg = f"Given cluster catalog does not contain the target gaia id [{target_gaia2id}]"
             assert sum(idx) > 0, errmsg
             x, y = df.loc[idx, xaxis], df.loc[idx, yaxis]
         else:
@@ -2321,7 +2298,7 @@ def plot_hrd(
 
 def plot_rdp_pmrv(
     df,
-    target_gaiaid=None,
+    target_gaia2id=None,
     match_id=True,
     df_target=None,
     target_label=None,
@@ -2339,7 +2316,7 @@ def plot_rdp_pmrv(
     ----------
     df : pandas.DataFrame
         contains ra, dec, parallax, pmra, pmdec, rv columns
-    target_gaiaid : int
+    target_gaia2id : int
         target gaia DR2 id
     """
     assert len(df) > 0, "df is empty"
@@ -2355,10 +2332,10 @@ def plot_rdp_pmrv(
     cbar = ax[n].scatter(df[x], df[y], c=c, marker=marker, cmap=cmap)
     if color is not None:
         fig.colorbar(cbar, ax=ax[n], label=color)
-    if target_gaiaid is not None:
-        idx = df.source_id.astype(int).isin([target_gaiaid])
+    if target_gaia2id is not None:
+        idx = df.source_id.astype(int).isin([target_gaia2id])
         if match_id:
-            errmsg = f"Given cluster does not contain the target gaia id [{target_gaiaid}]"
+            errmsg = f"Given cluster does not contain the target gaia id [{target_gaia2id}]"
             assert sum(idx) > 0, errmsg
             ax[n].plot(
                 df.loc[idx, x],
@@ -2388,10 +2365,10 @@ def plot_rdp_pmrv(
     par = "parallax"
     df[par].plot.kde(ax=ax[n])
     ax[n].plot(df[par], np.full_like(df[par], -0.01), "|k", markeredgewidth=1)
-    if target_gaiaid is not None:
-        idx = df.source_id.astype(int).isin([target_gaiaid])
+    if target_gaia2id is not None:
+        idx = df.source_id.astype(int).isin([target_gaia2id])
         if match_id:
-            errmsg = f"Given cluster does not contain the target gaia id [{target_gaiaid}]"
+            errmsg = f"Given cluster does not contain the target gaia id [{target_gaia2id}]"
             assert sum(idx) > 0, errmsg
             ax[n].axvline(
                 df.loc[idx, par].values[0],
@@ -2420,10 +2397,10 @@ def plot_rdp_pmrv(
     if (color is not None) & (n == 3):
         # show last colorbar only
         fig.colorbar(cbar, ax=ax[n], label=color)
-    if target_gaiaid is not None:
-        idx = df.source_id.astype(int).isin([target_gaiaid])
+    if target_gaia2id is not None:
+        idx = df.source_id.astype(int).isin([target_gaia2id])
         if match_id:
-            errmsg = f"Given cluster does not contain the target gaia id [{target_gaiaid}]"
+            errmsg = f"Given cluster does not contain the target gaia id [{target_gaia2id}]"
             assert sum(idx) > 0, errmsg
             ax[n].plot(
                 df.loc[idx, x],
@@ -2454,10 +2431,10 @@ def plot_rdp_pmrv(
         ax[n].plot(
             df[par], np.full_like(df[par], -0.01), "|k", markeredgewidth=1
         )
-        if target_gaiaid is not None:
-            idx = df.source_id.astype(int).isin([target_gaiaid])
+        if target_gaia2id is not None:
+            idx = df.source_id.astype(int).isin([target_gaia2id])
             if match_id:
-                errmsg = f"Given cluster does not contain the target gaia id [{target_gaiaid}]"
+                errmsg = f"Given cluster does not contain the target gaia id [{target_gaia2id}]"
                 assert sum(idx) > 0, errmsg
                 ax[n].axvline(
                     df.loc[idx, par].values[0],
@@ -2489,7 +2466,7 @@ def plot_rdp_pmrv(
 
 def plot_xyz_uvw(
     df,
-    target_gaiaid=None,
+    target_gaia2id=None,
     match_id=True,
     df_target=None,
     target_color="r",
@@ -2508,7 +2485,7 @@ def plot_xyz_uvw(
     ----------
     df : pandas.DataFrame
         contains ra, dec, parallax, pmra, pmdec, rv columns
-    target_gaiaid : int
+    target_gaia2id : int
         target gaia DR2 id
     df_target : pandas.Series
         target's gaia parameters
@@ -2540,10 +2517,10 @@ def plot_xyz_uvw(
         )
     n = 0
     for (i, j) in itertools.combinations(["X", "Y", "Z"], r=2):
-        if target_gaiaid is not None:
-            idx = df.source_id.astype(int).isin([target_gaiaid])
+        if target_gaia2id is not None:
+            idx = df.source_id.astype(int).isin([target_gaia2id])
             if match_id:
-                errmsg = f"Given cluster does not contain the target gaia id [{target_gaiaid}]"
+                errmsg = f"Given cluster does not contain the target gaia id [{target_gaia2id}]"
                 assert sum(idx) > 0, errmsg
                 ax[n].plot(
                     df.loc[idx, i],
@@ -2576,10 +2553,10 @@ def plot_xyz_uvw(
 
     n = 3
     for (i, j) in itertools.combinations(["U", "V", "W"], r=2):
-        if target_gaiaid is not None:
-            idx = df.source_id.astype(int).isin([target_gaiaid])
+        if target_gaia2id is not None:
+            idx = df.source_id.astype(int).isin([target_gaia2id])
             if match_id:
-                errmsg = f"Given cluster does not contain the target gaia id [{target_gaiaid}]"
+                errmsg = f"Given cluster does not contain the target gaia id [{target_gaia2id}]"
                 assert sum(idx) > 0, errmsg
                 ax[n].plot(
                     df.loc[idx, i],
@@ -2615,7 +2592,7 @@ def plot_xyz_uvw(
 
 def plot_xyz_3d(
     df,
-    target_gaiaid=None,
+    target_gaia2id=None,
     match_id=True,
     df_target=None,
     target_color="r",
@@ -2633,7 +2610,7 @@ def plot_xyz_3d(
     ----------
     df : pandas.DataFrame
         contains ra, dec & parallax columns
-    target_gaiaid : int
+    target_gaia2id : int
         target gaia DR2 id
     xlim,ylim,zlim : tuple
         lower and upper bounds
@@ -2682,8 +2659,8 @@ def plot_xyz_3d(
     )
     if color is not None:
         fig.colorbar(cbar, ax=ax, label=color)
-    if target_gaiaid is not None:
-        idx = df.source_id == target_gaiaid
+    if target_gaia2id is not None:
+        idx = df.source_id == target_gaia2id
         ax.scatter(
             xs=df[idx].x,
             ys=df[idx].y,

@@ -64,7 +64,8 @@ class CDIPS(Target):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         quality_bitmask=None,
@@ -85,7 +86,8 @@ class CDIPS(Target):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             search_radius=search_radius,
@@ -140,7 +142,7 @@ class CDIPS(Target):
             assert self.cam == cam0
             assert self.ccd == ccd
 
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
 
         # self.mission = mission
@@ -158,7 +160,7 @@ class CDIPS(Target):
         self.fits_url = None
         self.header0 = None  # target header
         self.catalog_ref = None  # references
-        self.catalog_gaiaids = None  # gaia id(s) in catalog_ref
+        self.catalog_gaia2ids = None  # gaia id(s) in catalog_ref
         self.hdulist = None
         # self.ccd_info = Tesscut.get_sectors(self.target_coord).to_pandas()
         self.data, self.header = self.get_cdips_fits()
@@ -202,23 +204,23 @@ class CDIPS(Target):
         and TESS-short cadence light curves made by the NASA Ames team.  Their file names
         follow this convention:
 
-        hlsp_cdips_tess_ffi_gaiatwo<gaiaid>-<sectornum>_tess_v01_llc.fits
+        hlsp_cdips_tess_ffi_gaiatwo<gaia2id>-<sectornum>_tess_v01_llc.fits
 
         where:
-          <gaiaid> = full Gaia DR2 target id, e.g., '0003321416308714545920'
+          <gaia2id> = full Gaia DR2 target id, e.g., '0003321416308714545920'
           <sectornum? = 4-digit, zero-padded Sector number, e.g., '0006'
         """
         base = "https://archive.stsci.edu/hlsps/cdips/"
         assert self.sector is not None
         assert self.cam is not None
         assert self.ccd is not None
-        assert self.gaiaid is not None
+        assert self.gaia2id is not None
         sec = str(self.sector).zfill(4)
-        gid = str(self.gaiaid).zfill(22)
+        g2id = str(self.gaia2id).zfill(22)
         fp = (
             base
             + f"s{sec}/cam{self.cam}_ccd{self.ccd}"
-            + f"/hlsp_cdips_tess_ffi_gaiatwo{gid}-"
+            + f"/hlsp_cdips_tess_ffi_gaiatwo{g2id}-"
             + f"s{sec}-cam{self.cam}-ccd{self.ccd}"
             + "_tess_v01_llc.fits"
         )
@@ -239,7 +241,7 @@ class CDIPS(Target):
             self.hdulist = hdulist
             self.header0 = hdulist[0].header
             self.catalog_ref = self.header0["CDIPSREF"]
-            self.catalog_gaiaids = self.header0["CDEXTCAT"]
+            self.catalog_gaia2ids = self.header0["CDEXTCAT"]
             if self.verbose:
                 print(self.header0[20:38])
                 print(self.header0[-45:-25])
@@ -332,7 +334,8 @@ class CDIPS(Target):
             # first download tpf cutout
             self.ffi_cutout = FFI_cutout(
                 sector=self.sector,
-                gaiaDR2id=self.gaiaid,
+                gaia2id=self.gaia2id,
+                gaia3id=self.gaia3id,
                 toiid=self.toiid,
                 ticid=self.ticid,
                 search_radius=self.search_radius,
@@ -540,15 +543,15 @@ def get_cdips_inventory(fp=None, verbose=True, clobber=False):
 
 
 def get_url_in_cdips_inventory(
-    gaiaid, fp=None, verbose=True, clobber=False, sector=None
+    gaia2id, fp=None, verbose=True, clobber=False, sector=None
 ):
     if fp is None:
         fp = join(DATA_PATH, "cdips_fits_inventory.txt")
     db = get_cdips_inventory(fp=fp, verbose=verbose, clobber=clobber)
-    # parse gaiaid in text
-    gaiaids = db.apply(lambda x: x.split("_")[5].split("-")[0][7:])
+    # parse gaia2id in text
+    gaia2ids = db.apply(lambda x: x.split("_")[5].split("-")[0][7:])
     # check if gaia id matches any string
-    idx = [True if str(gaiaid) in s else False for s in gaiaids]
+    idx = [True if str(gaia2id) in s else False for s in gaia2ids]
     if verbose:
         print(f"There are {sum(idx)} CDIPS fits files found.")
     urls = db.loc[idx].values

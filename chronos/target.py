@@ -67,8 +67,8 @@ class Target(object):
         ctoiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
-        gaiaDR3id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -92,6 +92,8 @@ class Target(object):
         self.ctoiid = ctoiid  # e.g. 364107753.01
         self.ticid = ticid if ticid is None else int(ticid)  # e.g. 364107753
         self.epicid = epicid if epicid is None else int(epicid)  # 201270176
+        self.gaia2id = gaia2id  # e.g. Gaia DR2 5251470948229949568
+        self.gaia3id = gaia3id  # e.g. Gaia DR2 5251470948229949568
         self.ra = ra_deg
         self.dec = dec_deg
         self.gaiaid = None
@@ -104,12 +106,10 @@ class Target(object):
         elif self.epicid is not None:
             name = f"EPIC {self.epicid}"
             self.mission = "k2"
-        elif gaiaDR2id is not None:
-            name = f"Gaia DR2 {gaiaDR2id}"
-            self.gaiaid = gaiaDR2id
-        elif gaiaDR3id is not None:
-            name = f"Gaia DR3 {gaiaDR3id}"
-            self.gaiaid = gaiaDR3id
+        elif self.gaia2id is not None:
+            name = f"Gaia DR2 {self.gaia2id}"
+        elif self.gaia3id is not None:
+            name = f"Gaia DR3 {self.gaia3id}"
         elif self.target_name is not None:
             if self.target_name[:2].lower() == "k2":
                 name = self.target_name.upper()
@@ -120,8 +120,6 @@ class Target(object):
                 self.mission = "kepler"
             elif self.target_name[:4].lower() == "gaia":
                 name = self.target_name.upper()
-                if gaiaDR2id is None:
-                    self.gaiaid = int(name.strip()[4:])
         elif (self.ra is not None) & (self.dec is not None):
             name = f"({self.ra:.3f}, {self.dec:.3f})"
         # specify name
@@ -129,7 +127,7 @@ class Target(object):
             self.target_name = name
         # check if TIC is a TOI
         if (self.ticid is not None) and (self.toiid is None):
-            tois = get_tois(clobber=True, verbose=False)
+            tois = get_tois(clobber=self.clobber, verbose=False)
             idx = tois["TIC ID"].isin([self.ticid])
             if sum(idx) > 0:
                 self.toiid = tois.loc[idx, "TOI"].values[0]
@@ -153,7 +151,8 @@ class Target(object):
             ctoi=self.ctoiid,
             tic=self.ticid,
             epic=self.epicid,
-            gaiaid=self.gaiaid,
+            gaia2id=self.gaia2id,
+            gaia3id=self.gaia3id,
             name=self.target_name,
         )
         if self.mission == "tess":
@@ -165,7 +164,7 @@ class Target(object):
                 self.all_sectors = get_all_sectors(self.target_coord)
                 self.all_campaigns = get_all_campaigns(self.epicid)
             except Exception as e:
-                # error when GaiaDR2id is only given
+                # error when gaia2id is only given
                 print(e)
             if self.epicid is None:
                 print("mission=Kepler/K2 but no epicid given.")
@@ -211,7 +210,8 @@ class Target(object):
             "ctoiid",
             "ticid",
             "epicid",
-            "gaiaDR2id",
+            "gaia2id",
+            "gaia3id",
             "ra_deg",
             "dec_deg",
             "target_coord",
@@ -300,14 +300,14 @@ class Target(object):
         """
         return NotImplementedError("method to be added soon")
 
-    def query_TGv8_catalog(self, gaiaid=None, data_path=None):
+    def query_TGv8_catalog(self, gaia2id=None, data_path=None):
         """
         Stellar parameters of TESS host stars (TICv8)
         using Gaia2+APOGEE14+GALAH+RAVE5+LAMOST+SkyMapper;
         See Carillo2020: https://arxiv.org/abs/1911.07825
         Parameter
         ---------
-        gaiaid : int
+        gaia2id : int
             Gaia DR2 source id (optional)
         data_path : str
             path to data
@@ -316,21 +316,21 @@ class Target(object):
         -------
         pandas.Series
         """
-        if gaiaid is None:
-            if self.gaiaid is None:
-                errmsg = "Provide gaiaid or try `self.query_gaia_dr2_catalog"
+        if gaia2id is None:
+            if self.gaia2id is None:
+                errmsg = "Provide gaia2id or try `self.query_gaia_dr2_catalog"
                 errmsg += "(return_nearest_xmatch=True)`"
                 raise ValueError(errmsg)
             else:
-                gaiaid = self.gaiaid
+                gaia2id = self.gaia2id
 
         df = get_TGv8_catalog(data_path=data_path)
-        d = df.query("Gaia_source_id==@gaiaid")
+        d = df.query("Gaia_source_id==@gaia2id")
         if len(d) > 0:
             # return series
             return d.squeeze()
         else:
-            print(f"Gaia DR2 {gaiaid} not found in TGv8 catalog.")
+            print(f"Gaia DR2 {gaia2id} not found in TGv8 catalog.")
 
     def query_gaia_dr2_catalog(
         self, radius=None, version=2, return_nearest_xmatch=False, verbose=None
@@ -450,9 +450,9 @@ class Target(object):
         """
         FIXME: check parallax error here and apply corresponding distance calculation: see Note 1
         """
-        if self.gaiaid is not None:
+        if self.gaia2id is not None:
             errmsg = "Catalog does not contain target gaia id."
-            assert np.any(tab["source_id"].isin([self.gaiaid])), errmsg
+            assert np.any(tab["source_id"].isin([self.gaia2id])), errmsg
 
         # add gaia distance to target_coord
         # FIXME: https://docs.astropy.org/en/stable/coordinates/transforming.html
@@ -465,12 +465,12 @@ class Target(object):
         )
         # precess coordinate from Gaia DR2 epoch to J2000
         gcoords = gcoords.transform_to("icrs")
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             # find by nearest distance (for toiid or ticid input)
             idx = self.target_coord.separation(gcoords).argmin()
         else:
-            # find by id match for gaiaDR2id input
-            idx = tab.source_id.isin([self.gaiaid]).argmax()
+            # find by id match for gaia2id input
+            idx = tab.source_id.isin([self.gaia2id]).argmax()
         star = tab.loc[idx]
         # get distance from parallax
         if star["parallax"] > 0:
@@ -491,12 +491,12 @@ class Target(object):
             if nsources > 1:
                 print(f"There are {nsources} gaia sources within {radius}.")
             target = tab.iloc[0]
-            if self.gaiaid is not None:
+            if self.gaia2id is not None:
                 id = int(target["source_id"])
-                msg = f"Nearest match ({id}) != {self.gaiaid}"
-                assert int(self.gaiaid) == id, msg
+                msg = f"Nearest match ({id}) != {self.gaia2id}"
+                assert int(self.gaia2id) == id, msg
             else:
-                self.gaiaid = int(target["source_id"])
+                self.gaia2id = int(target["source_id"])
             self.gaia_params = target
             self.gmag = target["phot_g_mean_mag"]
             ens = target["astrometric_excess_noise_sig"]
@@ -623,7 +623,7 @@ class Target(object):
             assert np.allclose(g.radius_val, t.rad, rtol=Rtol)
 
         # check gaia ID
-        if (self.gaiaid is not None) and (t["GAIA"] is not np.nan):
+        if (self.gaia2id is not None) and (t["GAIA"] is not np.nan):
             assert g.source_id == int(t["GAIA"]), "Different source IDs!"
 
         print("Gaia and TIC catalog cross-match succeeded.")
@@ -672,14 +672,14 @@ class Target(object):
         else:
             d = self.query_gaia_dr2_catalog(radius=radius).copy(deep=True)
 
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             # nearest match (first entry row=0) is assumed as the target
-            gaiaid = int(d.iloc[0]["source_id"])
+            gaia2id = int(d.iloc[0]["source_id"])
         else:
-            gaiaid = self.gaiaid
+            gaia2id = self.gaia2id
         msg = f"Only 1 gaia source found within r={radius} arcsec"
         assert isinstance(d, pd.DataFrame), msg
-        idx = d.source_id == gaiaid
+        idx = d.source_id == gaia2id
         target_gmag = d.loc[idx, "phot_g_mean_mag"].values[0]
         d["delta_Gmag"] = d["phot_g_mean_mag"] - target_gmag
         # compute dilution factor
@@ -741,7 +741,7 @@ class Target(object):
             )
         return Tmax
 
-    def get_possible_NEBs(self, depth, radius=30, gaiaid=None, kmax=1.0):
+    def get_possible_NEBs(self, depth, radius=30, gaia2id=None, kmax=1.0):
         """
         depth is useful to rule out deep eclipses when depth*gamma > kmax
 
@@ -754,16 +754,16 @@ class Target(object):
 
         good, bad = [], []
         for _, row in d.iterrows():
-            gaiaid = row["source_id"]
+            gaia2id = row["source_id"]
             # dmag = row["delta_Gmag"]
             gamma = row["gamma_sec"]
-            if int(gaiaid) != gaiaid:
+            if int(gaia2id) != gaia2id:
                 if depth * gamma > kmax:
                     # observed depth is too deep to have originated from the secondary star
-                    good.append(gaiaid)
+                    good.append(gaia2id)
                 else:
                     # uncertain signal source
-                    bad.append(gaiaid)
+                    bad.append(gaia2id)
         uncleared = d.loc[d.source_id.isin(bad)]
         return uncleared
 
@@ -906,7 +906,7 @@ class Target(object):
         df : pandas.DataFrame
             cluster catalog to match against
         match_id : bool
-            check if target gaiaid matches that of cluster member,
+            check if target gaia2id matches that of cluster member,
             else return nearest member only
         with_parallax : bool
             uses parallax to compute 3d distance; otherwise 2d
@@ -915,7 +915,7 @@ class Target(object):
         Returns
         -------
         match : pandas.Series
-            matched cluster member by gaiaid
+            matched cluster member by gaia2id
         """
         radius = 100 * u.pc if radius is None else radius * u.pc
         if (df is None) or (len(df) == 0):
@@ -925,11 +925,11 @@ class Target(object):
             # df = df.dropna(subset=['Cluster'])
 
         if match_id:
-            # return member with gaiaid identical to target
-            if self.gaiaid is not None:
-                idx = df.source_id.isin([self.gaiaid])
+            # return member with gaia2id identical to target
+            if self.gaia2id is not None:
+                idx = df.source_id.isin([self.gaia2id])
                 if sum(idx) == 0:
-                    errmsg = f"Gaia DR2 {self.gaiaid} not found in catalog.\n"
+                    errmsg = f"Gaia DR2 {self.gaia2id} not found in catalog.\n"
                     errmsg += (
                         "Use match_id=False to get the nearest cluster.\n"
                     )
@@ -953,7 +953,7 @@ class Target(object):
                 # return a series
                 return df.iloc[np.argmax(idx)]
             else:
-                errmsg = "Supply id via Target(gaiaDR2id=id) "
+                errmsg = "Supply id via Target(gaia2id=id) "
                 errmsg += (
                     "or `query_gaia_dr2_catalog(return_nearest_xmatch=True)`"
                 )

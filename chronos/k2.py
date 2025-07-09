@@ -76,7 +76,8 @@ class K2(Target):
         k2id=None,
         epicid=None,
         campaign=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         name=None,
         ra_deg=None,
         dec_deg=None,
@@ -92,7 +93,8 @@ class K2(Target):
     ):
         super().__init__(
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             name=name,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
@@ -471,11 +473,11 @@ class K2(Target):
         if gaia_sources is None:
             gaia_sources = self.query_gaia_dr2_catalog(radius=fov_rad.value)
         assert len(gaia_sources) > 1, "gaia_sources contains single entry"
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             # _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
-            target_gaiaid = gaia_sources.loc[0, "source_id"]
+            target_gaia2id = gaia_sources.loc[0, "source_id"]
         else:
-            target_gaiaid = self.gaiaid
+            target_gaia2id = self.gaia2id
 
         # make aperture mask
         # maskhdr = tpf.hdu[2].header  # self.k2sff_header
@@ -542,14 +544,14 @@ class K2(Target):
             transform=ax.get_transform(imgwcs),
         )
 
-        idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+        idx = gaia_sources["source_id"].astype(int).isin([target_gaia2id])
         target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
         for _, row in gaia_sources.iterrows():
             marker, s = "o", 100
             r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
             pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
-            if int(id) != int(target_gaiaid):
+            if int(id) != int(target_gaia2id):
                 gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
                 if depth > kmax / gamma:
                     # too deep to have originated from secondary star
@@ -813,7 +815,8 @@ class Everest(K2):
         k2id=None,
         epicid=None,
         campaign=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         name=None,
         ra_deg=None,
         dec_deg=None,
@@ -824,7 +827,8 @@ class Everest(K2):
         super().__init__(
             epicid=epicid,
             campaign=campaign,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             name=name,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
@@ -994,7 +998,8 @@ class K2sff(K2):
         k2id=None,
         epicid=None,
         campaign=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         name=None,
         ra_deg=None,
         dec_deg=None,
@@ -1006,7 +1011,8 @@ class K2sff(K2):
         super().__init__(
             epicid=epicid,
             campaign=campaign,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             name=name,
             ra_deg=ra_deg,
             dec_deg=dec_deg,

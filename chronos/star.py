@@ -132,7 +132,8 @@ class Star(Target):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         mission="tess",
@@ -163,7 +164,8 @@ class Star(Target):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             search_radius=search_radius,
@@ -597,7 +599,7 @@ class Star(Target):
         if self.tic_params is None:
             _ = self.query_tic_catalog(return_nearest_xmatch=True)
         if not self.validate_gaia_tic_xmatch():
-            msg = f"TIC {self.ticid} does not match Gaia DR2 {self.gaiaid} properties"
+            msg = f"TIC {self.ticid} does not match Gaia DR2 {self.gaia2id} properties"
             raise Exception(msg)
 
         prot = prot if prot is not None else self.prot
@@ -693,7 +695,7 @@ class Star(Target):
         else:
             tp = self.tic_params
         if not self.validate_gaia_tic_xmatch():
-            msg = f"TIC {self.ticid} does not match Gaia DR2 {self.gaiaid} properties"
+            msg = f"TIC {self.ticid} does not match Gaia DR2 {self.gaia2id} properties"
             raise Exception(msg)
 
         params = {}

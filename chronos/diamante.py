@@ -44,7 +44,8 @@ class Diamante(Target):
         toiid=None,
         ticid=None,
         epicid=None,
-        gaiaDR2id=None,
+        gaia2id=None,
+        gaia3id=None,
         ra_deg=None,
         dec_deg=None,
         quality_bitmask="hardest",
@@ -60,7 +61,8 @@ class Diamante(Target):
             toiid=toiid,
             ticid=ticid,
             epicid=epicid,
-            gaiaDR2id=gaiaDR2id,
+            gaia2id=gaia2id,
+            gaia3id=gaia3id,
             ra_deg=ra_deg,
             dec_deg=dec_deg,
             search_radius=search_radius,
@@ -84,7 +86,7 @@ class Diamante(Target):
         self.sectors = self.all_sectors  # multi-sectors
         self.sector = self.sectors[0]
 
-        if self.gaiaid is None:
+        if self.gaia2id is None:
             _ = self.query_gaia_dr2_catalog(return_nearest_xmatch=True)
 
         self.lc_num = lc_num
@@ -253,7 +255,8 @@ class Diamante(Target):
             # first download tpf cutout
             self.ffi_cutout = FFI_cutout(
                 sector=self.sector,
-                gaiaDR2id=self.gaiaid,
+                gaia2id=self.gaia2id,
+                gaia3id=self.gaia3id,
                 toiid=self.toiid,
                 ticid=self.ticid,
                 search_radius=self.search_radius,

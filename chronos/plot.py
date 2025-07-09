@@ -39,7 +39,7 @@ from chronos.utils import (
     get_mamajek_table,
     parse_aperture_mask,
     is_point_inside_mask,
-    is_gaiaid_in_cluster,
+    is_gaia2id_in_cluster,
     get_fluxes_within_mask,
     get_rotation_period,
 )
@@ -244,7 +244,7 @@ def plot_orientation(tpf, ax):
 
 def plot_gaia_sources_on_tpf(
     tpf,
-    target_gaiaid,
+    target_gaia2id,
     gaia_sources=None,
     sap_mask="pipeline",
     depth=None,
@@ -273,7 +273,7 @@ def plot_gaia_sources_on_tpf(
     """
     if verbose:
         print("Plotting nearby gaia sources on tpf.")
-    assert target_gaiaid is not None
+    assert target_gaia2id is not None
     img = np.nanmedian(tpf.flux, axis=0)
     # make aperture mask
     mask = parse_aperture_mask(tpf, sap_mask=sap_mask, **mask_kwargs)
@@ -298,7 +298,7 @@ def plot_gaia_sources_on_tpf(
     assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     # find sources within mask
     # target is assumed to be the first row
-    idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+    idx = gaia_sources["source_id"].astype(int).isin([target_gaia2id])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
     # sources_inside_aperture = []
     if depth is not None:
@@ -344,7 +344,7 @@ def plot_gaia_sources_on_tpf(
         color, alpha = "red", 1.0
         # change marker color and transparency depending on the location and dmag
         if is_point_inside_mask(contour_points, pix):
-            if int(id) == int(target_gaiaid):
+            if int(id) == int(target_gaia2id):
                 # plot x on target
                 ax.plot(
                     pix[1],
@@ -429,7 +429,7 @@ def plot_gaia_sources_on_tpf(
 
 def plot_gaia_sources_on_survey(
     tpf,
-    target_gaiaid,
+    target_gaia2id,
     gaia_sources=None,
     fov_rad=None,
     depth=0.0,
@@ -476,7 +476,7 @@ def plot_gaia_sources_on_survey(
     """
     if verbose:
         print("Plotting nearby gaia sources on survey image.")
-    assert target_gaiaid is not None
+    assert target_gaia2id is not None
     ny, nx = tpf.flux.shape[1:]
     if fov_rad is None:
         diag = np.sqrt(nx**2 + ny**2)
@@ -539,14 +539,14 @@ def plot_gaia_sources_on_survey(
         colors=color_aper,
         transform=ax.get_transform(WCS(maskhdr)),
     )
-    idx = gaia_sources["source_id"].astype(int).isin([target_gaiaid])
+    idx = gaia_sources["source_id"].astype(int).isin([target_gaia2id])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
     for index, row in gaia_sources.iterrows():
         marker, s = "o", 100
         r, d, mag, id = row[["ra", "dec", "phot_g_mean_mag", "source_id"]]
         pix = imgwcs.all_world2pix(np.c_[r, d], 1)[0]
-        if int(id) != int(target_gaiaid):
+        if int(id) != int(target_gaia2id):
             gamma = 1 + 10 ** (0.4 * (mag - target_gmag))
             if depth > kmax / gamma:
                 # too deep to have originated from secondary star
@@ -945,22 +945,22 @@ def plot_aperture_outline2(
     return ax
 
 
-def plot_possible_NEBs(gaia_sources, depth, gaiaid=None, kmax=1.0, ax=None):
+def plot_possible_NEBs(gaia_sources, depth, gaia2id=None, kmax=1.0, ax=None):
     """ """
     assert len(gaia_sources) > 1, "gaia_sources contains single entry"
     if ax is None:
         fig, ax = pl.subplots(1, 1, figsize=(5, 5))
 
-    if gaiaid is None:
+    if gaia2id is None:
         # nearest match (first entry row=0) is assumed as the target
-        gaiaid = gaia_sources.iloc[0]["source_id"]
-    idx = gaia_sources.source_id.isin([gaiaid])
+        gaia2id = gaia_sources.iloc[0]["source_id"]
+    idx = gaia_sources.source_id.isin([gaia2id])
     target_gmag = gaia_sources.loc[idx, "phot_g_mean_mag"].values[0]
 
     good, bad, dmags = [], [], []
     for index, row in gaia_sources.iterrows():
         id, mag = row[["source_id", "phot_g_mean_mag"]]
-        if int(id) != gaiaid:
+        if int(id) != gaia2id:
             dmag = mag - target_gmag
             gamma = 1 + 10 ** (0.4 * dmag)
             ax.plot(dmag, kmax / gamma, "b.")
@@ -1222,7 +1222,7 @@ def plot_cluster_kinematics(
                 df_target.radial_velocity = rv
     try:
         fig1 = c.plot_xyz_uvw(
-            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+            target_gaia2id=t.gaia2id, df_target=df_target, match_id=False
         )
         fig1.suptitle(f"{t.target_name} in {c.cluster_name}")
         if savefig:
@@ -1234,7 +1234,7 @@ def plot_cluster_kinematics(
     try:
         log10age = c.get_cluster_age()
         fig2 = c.plot_rdp_pmrv(
-            target_gaiaid=t.gaiaid, df_target=df_target, match_id=False
+            target_gaia2id=t.gaia2id, df_target=df_target, match_id=False
         )
         fig2.suptitle(f"{t.target_name} in {c.cluster_name}")
         if savefig:
@@ -1252,7 +1252,7 @@ def plot_cluster_kinematics(
         #         print("Using AG from starhorse.")
         log10age = c.get_cluster_age()
         ax = c.plot_cmd(
-            target_gaiaid=t.gaiaid,
+            target_gaia2id=t.gaia2id,
             df_target=df_target,
             match_id=False,
             log_age=log10age,
@@ -1266,7 +1266,7 @@ def plot_cluster_kinematics(
 
     try:
         ax = c.plot_hrd(
-            target_gaiaid=t.gaiaid,
+            target_gaia2id=t.gaia2id,
             df_target=df_target,
             match_id=False,
             log_age=log10age,
@@ -1279,11 +1279,11 @@ def plot_cluster_kinematics(
         print("Error: ", e)
 
 
-def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
+def plot_depth_dmag(gaia_catalog, gaia2id, depth, kmax=1.0, ax=None):
     """
     gaia_catalog : pandas.DataFrame
         gaia catalog
-    gaiaid : int
+    gaia2id : int
         target gaia DR2 id
     depth : float
         observed transit depth
@@ -1291,11 +1291,11 @@ def plot_depth_dmag(gaia_catalog, gaiaid, depth, kmax=1.0, ax=None):
         maximum depth
     """
     good, bad, dmags = [], [], []
-    idx = gaia_catalog.source_id.isin([gaiaid])
+    idx = gaia_catalog.source_id.isin([gaia2id])
     target_gmag = gaia_catalog.iloc[idx]["phot_g_mean_mag"]
     for _, row in gaia_catalog.iterrows():
         id, mag = row[["source_id", "phot_g_mean_mag"]]
-        if int(id) != gaiaid:
+        if int(id) != gaia2id:
             dmag = mag - target_gmag
             gamma = 1 + 10 ** (0.4 * dmag)
             pl.plot(dmag, kmax / gamma, "b.")
